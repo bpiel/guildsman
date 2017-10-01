@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>guildsman</title>
+    <META http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" type="text/css" href="assets/app/css/app.css">
+    <link href="css/c3.css" rel="stylesheet">
+
+    <!-- re-com -->
+    <link rel="stylesheet" href="assets/bootstrap/3.3.5/css/bootstrap.min.css">
+    <link rel="stylesheet" href="assets/recom/css/material-design-iconic-font.min.css">
+    <link rel="stylesheet" href="assets/recom/css/re-com.css">
+
+    <link href="https://fonts.googleapis.com/css?family=Roboto" rel="stylesheet">
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/4.10.2/d3.min.js"></script>
+    <script src="js/histogram_series.js"></script>
+
+    <script src="https://code.jquery.com/jquery-2.0.3.min.js"></script> 
+    
+<!--    <script src="js/cytoscape.js"></script> -->
+    <script src="https://unpkg.com/cytoscape/dist/cytoscape.min.js"></script>
+
+    <script src="https://cdn.rawgit.com/cpettitt/dagre/v0.7.4/dist/dagre.min.js"></script>
+    <script src="https://cdn.rawgit.com/cytoscape/cytoscape.js-dagre/1.5.0/cytoscape-dagre.js"></script>
+
+    <script src="https://cdn.rawgit.com/cytoscape/cytoscape.js-cose-bilkent/2.0.4/cytoscape-cose-bilkent.js"></script>
+    <script src="https://cdn.rawgit.com/ivis-at-bilkent/cytoscape.js-undo-redo/master/cytoscape-undo-redo.js"></script>
+    <script src="https://rawgit.com/iVis-at-Bilkent/cytoscape.js-expand-collapse/master/cytoscape-expand-collapse.js"></script>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/billboard.js/1.1.0/billboard.min.js"></script>
+    <link rel="stylesheet" href="https://naver.github.io/billboard.js/release/latest/dist/billboard.min.css">
+
+    <style>
+      :host {
+      display: flex;
+      flex-direction: column;
+      flex-grow: 1;
+      flex-shrink: 1;
+      position: relative;
+      }
+
+      .summaries svg { height: 200px;}
+
+      svg {
+      font-family: roboto, sans-serif;
+      overflow: visible;
+      display: block;
+      width: 100%;
+      flex-grow: 1;
+      flex-shrink: 1;
+      }
+
+      #tooltip {
+      position: absolute;
+      display: block;
+      opacity: 0;
+      font-weight: bold;
+      font-size: 11px;
+      }
+
+      .background {
+      fill-opacity: 0;
+      fill: red;
+      }
+
+      .histogram {
+      pointer-events: none;
+      }
+
+      .hover {
+      font-size: 9px;
+      dominant-baseline: middle;
+      opacity: 0;
+      }
+
+      .hover circle {
+      stroke: white;
+      stroke-opacity: 0.5;
+      stroke-width: 1px;
+      }
+
+      .hover text {
+      fill: black;
+      opacity: 0;
+      }
+
+      .hover.hover-closest circle {
+      fill: black!important;
+      }
+
+      .hover.hover-closest text {
+      opacity: 1;
+      }
+
+      .baseline {
+      stroke: black;
+      stroke-opacity: 0.1;
+      }
+
+      .outline {
+      fill: none;
+      stroke: white;
+      stroke-opacity: 0.5;
+      }
+
+      .outline.outline-hover {
+      stroke: black!important;
+      stroke-opacity: 1;
+      }
+
+      .x-axis-hover,
+      .y-axis-hover,
+      .y-slice-axis-hover {
+      pointer-events: none;
+      }
+
+      .x-axis-hover .label,
+      .y-axis-hover .label,
+      .y-slice-axis-hover .label {
+      opacity: 0;
+      font-weight: bold;
+      font-size: 11px;
+      text-anchor: end;
+      }
+
+      .x-axis-hover text {
+      text-anchor: middle;
+      }
+
+      .y-axis-hover text,
+      .y-slice-axis-hover text {
+      text-anchor: start;
+      }
+
+      .x-axis-hover line,
+      .y-axis-hover line,
+      .y-slice-axis-hover line {
+      stroke: black;
+      }
+
+      .x-axis-hover rect,
+      .y-axis-hover rect,
+      .y-slice-axis-hover rect {
+      fill: white;
+      }
+
+      .axis {
+      font-size: 11px;
+      }
+
+      .axis path.domain {
+      fill: none;
+      }
+
+      .axis .tick line {
+      stroke: #ddd;
+      }
+
+      .axis.slice {
+      opacity: 0;
+      }
+
+      .axis.slice .tick line {
+      stroke-dasharray: 2;
+      }
+
+      .small .axis text { display: none; }
+      .small .axis .tick:first-of-type text { display: block; }
+      .small .axis .tick:last-of-type text { display: block; }
+      .medium .axis text { display: none; }
+      .medium .axis .tick:nth-child(2n + 1) text { display: block; }
+      .large .axis text { display: none; }
+      .large .axis .tick:nth-child(2n + 1) text { display: block; }
+
+    </style>
+    
+  </head>
+  <body>
+    <!--
+    <div id="tooltip"><span></span></div>
+    <svg id="svg">
+      <g>
+        <g class="axis x"></g>
+        <g class="axis y"></g>
+        <g class="axis y slice"></g>
+        <g class="stage">
+          <rect class="background"></rect>            
+        </g>
+        <g class="x-axis-hover"></g>
+        <g class="y-axis-hover"></g>
+        <g class="y-slice-axis-hover"></g>
+      </g>
+    </svg>
+-->    
+    <div id="app" style="width:100%;height:100%">
+      LOADING
+    </div>
+    
+    <script type="text/javascript" src="js/compiled/app.js"></script>
+
+  </body>
+</html>
+
+
+
+
+

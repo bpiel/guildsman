@@ -1,0 +1,382 @@
+*, .panel {
+    border-radius: 0px;
+}
+
+body{
+    background-color: #333333;
+    color: white;
+    font-family: 'Source Code Pro',monospace;
+}
+
+#summaries {
+    width: 100%;
+}
+
+#big-left {
+    height: 700px;
+    width: 100%;
+}
+
+.summary {
+    font-family: Roboto, sans-serif;
+    letter-spacing: 2px;
+    padding: 0 0 5px 0;
+    margin: 0 0 20px 0;
+    border-bottom: #999 solid 2px;
+    border-left: #999 solid 2px;
+    cursor: pointer;
+}
+
+.summary .title{
+    font-size: 18px;
+    padding: 5px 20px 5px 10px;
+    font-weight: 400;
+    color: white;
+    background-color: #999;
+}
+
+#big-left .summary{
+    border: 0;
+}
+
+#big-left .summary, #big-left .bb {
+    height: 700px;
+    width: 100%;
+}
+
+
+#big-left > svg {
+    height: 700px;
+}
+
+#tooltip {
+    height: 20px !important;
+    width: 20px !important;
+}
+
+#big-left .histos{
+    height: 500px;
+}
+
+#desc {
+    border-bottom: #999 solid 2px;
+}
+
+#desc .form{
+    font-size: 18px;
+    font-family: monospace;
+    margin: 2px;
+    padding: 3px;
+    width:100%;
+}
+
+#desc .loc{
+    width:100%;
+    font-size: 15px;
+    text-align: right;
+    margin: 5px 15px 0 0;
+}
+
+.container{
+    border: none;
+    padding: 0;
+    margin: 0;
+    height: 98%;
+    width: 100%;
+}
+
+.pane{
+    background-color: #111111;
+    margin: 0;
+}
+
+#app, #app>div{
+    height: 100%;
+}
+
+input{
+    background-color: #111111;
+    color: white;
+}
+
+.last-point{
+    margin: 5px;
+    font-size: 15px;
+}
+
+.last-point .step{
+    color: black;
+}
+
+.last-point .train{
+    color: blue;
+}
+
+.last-point .test{
+    color: orange;
+}
+
+.last-point .val {
+    font-size: 30px;
+    margin: 0 20px 0 2px;
+}
+
+
+#big-left .last-point .val {
+    font-size: 50px;
+    margin: 0 20px 0 2px;
+}
+
+.close-btn{
+    font-family: monospace;
+    margin-right: 20px;
+    font-size: 20px;
+    float: right;
+    color: white;
+    background-color: #833;
+    cursor: pointer;
+}
+
+
+
+#viewleft, #viewright{
+    height: 100%;
+    width: 100%;
+}
+
+#viewleft {
+    margin-bottom: 7px;
+}
+
+.CodeMirror{
+    height: 100%;
+    width: 100%;
+/*    border: solid 1px white; */
+    font-family: 'Source Code Pro',monospace;
+    font-size: 16px;
+    font-weight: 400;
+}
+
+.CodeMirror *{ /* prob not great */
+        background-color: #111111;
+}
+
+.CodeMirror-gutter{
+    background-color: #333333;
+}
+
+.CodeMirror-linenumber{
+    background-color: #333333;
+}
+
+.trace-tree{
+    margin: 10px auto;
+    font-size: 16px;
+    letter-spacing: 1px;
+}
+
+table, tr, td{
+    height: 100%;
+    margin: 0px;
+    padding: 0px;
+    border: none;
+    border-spacing: 0px;
+}
+
+.trace-node{
+    margin-top: 4px;
+    display: block;
+}
+
+.trace-head{
+    border-top: solid 1px black;
+    border-bottom: solid 1px black;
+}
+
+.trace-node-highlighted {
+    border-top: dashed 1px #80ffff;
+    border-bottom: dashed 1px #80ffff;
+}
+
+.trace-meat{
+    margin-left: 6px;
+}
+
+.trace-gutter{
+    width: 4px;
+    height: 100%;
+}
+
+.trace-name{
+    margin: 6px 0px 6px 6px;
+}
+
+
+.gutter1{
+    background-color: #CC3333;
+}
+.gutter2{ 
+    background-color: #CCCC00;
+}
+.gutter3{ 
+    background-color: #33CC33;
+}
+.gutter4{ 
+    background-color: #00CCCC;
+}
+.gutter5{ 
+    background-color: #3333CC;
+}
+.gutter6{ 
+    background-color: #CC33CC;
+}
+
+
+
+.trace-table{
+    margin: auto;
+}
+
+.trace-table td{
+    font-family: Roboto, sans-serif;
+    letter-spacing: 1px;
+    color: white;
+    border-right: solid 3px black;
+}
+
+.trace-table-data td{
+    text-align: right;
+    border-top: solid 2px #505050;
+    padding: 5px 10px;
+    background-color: #101010;
+    font-size: 13px;
+}
+
+
+.trace-table-dim td{
+    text-align: center;
+    border: solid 1px #666666;
+    padding: 3px 0;
+    color: #808080;
+    font-size: 10px;
+    background-color: #101010;
+    cursor: pointer;
+}
+
+.trace-table-dim td:hover{
+    text-decoration: underline;
+    background-color: #303030;
+}
+
+td.trace-table-dim-selected{
+    background-color: #505050;
+    color: white;
+    font-weight: bold;
+    font-size: 13px;
+    padding: 0;
+}
+
+.trace-table-header td{
+    text-align: center;
+    letter-spacing: 2px;
+    border-top: double 3px #AAAAAA;
+    border-bottom: double 3px #AAAAAA;
+    padding: 2px 7px;
+    font-size: 15px;
+    font-weight: 700;
+    background-color: #202020;
+    cursor: pointer;
+}
+
+
+td.trace-table-header-sorted{
+    border-top: solid 3px #DDDDDD;    
+    border-bottom: solid 3px #DDDDDD;
+}
+
+.trace-table-header td:hover{
+    text-decoration: underline;
+}
+
+.trace-table-row-highlighted td{
+    border-left : solid 3px #80ffff;
+    border-right: solid 3px #80ffff;
+}
+
+.trace-table-row-selected td{
+    background-color: #FFBB50;
+    color: black;
+}
+
+.c3{
+    margin: 20px 0px;
+}
+
+.c3-axis-x {
+    stroke: #AAAAAA;
+}
+
+.c3-axis-y {
+    stroke: #AAAAAA;
+}
+
+.c3-shape{
+    opacity: 1 !important;
+    stroke: #ffffff;
+}
+
+.c3-circle{
+    r: 4;
+}
+
+.node-details {
+    margin: 0 0 5px 20px;
+}
+
+.node-details-key{
+    padding: 0 10px;
+    background-color: #333;
+    border-bottom: solid 1px black;
+}
+
+
+
+.server-node{
+    padding-left: 10px;
+    padding-top: 20px;
+    padding-bottom: 20px;
+    display: block;
+    font-size: 20px;
+    border-bottom: solid 1px #808080;
+    margin-left: 20px;
+}
+
+.server-head{
+}
+
+.server-meat{
+    margin-left: 6px;
+}
+
+.server-gutter{
+    width: 4px;
+    height: 100%;
+}
+
+.server-name{
+    margin: 10px;
+}
+
+
+.server-class{
+    background-color: #666666;
+    padding: 6px;
+    margin: 10px;
+}
+
+.server-log{
+    background-color: #333333;
+    margin: 15px 0px 1px 40px;
+    padding: 5px;
+}
+
