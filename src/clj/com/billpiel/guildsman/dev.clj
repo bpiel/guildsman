@@ -40,7 +40,8 @@
   [& [enable?]]
   (enable-op-meta-assoc enable?)
   (if-not (false? enable?)
-    (swap! ft/plugins conj ::dev)
+    (do (swap! ft/plugins conj ::dev)
+        (wsvr/start-server))
     (throw (Exception. "NOT IMPLEMENTED"))))
 
 #_ (activate-dev-mode true)
