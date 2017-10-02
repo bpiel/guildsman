@@ -57,6 +57,7 @@
 (def v-split                    splits/v-split)
 
 (def input-text                 misc/input-text)
+(def input-password             misc/input-password)
 (def input-textarea             misc/input-textarea)
 (def checkbox                   misc/checkbox)
 (def radio-button               misc/radio-button)
@@ -80,8 +81,8 @@
 (def vertical-pill-tabs         tabs/vertical-pill-tabs)
 
 (def label                      text/label)
-(def title                      text/title)
 (def p                          text/p)
+(def title                      text/title)
 
 (def make-tour                  tour/make-tour)
 (def start-tour                 tour/start-tour)

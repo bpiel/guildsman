@@ -45,6 +45,7 @@ re_com.core.input_time = re_com.input_time.input_time;
 re_com.core.h_split = re_com.splits.h_split;
 re_com.core.v_split = re_com.splits.v_split;
 re_com.core.input_text = re_com.misc.input_text;
+re_com.core.input_password = re_com.misc.input_password;
 re_com.core.input_textarea = re_com.misc.input_textarea;
 re_com.core.checkbox = re_com.misc.checkbox;
 re_com.core.radio_button = re_com.misc.radio_button;
@@ -63,10 +64,10 @@ re_com.core.vertical_bar_tabs = re_com.tabs.vertical_bar_tabs;
 re_com.core.horizontal_pill_tabs = re_com.tabs.horizontal_pill_tabs;
 re_com.core.vertical_pill_tabs = re_com.tabs.vertical_pill_tabs;
 re_com.core.label = re_com.text.label;
-re_com.core.title = re_com.text.title;
 re_com.core.p = re_com.text.p;
+re_com.core.title = re_com.text.title;
 re_com.core.make_tour = re_com.tour.make_tour;
 re_com.core.start_tour = re_com.tour.start_tour;
 re_com.core.make_tour_nav = re_com.tour.make_tour_nav;
 
-//# sourceMappingURL=core.js.map?rel=1506896677835
+//# sourceMappingURL=core.js.map?rel=1506917870188

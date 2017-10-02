@@ -38,30 +38,30 @@ return clojure.walk.prewalk_replace.call(null,guildsman.core.components,v);
 guildsman.core.dispatch_ws_msg = (function guildsman$core$dispatch_ws_msg(msg){
 return reagent.core.render.call(null,guildsman.core.mk_renderable.call(null,msg),document.getElementById("app"));
 });
-re_frame.core.reg_event_db.call(null,new cljs.core.Keyword(null,"ws-inbound","ws-inbound",994735957),(function (db,p__25396){
-var vec__25397 = p__25396;
-var _ = cljs.core.nth.call(null,vec__25397,(0),null);
-var map__25400 = cljs.core.nth.call(null,vec__25397,(1),null);
-var map__25400__$1 = ((((!((map__25400 == null)))?((((map__25400.cljs$lang$protocol_mask$partition0$ & (64))) || ((cljs.core.PROTOCOL_SENTINEL === map__25400.cljs$core$ISeq$)))?true:false):false))?cljs.core.apply.call(null,cljs.core.hash_map,map__25400):map__25400);
-var p = map__25400__$1;
-var graph = cljs.core.get.call(null,map__25400__$1,new cljs.core.Keyword(null,"graph","graph",1558099509));
-var charts = cljs.core.get.call(null,map__25400__$1,new cljs.core.Keyword(null,"charts","charts",555258811));
-var selected = cljs.core.get.call(null,map__25400__$1,new cljs.core.Keyword(null,"selected","selected",574897764));
-var form = cljs.core.get.call(null,map__25400__$1,new cljs.core.Keyword(null,"form","form",-1624062471));
+re_frame.core.reg_event_db.call(null,new cljs.core.Keyword(null,"ws-inbound","ws-inbound",994735957),(function (db,p__25578){
+var vec__25579 = p__25578;
+var _ = cljs.core.nth.call(null,vec__25579,(0),null);
+var map__25582 = cljs.core.nth.call(null,vec__25579,(1),null);
+var map__25582__$1 = ((((!((map__25582 == null)))?((((map__25582.cljs$lang$protocol_mask$partition0$ & (64))) || ((cljs.core.PROTOCOL_SENTINEL === map__25582.cljs$core$ISeq$)))?true:false):false))?cljs.core.apply.call(null,cljs.core.hash_map,map__25582):map__25582);
+var p = map__25582__$1;
+var graph = cljs.core.get.call(null,map__25582__$1,new cljs.core.Keyword(null,"graph","graph",1558099509));
+var charts = cljs.core.get.call(null,map__25582__$1,new cljs.core.Keyword(null,"charts","charts",555258811));
+var selected = cljs.core.get.call(null,map__25582__$1,new cljs.core.Keyword(null,"selected","selected",574897764));
+var form = cljs.core.get.call(null,map__25582__$1,new cljs.core.Keyword(null,"form","form",-1624062471));
 return cljs.core.merge.call(null,db,(cljs.core.truth_(graph)?new cljs.core.PersistentArrayMap(null, 1, [new cljs.core.Keyword(null,"graph","graph",1558099509),graph], null):null),(cljs.core.truth_(charts)?new cljs.core.PersistentArrayMap(null, 1, [new cljs.core.Keyword(null,"charts","charts",555258811),charts], null):null),(cljs.core.truth_(selected)?new cljs.core.PersistentArrayMap(null, 1, [new cljs.core.Keyword(null,"selected","selected",574897764),selected], null):null),new cljs.core.PersistentArrayMap(null, 1, [new cljs.core.Keyword(null,"form","form",-1624062471),form], null));
 }));
-re_frame.core.reg_event_db.call(null,new cljs.core.Keyword(null,"node-select","node-select",-1853167377),(function (db,p__25402){
-var vec__25403 = p__25402;
-var _ = cljs.core.nth.call(null,vec__25403,(0),null);
-var node_id = cljs.core.nth.call(null,vec__25403,(1),null);
+re_frame.core.reg_event_db.call(null,new cljs.core.Keyword(null,"node-select","node-select",-1853167377),(function (db,p__25584){
+var vec__25585 = p__25584;
+var _ = cljs.core.nth.call(null,vec__25585,(0),null);
+var node_id = cljs.core.nth.call(null,vec__25585,(1),null);
 re_frame.core.dispatch.call(null,new cljs.core.PersistentVector(null, 2, 5, cljs.core.PersistentVector.EMPTY_NODE, [new cljs.core.Keyword(null,"ws-send","ws-send",-1223872562),new cljs.core.PersistentArrayMap(null, 1, [new cljs.core.Keyword(null,"select","select",1147833503),node_id], null)], null));
 
 return cljs.core.assoc.call(null,db,new cljs.core.Keyword(null,"selected","selected",574897764),node_id);
 }));
-re_frame.core.reg_event_db.call(null,new cljs.core.Keyword(null,"ws-send","ws-send",-1223872562),(function guildsman$core$ws_send(db,p__25406){
-var vec__25407 = p__25406;
-var _ = cljs.core.nth.call(null,vec__25407,(0),null);
-var data = cljs.core.nth.call(null,vec__25407,(1),null);
+re_frame.core.reg_event_db.call(null,new cljs.core.Keyword(null,"ws-send","ws-send",-1223872562),(function guildsman$core$ws_send(db,p__25588){
+var vec__25589 = p__25588;
+var _ = cljs.core.nth.call(null,vec__25589,(0),null);
+var data = cljs.core.nth.call(null,vec__25589,(1),null);
 new cljs.core.Keyword(null,"ws","ws",86841443).cljs$core$IFn$_invoke$arity$1(db).send(cognitect.transit.write.call(null,guildsman.core.json_writer,data));
 
 return db;
@@ -88,10 +88,10 @@ cljs.core.println.call(null,"done loading.");
 re_frame.core.reg_event_db.call(null,new cljs.core.Keyword(null,"init-db","init-db",1595181278),(function (db,_){
 return new cljs.core.PersistentArrayMap(null, 3, [new cljs.core.Keyword(null,"graph","graph",1558099509),null,new cljs.core.Keyword(null,"charts","charts",555258811),null,new cljs.core.Keyword(null,"left-mode","left-mode",-1490619400),null], null);
 }));
-re_frame.core.reg_event_db.call(null,new cljs.core.Keyword(null,"click-chart","click-chart",1609816313),(function (db,p__25410){
-var vec__25411 = p__25410;
-var _ = cljs.core.nth.call(null,vec__25411,(0),null);
-var idx = cljs.core.nth.call(null,vec__25411,(1),null);
+re_frame.core.reg_event_db.call(null,new cljs.core.Keyword(null,"click-chart","click-chart",1609816313),(function (db,p__25592){
+var vec__25593 = p__25592;
+var _ = cljs.core.nth.call(null,vec__25593,(0),null);
+var idx = cljs.core.nth.call(null,vec__25593,(1),null);
 return cljs.core.assoc.call(null,db,new cljs.core.Keyword(null,"left-mode","left-mode",-1490619400),idx);
 }));
 guildsman.core.graph_view = (function guildsman$core$graph_view(){
@@ -102,18 +102,18 @@ return new cljs.core.PersistentVector(null, 2, 5, cljs.core.PersistentVector.EMP
 return new cljs.core.PersistentVector(null, 2, 5, cljs.core.PersistentVector.EMPTY_NODE, [new cljs.core.Keyword(null,"div","div",1057191632),"no graph"], null);
 }
 });
-guildsman.core.data_point_view = (function guildsman$core$data_point_view(p__25414){
-var map__25415 = p__25414;
-var map__25415__$1 = ((((!((map__25415 == null)))?((((map__25415.cljs$lang$protocol_mask$partition0$ & (64))) || ((cljs.core.PROTOCOL_SENTINEL === map__25415.cljs$core$ISeq$)))?true:false):false))?cljs.core.apply.call(null,cljs.core.hash_map,map__25415):map__25415);
-var x = cljs.core.get.call(null,map__25415__$1,new cljs.core.Keyword(null,"x","x",2099068185));
-var test = cljs.core.get.call(null,map__25415__$1,new cljs.core.Keyword(null,"test","test",577538877));
-var train = cljs.core.get.call(null,map__25415__$1,new cljs.core.Keyword(null,"train","train",1181893679));
+guildsman.core.data_point_view = (function guildsman$core$data_point_view(p__25596){
+var map__25597 = p__25596;
+var map__25597__$1 = ((((!((map__25597 == null)))?((((map__25597.cljs$lang$protocol_mask$partition0$ & (64))) || ((cljs.core.PROTOCOL_SENTINEL === map__25597.cljs$core$ISeq$)))?true:false):false))?cljs.core.apply.call(null,cljs.core.hash_map,map__25597):map__25597);
+var x = cljs.core.get.call(null,map__25597__$1,new cljs.core.Keyword(null,"x","x",2099068185));
+var test = cljs.core.get.call(null,map__25597__$1,new cljs.core.Keyword(null,"test","test",577538877));
+var train = cljs.core.get.call(null,map__25597__$1,new cljs.core.Keyword(null,"train","train",1181893679));
 return cljs.core.into.call(null,new cljs.core.PersistentVector(null, 1, 5, cljs.core.PersistentVector.EMPTY_NODE, [new cljs.core.Keyword(null,"div.last-point","div.last-point",1496924278)], null),cljs.core.remove.call(null,cljs.core.nil_QMARK_,new cljs.core.PersistentVector(null, 3, 5, cljs.core.PersistentVector.EMPTY_NODE, [(cljs.core.truth_(x)?new cljs.core.PersistentVector(null, 3, 5, cljs.core.PersistentVector.EMPTY_NODE, [new cljs.core.Keyword(null,"span.step","span.step",314999789),"step",new cljs.core.PersistentVector(null, 2, 5, cljs.core.PersistentVector.EMPTY_NODE, [new cljs.core.Keyword(null,"span.val","span.val",1534192235),x], null)], null):null),(cljs.core.truth_(train)?new cljs.core.PersistentVector(null, 3, 5, cljs.core.PersistentVector.EMPTY_NODE, [new cljs.core.Keyword(null,"span.train","span.train",10871663),"train",new cljs.core.PersistentVector(null, 2, 5, cljs.core.PersistentVector.EMPTY_NODE, [new cljs.core.Keyword(null,"span.val","span.val",1534192235),goog.string.format("%.3f",train)], null)], null):null),(cljs.core.truth_(test)?new cljs.core.PersistentVector(null, 3, 5, cljs.core.PersistentVector.EMPTY_NODE, [new cljs.core.Keyword(null,"span.test","span.test",-1360862340),"test",new cljs.core.PersistentVector(null, 2, 5, cljs.core.PersistentVector.EMPTY_NODE, [new cljs.core.Keyword(null,"span.val","span.val",1534192235),goog.string.format("%.3f",test)], null)], null):null)], null)));
 });
 guildsman.core.chart_view = (function guildsman$core$chart_view(ty,title,data){
-return new cljs.core.PersistentVector(null, 4, 5, cljs.core.PersistentVector.EMPTY_NODE, [new cljs.core.Keyword(null,"div.summary","div.summary",-765334266),new cljs.core.PersistentVector(null, 2, 5, cljs.core.PersistentVector.EMPTY_NODE, [new cljs.core.Keyword(null,"span.title","span.title",-1997593088),title], null),new cljs.core.PersistentVector(null, 2, 5, cljs.core.PersistentVector.EMPTY_NODE, [guildsman.core.data_point_view,cljs.core.into.call(null,cljs.core.PersistentArrayMap.EMPTY,cljs.core.mapv.call(null,cljs.core.juxt.call(null,cljs.core.first,cljs.core.last),new cljs.core.Keyword(null,"columns","columns",1998437288).cljs$core$IFn$_invoke$arity$1(new cljs.core.Keyword(null,"data","data",-232669377).cljs$core$IFn$_invoke$arity$1(data))))], null),(function (){var G__25417 = ty;
-var G__25417__$1 = (((G__25417 instanceof cljs.core.Keyword))?G__25417.fqn:null);
-switch (G__25417__$1) {
+return new cljs.core.PersistentVector(null, 4, 5, cljs.core.PersistentVector.EMPTY_NODE, [new cljs.core.Keyword(null,"div.summary","div.summary",-765334266),new cljs.core.PersistentVector(null, 2, 5, cljs.core.PersistentVector.EMPTY_NODE, [new cljs.core.Keyword(null,"span.title","span.title",-1997593088),title], null),new cljs.core.PersistentVector(null, 2, 5, cljs.core.PersistentVector.EMPTY_NODE, [guildsman.core.data_point_view,cljs.core.into.call(null,cljs.core.PersistentArrayMap.EMPTY,cljs.core.mapv.call(null,cljs.core.juxt.call(null,cljs.core.first,cljs.core.last),new cljs.core.Keyword(null,"columns","columns",1998437288).cljs$core$IFn$_invoke$arity$1(new cljs.core.Keyword(null,"data","data",-232669377).cljs$core$IFn$_invoke$arity$1(data))))], null),(function (){var G__25599 = ty;
+var G__25599__$1 = (((G__25599 instanceof cljs.core.Keyword))?G__25599.fqn:null);
+switch (G__25599__$1) {
 case "chart":
 return new cljs.core.PersistentVector(null, 2, 5, cljs.core.PersistentVector.EMPTY_NODE, [guildsman.chart.chart,data], null);
 
@@ -123,7 +123,7 @@ return new cljs.core.PersistentVector(null, 2, 5, cljs.core.PersistentVector.EMP
 
 break;
 default:
-throw (new Error(["No matching clause: ",cljs.core.str.cljs$core$IFn$_invoke$arity$1(G__25417__$1)].join('')));
+throw (new Error(["No matching clause: ",cljs.core.str.cljs$core$IFn$_invoke$arity$1(G__25599__$1)].join('')));
 
 }
 })()], null);
@@ -131,15 +131,15 @@ throw (new Error(["No matching clause: ",cljs.core.str.cljs$core$IFn$_invoke$ari
 guildsman.core.charts_view = (function guildsman$core$charts_view(){
 var charts = cljs.core.deref.call(null,re_frame.core.subscribe.call(null,new cljs.core.PersistentVector(null, 1, 5, cljs.core.PersistentVector.EMPTY_NODE, [new cljs.core.Keyword(null,"charts","charts",555258811)], null)));
 return cljs.core.into.call(null,new cljs.core.PersistentVector(null, 1, 5, cljs.core.PersistentVector.EMPTY_NODE, [new cljs.core.Keyword(null,"div#summaries","div#summaries",1315999609)], null),cljs.core.map_indexed.call(null,((function (charts){
-return (function (i,p__25419){
-var vec__25420 = p__25419;
-var ty = cljs.core.nth.call(null,vec__25420,(0),null);
-var title = cljs.core.nth.call(null,vec__25420,(1),null);
-var data = cljs.core.nth.call(null,vec__25420,(2),null);
-return new cljs.core.PersistentVector(null, 3, 5, cljs.core.PersistentVector.EMPTY_NODE, [new cljs.core.Keyword(null,"div.summary-outer","div.summary-outer",575360463),new cljs.core.PersistentArrayMap(null, 1, [new cljs.core.Keyword(null,"on-click","on-click",1632826543),((function (vec__25420,ty,title,data,charts){
+return (function (i,p__25601){
+var vec__25602 = p__25601;
+var ty = cljs.core.nth.call(null,vec__25602,(0),null);
+var title = cljs.core.nth.call(null,vec__25602,(1),null);
+var data = cljs.core.nth.call(null,vec__25602,(2),null);
+return new cljs.core.PersistentVector(null, 3, 5, cljs.core.PersistentVector.EMPTY_NODE, [new cljs.core.Keyword(null,"div.summary-outer","div.summary-outer",575360463),new cljs.core.PersistentArrayMap(null, 1, [new cljs.core.Keyword(null,"on-click","on-click",1632826543),((function (vec__25602,ty,title,data,charts){
 return (function (){
 return re_frame.core.dispatch.call(null,new cljs.core.PersistentVector(null, 2, 5, cljs.core.PersistentVector.EMPTY_NODE, [new cljs.core.Keyword(null,"click-chart","click-chart",1609816313),i], null));
-});})(vec__25420,ty,title,data,charts))
+});})(vec__25602,ty,title,data,charts))
 ], null),guildsman.core.chart_view.call(null,ty,title,data)], null);
 });})(charts))
 ,charts));
@@ -150,14 +150,14 @@ var charts = cljs.core.deref.call(null,re_frame.core.subscribe.call(null,new clj
 if((left_mode == null)){
 return new cljs.core.PersistentVector(null, 1, 5, cljs.core.PersistentVector.EMPTY_NODE, [guildsman.core.graph_view], null);
 } else {
-var vec__25423 = cljs.core.nth.call(null,charts,left_mode);
-var ty = cljs.core.nth.call(null,vec__25423,(0),null);
-var title = cljs.core.nth.call(null,vec__25423,(1),null);
-var data = cljs.core.nth.call(null,vec__25423,(2),null);
-return new cljs.core.PersistentVector(null, 3, 5, cljs.core.PersistentVector.EMPTY_NODE, [new cljs.core.Keyword(null,"div#big-left","div#big-left",1289679938),new cljs.core.PersistentVector(null, 3, 5, cljs.core.PersistentVector.EMPTY_NODE, [new cljs.core.Keyword(null,"span.close-btn","span.close-btn",-518484445),new cljs.core.PersistentArrayMap(null, 1, [new cljs.core.Keyword(null,"on-click","on-click",1632826543),((function (vec__25423,ty,title,data,left_mode,charts){
+var vec__25605 = cljs.core.nth.call(null,charts,left_mode);
+var ty = cljs.core.nth.call(null,vec__25605,(0),null);
+var title = cljs.core.nth.call(null,vec__25605,(1),null);
+var data = cljs.core.nth.call(null,vec__25605,(2),null);
+return new cljs.core.PersistentVector(null, 3, 5, cljs.core.PersistentVector.EMPTY_NODE, [new cljs.core.Keyword(null,"div#big-left","div#big-left",1289679938),new cljs.core.PersistentVector(null, 3, 5, cljs.core.PersistentVector.EMPTY_NODE, [new cljs.core.Keyword(null,"span.close-btn","span.close-btn",-518484445),new cljs.core.PersistentArrayMap(null, 1, [new cljs.core.Keyword(null,"on-click","on-click",1632826543),((function (vec__25605,ty,title,data,left_mode,charts){
 return (function (){
 return re_frame.core.dispatch.call(null,new cljs.core.PersistentVector(null, 2, 5, cljs.core.PersistentVector.EMPTY_NODE, [new cljs.core.Keyword(null,"click-chart","click-chart",1609816313),null], null));
-});})(vec__25423,ty,title,data,left_mode,charts))
+});})(vec__25605,ty,title,data,left_mode,charts))
 ], null),"[ X close ]"], null),new cljs.core.PersistentVector(null, 4, 5, cljs.core.PersistentVector.EMPTY_NODE, [guildsman.core.chart_view,ty,title,data], null)], null);
 }
 });
@@ -167,10 +167,10 @@ return new cljs.core.PersistentVector(null, 1, 5, cljs.core.PersistentVector.EMP
 guildsman.core.desc = (function guildsman$core$desc(){
 var temp__6738__auto__ = cljs.core.deref.call(null,re_frame.core.subscribe.call(null,new cljs.core.PersistentVector(null, 1, 5, cljs.core.PersistentVector.EMPTY_NODE, [new cljs.core.Keyword(null,"form","form",-1624062471)], null)));
 if(cljs.core.truth_(temp__6738__auto__)){
-var vec__25426 = temp__6738__auto__;
-var form = cljs.core.nth.call(null,vec__25426,(0),null);
-var ns_name = cljs.core.nth.call(null,vec__25426,(1),null);
-var pos = cljs.core.nth.call(null,vec__25426,(2),null);
+var vec__25608 = temp__6738__auto__;
+var form = cljs.core.nth.call(null,vec__25608,(0),null);
+var ns_name = cljs.core.nth.call(null,vec__25608,(1),null);
+var pos = cljs.core.nth.call(null,vec__25608,(2),null);
 return new cljs.core.PersistentVector(null, 3, 5, cljs.core.PersistentVector.EMPTY_NODE, [new cljs.core.Keyword(null,"div#desc","div#desc",35489358),new cljs.core.PersistentVector(null, 2, 5, cljs.core.PersistentVector.EMPTY_NODE, [new cljs.core.Keyword(null,"pre.form","pre.form",1152735580),form], null),new cljs.core.PersistentVector(null, 4, 5, cljs.core.PersistentVector.EMPTY_NODE, [new cljs.core.Keyword(null,"div.loc","div.loc",-2105377277),ns_name," : ",pos], null)], null);
 } else {
 return null;
@@ -188,4 +188,4 @@ return reagent.core.render.call(null,new cljs.core.PersistentVector(null, 1, 5, 
 });
 guildsman.core.init_BANG_.call(null);
 
-//# sourceMappingURL=core.js.map?rel=1506896688673
+//# sourceMappingURL=core.js.map?rel=1506917877471

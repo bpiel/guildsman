@@ -25,15 +25,21 @@
                  [com.cognitect/transit-cljs "0.8.239"]
                  [reagent "0.7.0"]
                  [re-frame "0.10.1"]
-                 [re-com "0.9.0"]
+                 #_[re-com "0.9.0"]
+                 [re-com "2.1.0"]
                  [re-frisk "0.4.5"]
-                 [com.taoensso/timbre "4.8.0"]]
+                 [com.taoensso/timbre "4.8.0"]
 
+                 ;; move to dev deps later
+                 [binaryage/devtools "0.9.4"]
+                 [com.cemerick/piggieback "0.2.2-20150424.212437-1"]
+                 [figwheel-sidecar "0.5.13"]]
+
+  :hooks [leiningen.cljsbuild]
+  
   :profiles
   {:dev
-   {:dependencies [[binaryage/devtools "0.9.4"]
-                   [com.cemerick/piggieback "0.2.2-SNAPSHOT"]
-                   [figwheel-sidecar "0.5.13"]]
+   {:dependencies []
     :repl-options {:nrepl-middleware [cemerick.piggieback/wrap-cljs-repl]}
     :plugins      [[lein-figwheel "0.5.13"]]
     :prep-tasks [["cljsbuild" "once" "main"] "javac" "compile"]}}

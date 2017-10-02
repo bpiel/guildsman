@@ -13,11 +13,11 @@
 
 (def button-args-desc
   [{:name :label            :required true                         :type "string | hiccup" :validate-fn string-or-hiccup? :description "label for the button"}
-   {:name :class            :required false                        :type "string"          :validate-fn string?           :description "CSS class names, space separated"}
    {:name :on-click         :required false                        :type "-> nil"          :validate-fn fn?               :description "a function which takes no params and returns nothing. Called when the button is clicked"}
    {:name :tooltip          :required false                        :type "string | hiccup" :validate-fn string-or-hiccup? :description "what to show in the tooltip"}
    {:name :tooltip-position :required false :default :below-center :type "keyword"         :validate-fn position?         :description [:span "relative to this anchor. One of " position-options-list]}
    {:name :disabled?        :required false :default false         :type "boolean | atom"                                 :description "if true, the user can't click the button"}
+   {:name :class            :required false                        :type "string"          :validate-fn string?           :description "CSS class names, space separated"}
    {:name :style            :required false                        :type "CSS style map"   :validate-fn css-style?        :description "CSS styles"}
    {:name :attr             :required false                        :type "HTML attr map"   :validate-fn html-attr?        :description [:span "HTML attributes, like " [:code ":on-mouse-move"] [:br] "No " [:code ":class"] " or " [:code ":style"] "allowed"]}])
 
@@ -55,7 +55,7 @@
          :child (if tooltip
                   [popover-tooltip
                    :label    tooltip
-                   :position (if tooltip-position tooltip-position :below-center)
+                   :position (or tooltip-position :below-center)
                    :showing? showing?
                    :anchor   the-button]
                   the-button)]))))
@@ -109,13 +109,16 @@
                              :on-mouse-out  (handler-fn (reset! showing? false))})
                           attr)
                         [:i {:class (str "zmdi zmdi-hc-fw-rc " md-icon-name)}]]]
-        (if tooltip
-          [popover-tooltip
-           :label    tooltip
-           :position (if tooltip-position tooltip-position :below-center)
-           :showing? showing?
-           :anchor   the-button]
-          the-button)))))
+        [box
+         :class "display-inline-flex"
+         :align :start
+         :child (if tooltip
+                  [popover-tooltip
+                   :label    tooltip
+                   :position (or tooltip-position :below-center)
+                   :showing? showing?
+                   :anchor   the-button]
+                  the-button)]))))
 
 
 ;;--------------------------------------------------------------------------------------------------
@@ -166,13 +169,16 @@
                              :on-mouse-out  (handler-fn (reset! showing? false))})
                           attr)
                         [:i {:class (str "zmdi zmdi-hc-fw-rc " md-icon-name)}]]]
-        (if tooltip
-          [popover-tooltip
-           :label    tooltip
-           :position (if tooltip-position tooltip-position :below-center)
-           :showing? showing?
-           :anchor   the-button]
-          the-button)))))
+        [box
+         :class "display-inline-flex"
+         :align :start
+         :child (if tooltip
+                  [popover-tooltip
+                   :label    tooltip
+                   :position (or tooltip-position :below-center)
+                   :showing? showing?
+                   :anchor   the-button]
+                  the-button)]))))
 
 
 ;;--------------------------------------------------------------------------------------------------
@@ -200,8 +206,8 @@
       [popover-tooltip
        :label     info
        :status    :info
-       :position  (if position position :right-below)
-       :width     (if width width "250px")
+       :position  (or position :right-below)
+       :width     (or width "250px")
        :showing?  showing?
        :on-cancel #(swap! showing? not)
        :anchor    [:div
@@ -257,13 +263,16 @@
                              :on-mouse-out  (handler-fn (reset! showing? false))}) ;; Need to return true to ALLOW default events to be performed
                           attr)
                         [:i {:class (str "zmdi zmdi-hc-fw-rc " md-icon-name)}]]]
-        (if tooltip
-          [popover-tooltip
-           :label    tooltip
-           :position (if tooltip-position tooltip-position :below-center)
-           :showing? showing?
-           :anchor   the-button]
-          the-button)))))
+        [box
+         :class "display-inline-flex"
+         :align :start
+         :child (if tooltip
+                  [popover-tooltip
+                   :label    tooltip
+                   :position (or tooltip-position :below-center)
+                   :showing? showing?
+                   :anchor   the-button]
+                  the-button)]))))
 
 
 ;;--------------------------------------------------------------------------------------------------
@@ -310,13 +319,16 @@
                                      :on-mouse-out  (handler-fn (reset! showing? false))})
                                   attr)
                                 label]]]
-        (if tooltip
-          [popover-tooltip
-           :label tooltip
-           :position (if tooltip-position tooltip-position :below-center)
-           :showing? showing?
-           :anchor the-button]
-          the-button)))))
+        [box
+         :class "display-inline-flex"
+         :align :start
+         :child (if tooltip
+                  [popover-tooltip
+                   :label    tooltip
+                   :position (or tooltip-position :below-center)
+                   :showing? showing?
+                   :anchor   the-button]
+                  the-button)]))))
 
 
 ;;--------------------------------------------------------------------------------------------------
@@ -358,47 +370,13 @@
                                attr)
                         label]]
 
-        (if tooltip
-          [popover-tooltip
-           :label tooltip
-           :position (if tooltip-position tooltip-position :below-center)
-           :showing? showing?
-           :anchor the-button]
-          the-button)))))
-
-
-;; TODO: Eventually remove
-;;----------------------------------------------------------------------
-;; Round button with no dependencies - for use in re-frame demo
-;;----------------------------------------------------------------------
-
-#_(defn round-button
-  "a circular button containing a material design icon"
-  []
-  (let [mouse-over? (reagent/atom false)]
-    (fn
-      [& {:keys [md-icon-name on-click disabled? style attr]
-          :or   {md-icon-name "md-add"}}]
-      [:div
-       (merge
-         {:style         (merge
-                           {:cursor              (when-not disabled? "pointer")
-                            :font-size           "24px"
-                            :width               "40px"
-                            :height              "40px"
-                            :line-height         "44px"
-                            :text-align          "center"
-                            :-webkit-user-select "none"}
-                           (if disabled?
-                             {:color             "lightgrey"}
-                             {:border            (str "1px solid " (if @mouse-over? "#428bca" "lightgrey"))
-                              :color             (when @mouse-over? "#428bca")
-                              :border-radius     "50%"})
-                           style)
-          :on-mouse-over #(do (reset! mouse-over? true) nil)
-          :on-mouse-out  #(do (reset! mouse-over? false) nil)
-          :on-click      #(when (and on-click (not disabled?))
-                           (on-click %)
-                           nil)}
-         attr)
-       [:i {:class md-icon-name}]])))
+        [box
+         :class "display-inline-flex"
+         :align :start
+         :child (if tooltip
+                  [popover-tooltip
+                   :label    tooltip
+                   :position (or tooltip-position :below-center)
+                   :showing? showing?
+                   :anchor   the-button]
+                  the-button)]))))

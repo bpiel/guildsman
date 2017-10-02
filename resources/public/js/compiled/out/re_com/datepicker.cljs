@@ -103,24 +103,25 @@
 
 (defn- table-thead
   "Answer 2 x rows showing month with nav buttons and days NOTE: not internationalized"
-  [current {show-weeks? :show-weeks? minimum :minimum maximum :maximum start-of-week :start-of-week}]
-  (let [prev-date     (dec-month @current)
-        ;prev-enabled? (if minimum (after? prev-date (dec-month minimum)) true)
-        prev-enabled? (if minimum (after? prev-date minimum) true)
-        next-date     (inc-month @current)
+  [display-month {show-weeks? :show-weeks? minimum :minimum maximum :maximum start-of-week :start-of-week}]
+  (let [prev-date     (dec-month @display-month)
+        minimum       (deref-or-value minimum)
+        maximum       (deref-or-value maximum)
+        prev-enabled? (if minimum (after? prev-date (dec-month minimum)) true)
+        next-date     (inc-month @display-month)
         next-enabled? (if maximum (before? next-date maximum) true)
         template-row  (if show-weeks? [:tr [:th]] [:tr])]
     [:thead
      (conj template-row
            [:th {:class (str "prev " (if prev-enabled? "available selectable" "disabled"))
                  :style {:padding "0px"}
-                 :on-click (handler-fn (when prev-enabled? (reset! current prev-date)))}
+                 :on-click (handler-fn (when prev-enabled? (reset! display-month prev-date)))}
             [:i.zmdi.zmdi-chevron-left
              {:style {:font-size "24px"}}]]
-           [:th {:class "month" :col-span "5"} (month-label @current)]
+           [:th {:class "month" :col-span "5"} (month-label @display-month)]
            [:th {:class (str "next " (if next-enabled? "available selectable" "disabled"))
                  :style {:padding "0px"}
-                 :on-click (handler-fn (when next-enabled? (reset! current next-date)))}
+                 :on-click (handler-fn (when next-enabled? (reset! display-month next-date)))}
             [:i.zmdi.zmdi-chevron-right
              {:style {:font-size "24px"}}]])
      (conj template-row
@@ -136,32 +137,23 @@
 (defn- table-td
   [date focus-month selected today {minimum :minimum maximum :maximum :as attributes} disabled? on-change]
   ;;following can be simplified and terse
-  (let [enabled-min   (if minimum (>=date date minimum) true)
+  (let [minimum       (deref-or-value minimum)
+        maximum       (deref-or-value maximum)
+        enabled-min   (if minimum (>=date date minimum) true)
         enabled-max   (if maximum (<=date date maximum) true)
         enabled-day   (and enabled-min enabled-max)
         disabled-day? (if enabled-day
                         (not ((:selectable-fn attributes) date))
                         true)
-        styles       (cond disabled?
-                           "off"
-
-                           disabled-day?
-                           "off"
-
-                           (= focus-month (month date))
-                           "available"
-
-                           :else
-                           "available off")
-        styles       (cond (and selected (=date selected date))
-                           (str styles " active start-date end-date")
-
-                           (and today (=date date today))
-                           (str styles " today")
-
-                           :else styles)
-        on-click     #(when-not (or disabled? disabled-day?) (selection-changed date on-change))]
-    [:td {:class styles
+        classes       (cond disabled?                    "off"
+                            disabled-day?                "off"
+                            (= focus-month (month date)) "available"
+                            :else                        "available off")
+        classes       (cond (and selected (=date selected date)) (str classes " active start-date end-date")
+                            (and today (=date date today))       (str classes " today")
+                            :else                                classes)
+        on-click      #(when-not (or disabled? disabled-day?) (selection-changed date on-change))]
+    [:td {:class    classes
           :on-click (handler-fn (on-click))} (day date)]))
 
 
@@ -181,10 +173,10 @@
 
 (defn- table-tbody
   "Return matrix of 6 rows x 7 cols table cells representing 41 days from start-date inclusive"
-  [current selected attributes disabled? on-change]
+  [display-month selected attributes disabled? on-change]
   (let [start-of-week   (:start-of-week attributes)
-        current-start   (previous (is-day-pred start-of-week) current)
-        focus-month     (month current)
+        current-start   (previous (is-day-pred start-of-week) display-month)
+        focus-month     (month display-month)
         row-start-dates (map #(inc-date current-start (* 7 %)) (range 6))]
     (into [:tbody] (map #(table-tr % focus-month selected attributes disabled? on-change) row-start-dates))))
 
@@ -204,8 +196,8 @@
    {:name :selectable-fn :required false :default "(fn [date] true)" :type "pred"                           :validate-fn fn?        :description "Predicate is passed a date. If it answers false, day will be shown disabled and can't be selected."}
    {:name :show-weeks?   :required false :default false              :type "boolean"                                                :description "when true, week numbers are shown to the left"}
    {:name :show-today?   :required false :default false              :type "boolean"                                                :description "when true, today's date is highlighted"}
-   {:name :minimum       :required false                             :type "goog.date.UtcDateTime"          :validate-fn goog-date? :description "no selection or navigation before this date"}
-   {:name :maximum       :required false                             :type "goog.date.UtcDateTime"          :validate-fn goog-date? :description "no selection or navigation after this date"}
+   {:name :minimum       :required false                             :type "goog.date.UtcDateTime | atom"   :validate-fn goog-date? :description "no selection or navigation before this date"}
+   {:name :maximum       :required false                             :type "goog.date.UtcDateTime | atom"   :validate-fn goog-date? :description "no selection or navigation after this date"}
    {:name :start-of-week :required false :default 6                  :type "int"                                                    :description "first day of week (Monday = 0 ... Sunday = 6)"}
    {:name :hide-border?  :required false :default false              :type "boolean"                                                :description "when true, the border is not displayed"}
    {:name :class         :required false                             :type "string"                         :validate-fn string?    :description "CSS class names, space separated"}
@@ -215,21 +207,27 @@
 (defn datepicker
   [& {:keys [model] :as args}]
   {:pre [(validate-args-macro datepicker-args-desc args "datepicker")]}
-  (let [current (as-> (or (deref-or-value model) (now)) current
-                      (->  current first-day-of-the-month reagent/atom))]
+  (let [external-model (reagent/atom (deref-or-value model))  ;; Holds the last known external value of model, to detect external model changes
+        internal-model (reagent/atom @external-model) ;; Create a new atom from the model to be used internally 
+        display-month  (reagent/atom (first-day-of-the-month (or @internal-model (now))))]
     (fn datepicker-component
-      [& {:keys [model disabled? hide-border? on-change start-of-week class style attr]
+      [& {:keys [model on-change disabled? start-of-week hide-border? class style attr]
           :or   {start-of-week 6} ;; Default to Sunday
-          :as   properties}]
-      {:pre [(validate-args-macro datepicker-args-desc properties "datepicker")]}
-      (let [props-with-defaults (merge properties {:start-of-week start-of-week})
-            configuration (configure props-with-defaults)]
+          :as   args}]
+      {:pre [(validate-args-macro datepicker-args-desc args "datepicker")]}
+      (let [latest-ext-model    (deref-or-value model)
+            props-with-defaults (merge args {:start-of-week start-of-week})
+            configuration       (configure props-with-defaults)]
+        (when (not= @external-model latest-ext-model) ;; Has model changed externally?
+          (reset! external-model latest-ext-model)
+          (reset! internal-model latest-ext-model)
+          (reset! display-month  (first-day-of-the-month (or @internal-model (now)))))
         [main-div-with
          [:table {:class "table-condensed"}
-          [table-thead current configuration]
+          [table-thead display-month configuration]
           [table-tbody
-           @current
-           (deref-or-value model)
+           @display-month
+           @internal-model
            configuration
            (if (nil? disabled?) false (deref-or-value disabled?))
            on-change]]
@@ -274,10 +272,10 @@
           :as passthrough-args}]
       (let [collapse-on-select (fn [new-model]
                                  (reset! shown? false)
-                                 (when on-change (on-change new-model))) ;; wrap callback to collapse popover
-            passthrough-args   (dissoc passthrough-args :format)         ;; :format is only valid at this API level
+                                 (when on-change (on-change new-model)))    ;; wrap callback to collapse popover
+            passthrough-args   (dissoc passthrough-args :format :no-clip?)  ;; :format and :no-clip? only valid at this API level
             passthrough-args   (->> (assoc passthrough-args :on-change collapse-on-select)
-                                    (merge {:hide-border? true})         ;; apply defaults
+                                    (merge {:hide-border? true})            ;; apply defaults
                                     vec
                                     flatten)]
         [popover-anchor-wrapper
@@ -285,8 +283,6 @@
          :position position
          :anchor   [anchor-button shown? model format]
          :popover  [popover-content-wrapper
-                    :showing?        shown?
-                    :position        position
                     :position-offset (if show-weeks? 43 44)
                     :no-clip?       no-clip?
                     :arrow-length    0

@@ -84,7 +84,7 @@
 (defn ws-inbound-handler
   [ws data]
   (def ib-data data)
-  (println data)
+#_  (println data)
   (let [data' (read-transit-string data)]
     (when-let [{:keys [select]} data']
       (reset! selected-node select))))
@@ -126,9 +126,11 @@
 (defn start-server []
   (log/info "starting http server...")
   (try
-    (reset! server
-            (ah/start-server #'routes {:port 5080}))
-    (log/info "started http server on port 5080")
+    (if-not @server
+      (do (reset! server
+                  (ah/start-server #'routes {:port 5080}))
+          (log/info "started http server on port 5080"))
+      (log/info "server already running"))
     (catch Exception e
       (log/error e "EXCEPTION while trying to start http server"))))
 
