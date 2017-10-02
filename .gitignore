@@ -10,4 +10,3 @@ pom.xml.asc
 .hgignore
 .hg/
 figwheel_server.log
-/resources/public/js/compiled

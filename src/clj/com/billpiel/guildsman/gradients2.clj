@@ -76,7 +76,7 @@
     (let [dy-handles-vec (vec dy-handles)
           dy-idx-vec (vec dy-idxs)]
       (def ag2 [dy-handles-vec dy-idx-vec])
-      (clojure.pprint/pprint ag2)
+#_      (clojure.pprint/pprint ag2)
       (throw (Exception. "NOPE"))
       (let [discovered (discover-new-op-nodes-from-handles g
                                                            dy-handles-vec)]

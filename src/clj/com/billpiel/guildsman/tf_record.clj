@@ -60,7 +60,6 @@
 
 (defn extract-from-tf-event
   [evt]
-  (clojure.pprint/pprint evt)
   (let [k (-> evt
             (dissoc :wall-time)
             keys

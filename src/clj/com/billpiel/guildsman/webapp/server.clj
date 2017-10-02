@@ -102,10 +102,26 @@
                          ws)
                 ws)))
 
+(defn uri->content-type
+  [uri]
+  (or (-> uri
+           (clojure.string/split #"\.")
+           last
+           ({"js" "application/javascript"
+             "css" "text/css"
+             "html" "text/html"}))
+      "text/plain"))
+
+(defn get-public-resource
+  [uri]
+  {:status 200
+   :headers {"Content-Type" (uri->content-type uri)}
+   :body (-> (str "public" uri) io/resource slurp)})
+
 (c/defroutes routes
   (c/GET "/ws" [] #'ws-handler)
   (c/GET "/" [] (fn [_] (-> "public/app.html" io/resource slurp)))
-  (cr/resources "/"))
+  (c/GET "*" [] (fn [{:keys [uri]}] (get-public-resource uri))))
 
 (defn start-server []
   (log/info "starting http server...")
@@ -128,7 +144,3 @@
 #_ (stop-server)
 
 #_(start-server)
-
-
-
-

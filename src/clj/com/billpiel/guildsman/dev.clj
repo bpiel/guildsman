@@ -26,7 +26,7 @@
   [f]
   (reset! wsvr/selected-node-receiver f))
 
-(defn rebuild-op-fns
+(defn enable-op-meta-assoc
   [& [debug-mode?]]
   (when (or (nil? debug-mode?)
             (true? debug-mode?))
@@ -38,12 +38,13 @@
 
 (defn activate-dev-mode
   [& [enable?]]
-  (rebuild-op-fns enable?)
-    (if-not (false? enable?)
-      (swap! ft/plugins conj ::dev)
-      (throw (Exception. "NOT IMPLEMENTED"))))
+  (enable-op-meta-assoc enable?)
+  (if-not (false? enable?)
+    (swap! ft/plugins conj ::dev)
+    (throw (Exception. "NOT IMPLEMENTED"))))
 
 #_ (activate-dev-mode true)
+#_ (wsvr/start-server)
 
 (defn- mk-ns-sym [sym] (->> sym name (str "$.") symbol))
 
@@ -313,7 +314,6 @@
 
 (defn w-update*
   [^Graph g dev-ns log selected old-selected]
-  (clojure.pprint/pprint ["w-update*" selected])
   (let [charts (w-mk-summaries selected log)
         sel-op (find-selected-op dev-ns selected)]
         (spacer #(wsvr/update-view
@@ -416,7 +416,6 @@
 (defn add-summaries
   [^Graph g summaries]
   (let [vari->agd (find-gd-appliers g)
-        _ (clojure.pprint/pprint vari->agd)
         added (->> summaries
                    (mapcat (partial mk-summary-plans g
                                     vari->agd))
