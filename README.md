@@ -16,6 +16,7 @@ If you want to know more, please reach out. Any of these work:
  - `#tensorflow`
  - bpiel
 
+During this pre-pre-alpha phase, I'll try to add to this README as it becomes clear through conversations what others are most interested in or confused by. Once this hits alpha, the project should be able to maintain the README itself, by learning from examples of other good READMEs. This is known as "self-documenting code".
 
 ## YOU CAN HELP!
 
