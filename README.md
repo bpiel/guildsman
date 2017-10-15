@@ -51,19 +51,19 @@ Here are instructions from TF related to contributing, both generally and gradie
 
 
 - Legal stuff!
- - You **MUST** sign a Contributor License Agreement. If you read the TF instructions that I linked to above, then you already know that.
- - This was a painless process for me, but that's affected by your legal relationship with your employer, or anyone who might own some part of your time/output.
+  - You **MUST** sign a Contributor License Agreement. If you read the TF instructions that I linked to above, then you already know that.
+  - This was a painless process for me, but that's affected by your legal relationship with your employer, or anyone who might own some part of your time/output.
 
 - Find a gradient implementation in the TF Python code that doesn't have a counterpart in c++.
- - This github search should return all the py grads: https://github.com/tensorflow/tensorflow/search?utf8=%E2%9C%93&q=%22ops.RegisterGradient%22&type=
- - This should return all the c++ grads: https://github.com/tensorflow/tensorflow/search?utf8=%E2%9C%93&q=%22REGISTER_GRADIENT_OP%22&type=
- - Which one should you do???
-   - For your first one, just try to find a simple one. Lines of code is a good indicator
-   - After that, the optimal choice would maximize `(value to community)/(your time)`
-     - I'm going to try to figure out if I can make some resource that would help make that choice.
-     - Anything in math_grad.py or nn_grad.py is likely a good choice.
-     - Any new gradient is better than no gradient. Just do it!
-   - You may be able to find github issues that request a specific gradient. Here's one (currently open) that I filed: https://github.com/tensorflow/tensorflow/issues/12686
+  - This github search should return all the py grads: https://github.com/tensorflow/tensorflow/search?utf8=%E2%9C%93&q=%22ops.RegisterGradient%22&type= 
+  - This should return all the c++ grads: https://github.com/tensorflow/tensorflow/search?utf8=%E2%9C%93&q=%22REGISTER_GRADIENT_OP%22&type=
+  - Which one should you do???
+    - For your first one, just try to find a simple one. Lines of code is a good indicator
+    - After that, the optimal choice would maximize `(value to community)/(your time)`
+      - I'm going to try to figure out if I can make some resource that would help make that choice.
+      - Anything in math_grad.py or nn_grad.py is likely a good choice.
+      - Any new gradient is better than no gradient. Just do it!
+    - You may be able to find github issues that request a specific gradient. Here's one (currently open) that I filed: https://github.com/tensorflow/tensorflow/issues/12686
 
 - Implement the thing.
   - I'm not even going to guess about what would be the most effective words to write here. Instead, there's examples below.
