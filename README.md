@@ -57,7 +57,7 @@ Here are instructions from TF related to contributing, both generally and gradie
  - This github search should return all the py grads: https://github.com/tensorflow/tensorflow/search?utf8=%E2%9C%93&q=%22ops.RegisterGradient%22&type=
  - This should return all the c++ grads: https://github.com/tensorflow/tensorflow/search?utf8=%E2%9C%93&q=%22REGISTER_GRADIENT_OP%22&type=
  - Which one should you do???
-   - For you first one, just try to find a simple one. Lines of code is a good indicator
+   - For your first one, just try to find a simple one. Lines of code is a good indicator
    - After that, the optimal choice would maximize `(value to community)/(your time)`
      - I'm going to try to figure out if I can make some resource that would help make that choice.
      - Anything in math_grad.py or nn_grad.py is likely a good choice.
@@ -65,11 +65,11 @@ Here are instructions from TF related to contributing, both generally and gradie
    - You may be able to find github issues that request a specific gradient. Here's one (currently open) that I filed: https://github.com/tensorflow/tensorflow/issues/12686
 
 - Implement the thing.
- - I'm not even going to guess about what would be the most effective words to write here. Instead, there's examples below.
+  - I'm not even going to guess about what would be the most effective words to write here. Instead, there's examples below.
  
 - Implement a test.
- - Again, see examples below.
- - The tests are shockingly simple. The good Google TF people have implemented some test helper tooling that takes any operation, calculates the correct gradient values and compares them to the output of a gradient implementation. If the two agree within some margin of error, the test passes! Implementing a test is just a matter of wiring the operation and its gradient (that you wrote) up to this gradient verifier.
+  - Again, see examples below.
+  - The tests are shockingly simple. The good Google TF people have implemented some test helper tooling that takes any operation, calculates the correct gradient values and compares them to the output of a gradient implementation. If the two agree within some margin of error, the test passes! Implementing a test is just a matter of wiring the operation and its gradient (that you wrote) up to this gradient verifier.
 
 - Run the test.
 
