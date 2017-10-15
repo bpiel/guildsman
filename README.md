@@ -12,12 +12,14 @@ If you want to know more, please reach out. Any of these work:
 - file an issue
 - twitter: @bpiel
 - email: on my github profile page
-- slack: bpiel @ https://clojurians.slack.com
+- slack -- https://clojurians.slack.com
+ - `#tensorflow`
+ - bpiel
 
 
 ## YOU CAN HELP!
 
-A few people have expressed interest in helping out with Guildsman. The state of the project makes it impractical for anyone to contribute directly (ie no docs, no tests, highly unstable). BUT, **you can contribute** to TensorFlow in a way that has a **VERY** meaningful impact on what Guildsman is capable of -- by implementing gradients in TensorFlow's C++ layer. The reasons why this is so important are laid out in the video (linked above, especially starting around the 18min mark).
+A few people have expressed interest in helping out with Guildsman. The state of the project makes it impractical for anyone to contribute directly (ie no docs, no tests, highly unstable). BUT, **you can contribute** to TensorFlow in a way that has a **VERY** meaningful impact on what Guildsman is capable of -- by implementing gradients in TensorFlow's C++ layer. The reasons why this is so important are laid out (partially, at least) in the video (linked above, especially starting around the 18min mark). 
 
 ## A Guide To Implementing C++ Gradients in TensorFlow
 
@@ -40,19 +42,55 @@ https://en.wikipedia.org/wiki/Automatic_differentiation#Reverse_accumulation
 
 ### The Process
 
-- implementation code
-- test code
-- running the test
-- repeat
+Besides the actual coding, you'll need to determine which gradient to tackle, call dibs, and get your PR accepted. Each of those steps have their own unique set of challenges. If you have questions -- AFTER reading all of this :) -- please get in touch.
+
+Here are instructions from TF related to contributing, both generally and gradients specifically. I wrote my own notes below, but please read these first.
+- https://github.com/tensorflow/tensorflow/blob/master/CONTRIBUTING.md
+- https://github.com/tensorflow/tensorflow/tree/master/tensorflow/cc/gradients
+
+
+- Legal stuff!
+ - You **MUST** sign a Contributor License Agreement. If you read the TF instructions that I linked to above, then you already know that.
+ - This was a painless process for me, but that's affected by your legal relationship with your employer, or anyone who might own some part of your time/output.
+
+- Find a gradient implementation in the TF Python code that doesn't have a counterpart in c++.
+ - This github search should return all the py grads: https://github.com/tensorflow/tensorflow/search?utf8=%E2%9C%93&q=%22ops.RegisterGradient%22&type=
+ - This should return all the c++ grads: https://github.com/tensorflow/tensorflow/search?utf8=%E2%9C%93&q=%22REGISTER_GRADIENT_OP%22&type=
+ - Which one should you do???
+   - For you first one, just try to find a simple one. Lines of code is a good indicator
+   - After that, the optimal choice would maximize `(value to community)/(your time)`
+     - I'm going to try to figure out if I can make some resource that would help make that choice.
+     - Anything in math_grad.py or nn_grad.py is likely a good choice.
+     - Any new gradient is better than no gradient. Just do it!
+   - You may be able to find github issues that request a specific gradient. Here's one (currently open) that I filed: https://github.com/tensorflow/tensorflow/issues/12686
+
+- Implement the thing.
+ - I'm not even going to guess about what would be the most effective words to write here. Instead, there's examples below.
+ 
+- Implement a test.
+ - Again, see examples below.
+ - The tests are shockingly simple. The good Google TF people have implemented some test helper tooling that takes any operation, calculates the correct gradient values and compares them to the output of a gradient implementation. If the two agree within some margin of error, the test passes! Implementing a test is just a matter of wiring the operation and its gradient (that you wrote) up to this gradient verifier.
+
+- Run the test.
+
+Google has its own build tool, bazel, that TF uses. In addition to compilation (and who knows what else), you also use bazel to run tests. If there's a lot of compilation that needs to occurr before a test can be run (ex: the first time your run a test), you may be waiting for *hours*. Don't worry, subsequent runs will be fast (though, still not as fast as I'd like). Here's an example showing how I run the nn_grad tests:
+
+`sudo tensorflow/tools/ci_build/ci_build.sh CPU bazel test //tensorflow/cc:gradients_nn_grad_test`
+
+That would get called from the root dir of the TF repo.
+
+- Fix code, run test, fix code, run test, fix code, run test....... tests pass! submit PR!
+ - Definitely cc me on the PR when you do! (@bpiel)
+ 
 
 ### Example - BiasAdd
 
-The first PR of mine accepted into TensorFlow implemented the gradient for `BiasAdd`. `BiasAdd` is just a special case of matrix addition that is optimized for neural networks, but that's not important for the purposes of this example. What *is* important is that this is a simple case.
+The first PR of mine accepted into TensorFlow implemented the gradient for `BiasAdd`. `BiasAdd` is just a special case of matrix addition that is optimized for neural networks, but that's not important for the purposes of this example. What *is* important is that this is a simple case. It's made especially simple by the fact that the gradient for `BiasAdd` is already implemented as its own operation, `BiasAddGrad`. All I had to do was write some glue code and register it so that the auto differentiation logic could find it. This is not usually the case, but there are others like this.
 
-PR: 
+**My PR:**
 https://github.com/tensorflow/tensorflow/pull/12448/files
 
-Python Code (used for reference)
+**Python Code (the code to be ported)**
 https://github.com/tensorflow/tensorflow/blob/e5306d3dc75ea1b4338dc7b4518824a7698f0f92/tensorflow/python/ops/nn_grad.py#L237
 
 ```python
@@ -79,7 +117,7 @@ def _BiasAddGrad(op, received_grad):
                                                   data_format=data_format))
 ```
 
-C++ Code:
+**The C++ code I wrote:**
 https://github.com/tensorflow/tensorflow/blob/e5306d3dc75ea1b4338dc7b4518824a7698f0f92/tensorflow/cc/gradients/nn_grad.cc#L106
 
 ```c++
@@ -99,7 +137,7 @@ Status BiasAddGradHelper(const Scope& scope, const Operation& op,
 REGISTER_GRADIENT_OP("BiasAdd", BiasAddGradHelper);
 ```
 
-Test:
+**The test I wrote:**
 https://github.com/tensorflow/tensorflow/blob/e5306d3dc75ea1b4338dc7b4518824a7698f0f92/tensorflow/cc/gradients/nn_grad_test.cc#L150
 
 ```c++
@@ -113,4 +151,20 @@ TEST_F(NNGradTest, BiasAddGradHelper) {
 }
 ```
 
-Docs referenced:
+**Relevant Docs:**
+
+https://www.tensorflow.org/api_docs/cc/
+https://www.tensorflow.org/api_docs/cc/class/tensorflow/ops/bias-add
+https://www.tensorflow.org/versions/master/api_docs/cc/class/tensorflow/ops/bias-add-grad
+https://www.tensorflow.org/api_docs/cc/struct/tensorflow/ops/bias-add-grad/attrs
+
+https://www.tensorflow.org/api_docs/python/tf/nn/bias_add
+
+https://www.tensorflow.org/api_docs/cc/class/tensorflow/ops/placeholder
+
+### Examples - TODO
+
+I've (currently) had three other grads accepted in the following two PRs. I'll try to get to expanding those into nicer example write-ups like the one above.
+
+https://github.com/tensorflow/tensorflow/pull/12665
+https://github.com/tensorflow/tensorflow/pull/12391
