@@ -20,7 +20,11 @@ During this pre-pre-alpha phase, I'll try to add to this README as it becomes cl
 
 ## YOU CAN HELP!
 
-A few people have expressed interest in helping out with Guildsman. The state of the project makes it impractical for anyone to contribute directly (ie no docs, no tests, highly unstable). BUT, **you can contribute** to TensorFlow in a way that has a **VERY** meaningful impact on what Guildsman is capable of -- by implementing gradients in TensorFlow's C++ layer. The reasons why this is so important are laid out (partially, at least) in the video (linked above, especially starting around the 18min mark). 
+A few people have expressed interest in helping out with Guildsman. The state of the project makes it impractical for anyone to contribute directly (ie no docs, no tests, highly unstable). BUT, **you can contribute** to TensorFlow in a way that has a **VERY** meaningful impact on what Guildsman is capable of -- by implementing gradients in TensorFlow's C++ layer.
+
+**NOTE**: There's been confusion around this, so I want to be very clear. These c++ gradient implementations are going directly to TensorFlow's code base. You submit a PR to TensorFlow. At no point is this code in Guildsman.
+
+The reasons why these gradients are so important are laid out (partially, at least) in the video (linked above, especially starting around the 18min mark). 
 
 ## A Guide To Implementing C++ Gradients in TensorFlow
 
