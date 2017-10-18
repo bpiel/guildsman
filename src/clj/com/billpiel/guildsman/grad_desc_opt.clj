@@ -187,7 +187,6 @@
 (defmethod mc/build-macro :grad-desc-opt
   [^Graph g plan]
   (let [{:keys [id inputs scope alpha]} plan
-;        alpha' (or alpha 0.01)
         [input alpha] inputs
         [v-a v-b] (:inputs input)]
     [(sc/with-push-both-scopes scope

@@ -64,31 +64,32 @@
       vec))
 
 (defn mk-applicator
-  [^Graph g grads idx trainable]
+  [^Graph g grads alpha idx trainable ]
   (o/apply-gradient-descent trainable 
-                            0.01
+                            alpha
                             (assoc grads
                                    :output-idx                                   
                                    idx)))
 
 (defn mk-applicators
-  [^Graph g  y-op trainables]
+  [^Graph g y-op trainables alpha]
   (let [grads {:macro :gradients
                :inputs [y-op
                         (o/ones-like y-op)
                         trainables]}]
-    (mapv (partial mk-applicator g grads)
+    (mapv (partial mk-applicator g grads alpha)
           (range (count trainables))
           trainables)))
 
 (defmethod mc/build-macro :grad-desc-opt2
   [^Graph g plan]
   (let [{:keys [id inputs scope]} plan
-        [input] inputs]
+        [input alpha] inputs]
     [(sc/with-push-both-scopes scope
        (o/no-op id
                 {:ctrl-inputs
                  (mk-applicators
                   g
                   input
-                  (find-trainables g input))}))]))
+                  (find-trainables g input)
+                  alpha)}))]))

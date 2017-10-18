@@ -8,6 +8,8 @@
             com.billpiel.guildsman.macros
             com.billpiel.guildsman.gradients
             com.billpiel.guildsman.grad-desc-opt
+            com.billpiel.guildsman.gradients2
+            com.billpiel.guildsman.grad-desc-opt2
             com.billpiel.guildsman.plan-time-comps
             com.billpiel.guildsman.build-time-comps
             com.billpiel.guildsman.ops
