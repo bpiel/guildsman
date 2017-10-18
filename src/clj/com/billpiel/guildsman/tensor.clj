@@ -47,6 +47,8 @@
     (locking valid?-v
       (vreset! valid?-v false)))
   (valid? [this] @valid?-v)
+
+  clojure.lang.Sequential ;; so sequential? returns `true`
   
   clojure.lang.Counted
   (count [this] (or (first (.shape this))

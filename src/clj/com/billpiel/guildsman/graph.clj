@@ -31,13 +31,23 @@
   [m {:keys [id handle] :as op}]
   (merge {handle id} m))
 
+
+(defn- expand-nested-inputs
+  [[input idx1]]
+  (if (sequential? input)
+    (map-indexed (fn [idx2 inp]
+                   [inp idx1 idx2])
+                 input)
+    [[input idx1 0]]))
+
 (defn add-to-id->outputs
   [m {:keys [id inputs]}]
   (->> (interleave inputs (range))
        (partition 2)
-       (reduce (fn [agg [input-id input-idx]]
+       (mapcat expand-nested-inputs)
+       (reduce (fn [agg [input-id input-idx input-idx2]]
                  (let [{:keys [scoped-id output-idx]} (util/parse-tf-id input-id)]
-                   (->> [{:id id :input-idx input-idx}]
+                   (->> [{:id id :input-idx input-idx :input-idx2 input-idx2}] ;; input-idx only used by clj grad-desc
                         (partial into)
                         (update-in agg
                                    [scoped-id  output-idx]))))
