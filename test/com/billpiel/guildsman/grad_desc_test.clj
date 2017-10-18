@@ -2,7 +2,9 @@
   (:require [clojure.test :as t]
             [com.billpiel.guildsman.core :as g]
             [com.billpiel.guildsman.ops :as o]
-            [com.billpiel.guildsman.plan-time-comps :as p]))
+            [com.billpiel.guildsman.plan-time-comps :as p]
+            [com.billpiel.guildsman.layers :as l]
+            [com.billpiel.guildsman.data-type :as dt]))
 
 (def apply-< (partial apply <))
 
@@ -79,6 +81,42 @@
     (t/is (ndvec-less-than? (g/produce sess b)
                             init-b))
     (t/is (ndvec-less-than? (g/produce sess loss)
+                            loss-init))))
+
+(t/deftest add-var-ph
+  (let [a-init [1. 2. 3.]
+        feed {:b [4. 5. 6.]}
+        a (p/v :a a-init)
+        b (o/placeholder :b
+                         dt/float-kw
+                         [3])
+        loss (o/add a b)
+        opt (p/grad-desc-opt2 :opt 0.5 loss)
+        sess (g/build->session opt)
+        _ (g/run-global-vars-init sess)
+        loss-init (g/produce sess loss feed)]
+    (g/run sess opt feed )
+    (t/is (ndvec-less-than? (g/produce sess a feed)
+                            a-init))
+    (t/is (ndvec-less-than? (g/produce sess loss feed)
+                            loss-init))))
+
+(t/deftest add-var-ph-1
+  (let [a-init [[1. 2. 3.]]
+        feed {:b [[4. 5. 6.]]}
+        a (p/v :a a-init)
+        b (o/placeholder :b
+                         dt/float-kw
+                         [-1 3])
+        loss (o/add a b)
+        opt (p/grad-desc-opt2 :opt 0.5 loss)
+        sess (g/build->session opt)
+        _ (g/run-global-vars-init sess)
+        loss-init (g/produce sess loss feed)]
+    (g/run sess opt feed)
+    (t/is (ndvec-less-than? (g/produce sess a feed)
+                            a-init))
+    (t/is (ndvec-less-than? (g/produce sess loss feed)
                             loss-init))))
 
 (t/deftest mat-mul-var-const
@@ -227,3 +265,36 @@
                             init-a))
     (t/is (ndvec-less-than? (g/produce sess loss)
                             loss-init))))
+
+
+(t/deftest dense-layer
+  (let [init-a [[1. 2. 3. 4.]
+                [5. 6. 7. 8.]]
+        a (o/placeholder :a dt/float-kw [-1 4])
+        feed {:a init-a}
+        loss (l/dense {:units 2}
+                      a)
+        opt (p/grad-desc-opt2 :opt 0.5 loss)
+        sess (g/build->session opt)
+        _ (g/run-global-vars-init sess)
+        loss-init (g/produce sess loss feed)]
+    (g/run sess opt feed)
+    (t/is (ndvec-less-than? (g/produce sess loss feed)
+                            loss-init))))
+
+;; no grad defined for arg-max
+#_
+(t/deftest arg-max-var-const
+  (let [init-a [1. 3. 2. 0.]
+        a (p/v :a init-a)
+        loss (o/arg-max a 0)
+        opt (p/grad-desc-opt2 :opt 0.5 loss)
+        sess (g/build->session opt)
+        _ (g/run-global-vars-init sess)
+        loss-init (g/produce sess loss)]
+    (g/run sess opt)
+    (clojure.pprint/pprint  (g/produce sess a))
+    (t/is (ndvec-less-than? (g/produce sess a)
+                            init-a))
+    (t/is (< (g/produce sess loss)
+             loss-init))))
