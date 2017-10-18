@@ -35,14 +35,15 @@
                  [com.cemerick/piggieback "0.2.2-20150424.212437-1"]
                  [figwheel-sidecar "0.5.13"]]
 
-  :hooks [leiningen.cljsbuild]
+ ; :hooks [leiningen.cljsbuild]
   
   :profiles
   {:dev
    {:dependencies []
     :repl-options {:nrepl-middleware [cemerick.piggieback/wrap-cljs-repl]}
     :plugins      [[lein-figwheel "0.5.13"]]
-    :prep-tasks [["cljsbuild" "once" "main"] "javac" "compile"]}}
+;    :prep-tasks [["cljsbuild" "once" "main"] "javac" "compile"]
+    }}
 
   :cljsbuild
   {:builds

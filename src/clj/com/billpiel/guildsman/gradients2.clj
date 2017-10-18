@@ -66,7 +66,7 @@
               :dy-handles dy-handles
               :dy-idxs dy-idxs})
     #_ (clojure.pprint/pprint ag1)
-    (clojure.pprint/pprint ag1)
+    #_(clojure.pprint/pprint ag1)
     #_(throw (Exception. "NAH"))
     (com.billpiel.guildsman.GraphNI/addGradients (:handle g)
                                  (long-array [y-handle]) (int-array [y-idx])
@@ -77,7 +77,7 @@
           dy-idx-vec (vec dy-idxs)]
       (def ag2 [dy-handles-vec dy-idx-vec])
 #_      (clojure.pprint/pprint ag2)
-      (throw (Exception. "NOPE"))
+#_      (throw (Exception. "NOPE"))
       (let [discovered (discover-new-op-nodes-from-handles g
                                                            dy-handles-vec)]
         (dorun (map (partial gr/add-op-to-state! g)

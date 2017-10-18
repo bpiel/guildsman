@@ -62,7 +62,7 @@ const char* exceptionClassName(TF_Code code) {
     case TF_UNIMPLEMENTED:
       return kUnsupportedOperationException;
     default:
-      return "org/tensorflow/TensorFlowException";
+      return "com/billpiel/guildsman/TensorFlowException";
   }
 }
 }  // namespace
