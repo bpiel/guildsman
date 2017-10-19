@@ -59,13 +59,14 @@ Here are instructions from TF related to contributing, both generally and gradie
   - This was a painless process for me, but that's affected by your legal relationship with your employer, or anyone who might own some part of your time/output.
 
 - Find a gradient implementation in the TF Python code that doesn't have a counterpart in c++.
+  - See the [gradient TODO list](#gradient-todo-list)
   - This github search should return all the py grads: https://github.com/tensorflow/tensorflow/search?utf8=%E2%9C%93&q=%22ops.RegisterGradient%22&type= 
   - This should return all the c++ grads: https://github.com/tensorflow/tensorflow/search?utf8=%E2%9C%93&q=%22REGISTER_GRADIENT_OP%22&type=
   - Which one should you do???
     - For your first one, just try to find a simple one. Lines of code is a good indicator
     - After that, the optimal choice would maximize `(value to community)/(your time)`
-      - I'm going to try to figure out if I can make some resource that would help make that choice.
-      - Anything in math_grad.py or nn_grad.py is likely a good choice.
+      - Check the prioritized list in the [gradient TODO list](#gradient-todo-list) section.
+      - Anything in math_grad.py or nn_grad.py is probably not bad.
       - Any new gradient is better than no gradient. Just do it!
     - You may be able to find github issues that request a specific gradient. Here's one (currently open) that I filed: https://github.com/tensorflow/tensorflow/issues/12686
 
@@ -173,3 +174,198 @@ I've (currently) had three other grads accepted in the following two PRs. I'll t
 
 https://github.com/tensorflow/tensorflow/pull/12665
 https://github.com/tensorflow/tensorflow/pull/12391
+
+
+### Gradient TODO List
+
+**as of Oct 18, 2017**
+
+#### Prioritized
+
+These seem to more important. Ordered by priority:
+
+SoftmaxCrossEntropyWithLogits
+Cast
+GatherV2
+Pow
+Sub
+Prod
+ConcatV2
+TopKV2
+
+
+#### All Gradients that are in Python, but not C++
+
+Atan2
+AvgPool
+AvgPool3D
+AvgPool3DGrad
+AvgPoolGrad
+BadGrad
+BatchNormWithGlobalNormalization
+Betainc
+BiasAddGrad
+BiasAddV1
+Cast
+Ceil
+Cholesky
+ComplexAbs
+Concat
+ConcatV2
+Conv2DBackpropFilter
+Conv2DBackpropInput
+Conv3D
+Conv3DBackpropFilterV2
+Conv3DBackpropInputV2
+CopyOp
+copy_override
+CropAndResize
+Cross
+CTCLoss
+Cumprod
+Cumsum
+CustomSquare
+DebugGradientIdentity
+DepthwiseConv2dNative
+Digamma
+Dilation2D
+EluGrad
+Enter
+Erfc
+Exit
+ExtractImagePatches
+FakeQuantWithMinMaxArgs
+FakeQuantWithMinMaxVars
+FakeQuantWithMinMaxVarsPerChannel
+FFT
+FFT2D
+FFT3D
+Fill
+Floor
+FloorDiv
+FloorMod
+FractionalAvgPool
+FractionalMaxPool
+FusedBatchNorm
+FusedBatchNormGrad
+FusedBatchNormGradV2
+FusedBatchNormV2
+Gather
+GatherV2
+IdentityN
+IFFT
+IFFT2D
+IFFT3D
+Igamma
+Igammac
+InvGrad
+IRFFT
+IRFFT2D
+LoopCond
+LRN
+MatrixDeterminant
+MatrixDiagPart
+MatrixInverse
+MatrixSetDiag
+MatrixSolve
+MatrixSolveLs
+MatrixTriangularSolve
+MaxPool3D
+MaxPool3DGrad
+MaxPool3DGradGrad
+MaxPoolGrad
+MaxPoolGradGrad
+MaxPoolGradV2
+MaxPoolWithArgmax
+Merge
+NaNGrad
+NextIteration
+NthElement
+PlaceholderWithDefault
+Polygamma
+Pow
+PreventGradient
+Print
+Prod
+ReadVariableOp
+ReciprocalGrad
+RefEnter
+RefExit
+RefMerge
+RefNextIteration
+RefSwitch
+ReluGrad
+ResizeBicubic
+ResizeBilinear
+ResizeNearestNeighbor
+ResourceGather
+Reverse
+RFFT
+RFFT2D
+Rint
+Round
+RsqrtGrad
+SegmentMax
+SegmentMean
+SegmentMin
+SegmentSum
+Select
+SelfAdjointEigV2
+SeluGrad
+SigmoidGrad
+Slice
+SoftmaxCrossEntropyWithLogits
+Softplus
+SoftplusGrad
+Softsign
+SparseAdd
+SparseDenseCwiseAdd
+SparseDenseCwiseDiv
+SparseDenseCwiseMul
+SparseFillEmptyRows
+SparseMatMul
+SparseReduceSum
+SparseReorder
+SparseSegmentMean
+SparseSegmentSqrtN
+SparseSegmentSum
+SparseSoftmax
+SparseSoftmaxCrossEntropyWithLogits
+SparseSparseMaximum
+SparseSparseMinimum
+SparseTensorDenseAdd
+SparseTensorDenseMatMul
+SplitV
+SqrtGrad
+StridedSlice
+StridedSliceGrad
+Sub
+Svd
+Switch
+TanhGrad
+TensorArrayConcat
+TensorArrayConcatV2
+TensorArrayConcatV3
+TensorArrayGather
+TensorArrayGatherV2
+TensorArrayGatherV3
+TensorArrayRead
+TensorArrayReadV2
+TensorArrayReadV3
+TensorArrayScatter
+TensorArrayScatterV2
+TensorArrayScatterV3
+TensorArraySplit
+TensorArraySplitV2
+TensorArraySplitV3
+TensorArrayWrite
+TensorArrayWriteV2
+TensorArrayWriteV3
+TestStringOutput
+Tile
+TopK
+TopKV2
+TruncateDiv
+UnsortedSegmentMax
+UnsortedSegmentSum
+Zeta
