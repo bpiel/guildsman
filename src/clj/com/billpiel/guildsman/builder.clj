@@ -1,6 +1,6 @@
 (ns com.billpiel.guildsman.builder
   (:require [com.billpiel.guildsman.common :as com]
-            [com.billpiel.guildsman.ops :as ops]
+            [com.billpiel.guildsman.ops.single :as o]
             [com.billpiel.guildsman.op-node :as opn]
             [com.billpiel.guildsman.op-build :as obld]
             [com.billpiel.guildsman.graph :as gr]
@@ -41,7 +41,7 @@
   [^Graph g plan]
   (let [plan' (if (map? plan)
                 plan
-                (ops/c plan))
+                (o/c plan))
         output-idx (if (map? plan)
                      (:output-idx plan')
                      0)]
@@ -66,7 +66,7 @@
       (:op plan) (call-op-builder g plan inputs ctrl-inputs)
       (:macro plan) (->> (call-macro-builder g plan inputs ctrl-inputs)
                          (apply-plan-to-graph g))
-      :else (call-op-builder g (ops/c plan) [] []))))
+      :else (call-op-builder g (o/c plan) [] []))))
 
 (defn- apply-plan-to-graph
   [^Graph g plan]

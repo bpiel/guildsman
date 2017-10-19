@@ -1,5 +1,5 @@
-(ns com.billpiel.guildsman.ops-gen-config
-  (:require [com.billpiel.guildsman.ops-gen-util :as ogu]
+(ns com.billpiel.guildsman.ops.gen-config
+  (:require [com.billpiel.guildsman.ops.gen-util :as ogu]
             [com.billpiel.guildsman.data-type :as dt]
             [com.billpiel.guildsman.shape :as sh]
             [flatland.protobuf.core :as pr]
@@ -152,7 +152,7 @@
                                          :dtype (-> value
                                                     com.billpiel.guildsman.data-type/data-type-of-whatever 
                                                     :kw
-                                                    com.billpiel.guildsman.ops-gen-config/auto-cast)}}))
+                                                    com.billpiel.guildsman.ops.gen-config/auto-cast)}}))
                      ([value data-type] {:op :Const ;; TODO change arg order?
                                          :id nil
                                          :attrs {:value value

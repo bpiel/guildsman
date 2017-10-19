@@ -1,8 +1,8 @@
-(ns com.billpiel.guildsman.ops-gen
+(ns com.billpiel.guildsman.ops.gen
   (:require [com.billpiel.guildsman.op-build :as obld]
             [com.billpiel.guildsman.scope :as sc]
-            [com.billpiel.guildsman.ops-gen-config :as cfg]
-            [com.billpiel.guildsman.ops-gen-util :as ogu]
+            [com.billpiel.guildsman.ops.gen-config :as cfg]
+            [com.billpiel.guildsman.ops.gen-util :as ogu]
             [com.billpiel.guildsman.util :as ut]
             clojure.pprint))
 

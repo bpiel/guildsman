@@ -2,11 +2,11 @@
   (:require [com.billpiel.guildsman.core :as ft]
             [com.billpiel.guildsman.scope :as sc]
             [com.billpiel.guildsman.shape :as sh]
-            [com.billpiel.guildsman.ops :as o]
+            [com.billpiel.guildsman.ops.single :as o]
             [com.billpiel.guildsman.macros :as mcro]
             [com.billpiel.guildsman.op-node :as opn]
             [com.billpiel.guildsman.ops-gen :as ops-gen]
-            [com.billpiel.guildsman.plan-time-comps :as p]
+            [com.billpiel.guildsman.ops.composite :as c]
             [com.billpiel.guildsman.layers :as l]
             [com.billpiel.guildsman.util :as ut]
             [com.billpiel.guildsman.data-type :as dt]
@@ -366,17 +366,17 @@
     (when (and v delta alpha)
       (o/scalar-summary {:id smry-id} smry-id
                         (sc/with-push-both-scopes :summaries
-                          (p/reduce-mean
+                          (c/reduce-mean
                            (o/div (o/add c
                                          (o/sqrt
-                                          (p/reduce-sum
+                                          (c/reduce-sum
                                            (o/mul (o/mul alpha
                                                          (o/abs delta))
                                                   (o/mul alpha
                                                          (o/abs delta))))))
                                   (o/add c
                                          (o/sqrt
-                                          (p/reduce-sum
+                                          (c/reduce-sum
                                            (o/mul v v)))))))))))
 
 (defn mk-summary-plan

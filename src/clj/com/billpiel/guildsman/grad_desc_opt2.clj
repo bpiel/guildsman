@@ -1,11 +1,10 @@
 (ns com.billpiel.guildsman.grad-desc-opt2
-  (:require [com.billpiel.guildsman.ops :as o]
+  (:require [com.billpiel.guildsman.ops.single :as o]
             [com.billpiel.guildsman.op-node :as opn]
             [com.billpiel.guildsman.macros :as mc]
-            [com.billpiel.guildsman.ops-gen-config :as ogc]
+            [com.billpiel.guildsman.ops.gen-config :as ogc]
             [com.billpiel.guildsman.scope :as sc]
-            [com.billpiel.guildsman.data-type :as dt]
-            [com.billpiel.guildsman.plan-time-comps :as pt])
+            [com.billpiel.guildsman.data-type :as dt])
   (:import [com.billpiel.guildsman.common Graph]))
 
 

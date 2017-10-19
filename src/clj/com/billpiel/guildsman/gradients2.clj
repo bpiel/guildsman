@@ -1,5 +1,5 @@
 (ns com.billpiel.guildsman.gradients2
-  (:require [com.billpiel.guildsman.ops :as o]
+  (:require [com.billpiel.guildsman.ops.single :as o]
             [com.billpiel.guildsman.op-build :as obld]
             [com.billpiel.guildsman.op-node :as opn]
             [com.billpiel.guildsman.macros :as mcro]

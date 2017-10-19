@@ -1,6 +1,6 @@
 (ns com.billpiel.guildsman.gradients
-  (:require [com.billpiel.guildsman.ops :as o]
-            [com.billpiel.guildsman.plan-time-comps :as p]
+  (:require [com.billpiel.guildsman.ops.single :as o]
+            [com.billpiel.guildsman.ops.composite :as c]
             [com.billpiel.guildsman.macros :as mcro]
             [com.billpiel.guildsman.graph :as gr]
             [com.billpiel.guildsman.scope :as sc]
@@ -11,6 +11,37 @@
   [_ xs _]
   (mapv o/zeros-like
         xs))
+
+(defn- safe-shape-div
+  [x y]
+  (->> y
+       o/ones-like
+       (o/maximum y)
+       (o/floor-div x)))
+
+(defn- broadcast-mul
+  [v mx]
+  (o/mul (o/expand-dims v (int -1))
+         mx))
+
+(defn- to-int32
+  [x]
+  (o/cast-tf {:DstT :int32}
+             x))
+
+(defn reduced-shape
+  [input-shape axes]
+  (let [input-shape' (to-int32 input-shape)
+        axes' (to-int32 axes)
+        input-rank (o/size input-shape')
+        axes'' (o/mod-tf (o/add axes' input-rank)
+                         input-rank)
+        axes-shape (o/shape axes'')]
+    (o/dynamic-stitch [(o/range-tf (int 0)
+                                   input-rank
+                                   (int 1))
+                       axes'']
+                      [input-shape' (o/fill axes-shape (int 1))])))
 
 ;; TODO add ctrl and conj
 (defn sin
@@ -52,8 +83,8 @@
 (defn sum
   [op [x1 x2] [grad]]
   (let [input-shape (o/shape x1)
-        output-shape-kept-dims (p/reduced-shape input-shape x2)
-        tile-scaling (p/safe-shape-div input-shape output-shape-kept-dims)
+        output-shape-kept-dims (reduced-shape input-shape x2)
+        tile-scaling (safe-shape-div input-shape output-shape-kept-dims)
         grad (o/reshape grad output-shape-kept-dims)]
     [(o/tile grad tile-scaling) nil]))
 
@@ -62,8 +93,8 @@
   (let [sum-grad (first (sum op x [grad]))
         input-shape (o/shape x1)
         output-shape (o/shape op)
-        factor (p/safe-shape-div (p/reduce-prod input-shape)
-                                  (p/reduce-prod output-shape))]
+        factor (safe-shape-div (c/reduce-prod input-shape)
+                                  (c/reduce-prod output-shape))]
     [(o/real-div sum-grad (o/cast-tf {:DstT (-> op :dtypes first)} factor))
      (o/zeros-like x2)]))
 
@@ -71,8 +102,8 @@
 (defn softmax-cross-entropy-with-logits
   [op _ [grad-loss grad-grad]]
   ;; TODO don't assume grad-grad is always zero
-  [(p/broadcast-mul grad-loss
-                     (assoc op :output-idx 1))
+  [(broadcast-mul grad-loss
+                  (assoc op :output-idx 1))
    nil])
 
 ;; https://github.com/tensorflow/tensorflow/blob/3a64879a86e46908ad90a387efe56ad32be61e94/tensorflow/python/ops/math_grad.py#L683
@@ -82,10 +113,10 @@
         r1 (o/broadcast-gradient-args s1 s2)
         r2 (assoc r1 :output-idx 1)]
     [(-> grad
-         (p/reduce-sum :axis r1)
+         (c/reduce-sum :axis r1)
          (o/reshape s1))
      (-> grad
-         (p/reduce-sum :axis r2)
+         (c/reduce-sum :axis r2)
          (o/reshape s2))]))
 
 (defn sub
@@ -94,10 +125,10 @@
         r1 (o/broadcast-gradient-args s1 s2)
         r2 (assoc r1 :output-idx 1)]
     [(-> grad
-         (p/reduce-sum :axis r1)
+         (c/reduce-sum :axis r1)
          (o/reshape s1))
      (-> grad
-         (p/reduce-sum :axis r2)
+         (c/reduce-sum :axis r2)
          o/neg
          (o/reshape s2))]))
 
@@ -130,7 +161,7 @@
         f (fn [a b r s]
             (-> a
                 (o/mul b)
-                (p/reduce-sum :axis r)
+                (c/reduce-sum :axis r)
                 (o/reshape s)))]
     [(f grad x2 r1 s1)
      (f x1 grad r2 s2)]))
@@ -143,14 +174,14 @@
         r2 (assoc r1 :output-idx 1)]
     [(-> grad
          (o/div x2)
-         (p/reduce-sum :axis r1)
+         (c/reduce-sum :axis r1)
          (o/reshape s1))
      (ut/$- -> x1
             o/neg
             (o/div x2)
             (o/div x2)
             (o/mat-mul grad $)
-            (p/reduce-sum :axis r2)
+            (c/reduce-sum :axis r2)
             (o/reshape s2))]))
 
 (defn l2-loss
@@ -187,7 +218,7 @@
 (defn reshape
   [op [x1 x2] [grad1 _]]
   [(o/reshape grad1
-              (p/to-int32 (o/shape x1)))
+              (to-int32 (o/shape x1)))
    (o/zeros-like x2)])
 
 

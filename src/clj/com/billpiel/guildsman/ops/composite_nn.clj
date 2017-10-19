@@ -1,4 +1,4 @@
-(in-ns 'com.billpiel.guildsman.core)
+(in-ns 'com.billpiel.guildsman.ops.composite)
 
 ;; based on nn_ops.py
 
