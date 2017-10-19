@@ -26,7 +26,7 @@
            (let [x (c/vari :x 0.)
                  loss (->> (o/sub x 2.)
                            o/abs)
-                 opt (c/grad-desc-opt2 :opt 0.5 loss)
+                 opt (c/grad-desc-opt :opt 0.5 loss)
                  sess (g/build->session opt)]
              (g/run-global-vars-init sess)
              (g/run-all sess (repeat 4 opt))
@@ -36,7 +36,7 @@
   (let [init 10.
         x (c/vari :x init)
         loss (o/add x 0.)
-        opt (c/grad-desc-opt2 :opt 0.5 loss)
+        opt (c/grad-desc-opt :opt 0.5 loss)
         sess (g/build->session opt)
         _ (g/run-global-vars-init sess)
         loss-init (g/produce sess loss)]
@@ -52,7 +52,7 @@
         a (c/vari :a init-a)
         b (c/vari :b init-b)
         loss (o/add a b)
-        opt (c/grad-desc-opt2 :opt 0.5 loss)
+        opt (c/grad-desc-opt :opt 0.5 loss)
         sess (g/build->session opt)
         _ (g/run-global-vars-init sess)
         loss-init (g/produce sess loss)]
@@ -70,7 +70,7 @@
         a (c/vari :a init-a)
         b (c/vari :b init-b)
         loss (o/bias-add a b)
-        opt (c/grad-desc-opt2 :opt 0.5 loss)
+        opt (c/grad-desc-opt :opt 0.5 loss)
         sess (g/build->session opt)
         _ (g/run-global-vars-init sess)
         loss-init (g/produce sess loss)]
@@ -90,7 +90,7 @@
                          dt/float-kw
                          [3])
         loss (o/add a b)
-        opt (c/grad-desc-opt2 :opt 0.5 loss)
+        opt (c/grad-desc-opt :opt 0.5 loss)
         sess (g/build->session opt)
         _ (g/run-global-vars-init sess)
         loss-init (g/produce sess loss feed)]
@@ -108,7 +108,7 @@
                          dt/float-kw
                          [-1 3])
         loss (o/add a b)
-        opt (c/grad-desc-opt2 :opt 0.5 loss)
+        opt (c/grad-desc-opt :opt 0.5 loss)
         sess (g/build->session opt)
         _ (g/run-global-vars-init sess)
         loss-init (g/produce sess loss feed)]
@@ -122,7 +122,7 @@
   (let [init-a [[1. 2. 3.]]
         a (c/vari :a init-a)
         loss (o/mat-mul a [[1.] [1.] [1.]])
-        opt (c/grad-desc-opt2 :opt 0.5 loss)
+        opt (c/grad-desc-opt :opt 0.5 loss)
         sess (g/build->session opt)
         _ (g/run-global-vars-init sess)
         loss-init (g/produce sess loss)]
@@ -138,7 +138,7 @@
         a (c/vari :a init-a)
         b (c/vari :b init-b)
         loss (o/mat-mul a b)
-        opt (c/grad-desc-opt2 :opt 0.5 loss)
+        opt (c/grad-desc-opt :opt 0.5 loss)
         sess (g/build->session opt)
         _ (g/run-global-vars-init sess)
         loss-init (g/produce sess loss)]
@@ -150,7 +150,7 @@
   (let [init-a 10.
         a (c/vari :a init-a)
         loss (o/sin a)
-        opt (c/grad-desc-opt2 :opt 0.5 loss)
+        opt (c/grad-desc-opt :opt 0.5 loss)
         sess (g/build->session opt)
         _ (g/run-global-vars-init sess)
         loss-init (g/produce sess loss)]
@@ -162,7 +162,7 @@
   (let [init-a [[1. 2. 3.]]
         a (c/vari :a init-a)
         loss (o/mean a [0 1])
-        opt (c/grad-desc-opt2 :opt 0.5 loss)
+        opt (c/grad-desc-opt :opt 0.5 loss)
         sess (g/build->session opt)
         _ (g/run-global-vars-init sess)
         loss-init (g/produce sess loss)]
@@ -176,7 +176,7 @@
   (let [init-a 1.
         a (c/vari :a init-a)
         loss (o/sigmoid a)
-        opt (c/grad-desc-opt2 :opt 0.5 loss)
+        opt (c/grad-desc-opt :opt 0.5 loss)
         sess (g/build->session opt)
         _ (g/run-global-vars-init sess)
         loss-init (g/produce sess loss)]
@@ -188,7 +188,7 @@
   (let [init-a 1.
         a (c/vari :a init-a)
         loss (o/relu a)
-        opt (c/grad-desc-opt2 :opt 0.5 loss)
+        opt (c/grad-desc-opt :opt 0.5 loss)
         sess (g/build->session opt)
         _ (g/run-global-vars-init sess)
         loss-init (g/produce sess loss)]
@@ -202,7 +202,7 @@
   (let [init-a 1.
         a (c/vari :a init-a)
         loss (o/relu-6 a)
-        opt (c/grad-desc-opt2 :opt 0.5 loss)
+        opt (c/grad-desc-opt :opt 0.5 loss)
         sess (g/build->session opt)
         _ (g/run-global-vars-init sess)
         loss-init (g/produce sess loss)]
@@ -216,7 +216,7 @@
   (let [init-a 1.
         a (c/vari :a init-a)
         loss (o/l2-loss a)
-        opt (c/grad-desc-opt2 :opt 0.5 loss)
+        opt (c/grad-desc-opt :opt 0.5 loss)
         sess (g/build->session opt)
         _ (g/run-global-vars-init sess)
         loss-init (g/produce sess loss)]
@@ -238,7 +238,7 @@
                          :padding "SAME"
                          :data_format "NHWC"}
                         input kernel)
-        opt (c/grad-desc-opt2 :opt 0.5 loss)
+        opt (c/grad-desc-opt :opt 0.5 loss)
         sess (g/build->session opt)
         _ (g/run-global-vars-init sess)
         loss-init (g/produce sess loss)]
@@ -257,7 +257,7 @@
                              input
                              [1 1 2 1]
                              [1 1 1 1])
-        opt (c/grad-desc-opt2 :opt 0.5 loss)
+        opt (c/grad-desc-opt :opt 0.5 loss)
         sess (g/build->session opt)
         _ (g/run-global-vars-init sess)
         loss-init (g/produce sess loss)]
@@ -269,7 +269,7 @@
   (let [init-a [1. 2. 3. 4.]
         a (c/vari :a init-a)
         loss (o/reshape a [2 2])
-        opt (c/grad-desc-opt2 :opt 0.5 loss)
+        opt (c/grad-desc-opt :opt 0.5 loss)
         sess (g/build->session opt)
         _ (g/run-global-vars-init sess)
         loss-init (solidify (g/produce sess loss))]
@@ -287,7 +287,7 @@
         feed {:a init-a}
         loss (c/dense {:units 2}
                       a)
-        opt (c/grad-desc-opt2 :opt 0.5 loss)
+        opt (c/grad-desc-opt :opt 0.5 loss)
         sess (g/build->session opt)
         _ (g/run-global-vars-init sess)
         loss-init (g/produce sess loss feed)]
@@ -303,7 +303,7 @@
   (let [init-a [1. 3. 2. 0.]
         a (c/vari :a init-a)
         loss (o/arg-max a 0)
-        opt (c/grad-desc-opt2 :opt 0.5 loss)
+        opt (c/grad-desc-opt :opt 0.5 loss)
         sess (g/build->session opt)
         _ (g/run-global-vars-init sess)
         loss-init (g/produce sess loss)]
@@ -318,7 +318,7 @@
   (let [init-a [[1. 2. 3.]]
         a (c/vari :a init-a)
         loss (c/reduce-mean a)
-        opt (c/grad-desc-opt2 :opt 0.5 loss)
+        opt (c/grad-desc-opt :opt 0.5 loss)
         sess (g/build->session opt)
         _ (g/run-global-vars-init sess)
         loss-init (g/produce sess loss)]
@@ -332,7 +332,7 @@
   (let [init-a [[1. 2. 3.]]
         a (c/vari :a init-a)
         loss (c/reduce-sum a)
-        opt (c/grad-desc-opt2 :opt 0.5 loss)
+        opt (c/grad-desc-opt :opt 0.5 loss)
         sess (g/build->session opt)
         _ (g/run-global-vars-init sess)
         loss-init (g/produce sess loss)]
@@ -348,7 +348,7 @@
   (let [init-a [[1. 2. 3.]]
         a (c/vari :a init-a)
         loss (c/reduce-prod a)
-        opt (c/grad-desc-opt2 :opt 0.5 loss)
+        opt (c/grad-desc-opt :opt 0.5 loss)
         sess (g/build->session opt)
         _ (g/run-global-vars-init sess)
         loss-init (g/produce sess loss)]
@@ -364,7 +364,7 @@
   (let [init-a [[1. 2. 3.]]
         a (c/vari :a init-a)
         loss (c/dropout 0.5 a)
-        opt (c/grad-desc-opt2 :opt 0.5 loss)
+        opt (c/grad-desc-opt :opt 0.5 loss)
         sess (g/build->session opt)
         _ (g/run-global-vars-init sess)
         loss-init (g/produce sess loss)]
@@ -382,7 +382,7 @@
         a (c/vari :a init-a)
         b (c/vari :b init-b)
         loss (o/softmax-cross-entropy-with-logits a b)
-        opt (c/grad-desc-opt2 :opt 0.5 loss)
+        opt (c/grad-desc-opt :opt 0.5 loss)
         sess (g/build->session opt)
         _ (g/run-global-vars-init sess)
         loss-init (g/produce sess loss)]

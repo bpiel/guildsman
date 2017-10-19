@@ -7,8 +7,8 @@
             [com.billpiel.guildsman.util :as ut]
             com.billpiel.guildsman.gradients
             com.billpiel.guildsman.grad-desc-opt
-            com.billpiel.guildsman.gradients2
-            com.billpiel.guildsman.grad-desc-opt2
+            com.billpiel.guildsman.gradients-clj
+            com.billpiel.guildsman.grad-desc-opt-clj
             [com.billpiel.guildsman.data-type :as dt]
             com.billpiel.guildsman.common)
   (:import [com.billpiel.guildsman.common Graph]
