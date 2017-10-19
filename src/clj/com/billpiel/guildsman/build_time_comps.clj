@@ -73,8 +73,4 @@
          (o/mul stddev)
          (o/add mean))]))
 
-(defmethod mc/build-macro :l2-loss
-  [^Graph g {:keys [id attrs inputs] :as args}]
-  [(o/l2-loss id
-              (or attrs {})
-              (first inputs))])
+

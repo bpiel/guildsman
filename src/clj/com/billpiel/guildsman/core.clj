@@ -4,18 +4,35 @@
             [com.billpiel.guildsman.session :as sess]
             [com.billpiel.guildsman.tensor-mgr :as tm]
             [com.billpiel.guildsman.op-node :as opn]
+            [com.billpiel.guildsman.ops-gen-util :as ogu]
             [com.billpiel.guildsman.util :as ut]
-            com.billpiel.guildsman.macros
+            [com.billpiel.guildsman.scope :as sc]
+            [com.billpiel.guildsman.macros :as mc]
             com.billpiel.guildsman.gradients
             com.billpiel.guildsman.grad-desc-opt
             com.billpiel.guildsman.gradients2
             com.billpiel.guildsman.grad-desc-opt2
-            com.billpiel.guildsman.plan-time-comps
+            ;;com.billpiel.guildsman.plan-time-comps
             com.billpiel.guildsman.build-time-comps
-            com.billpiel.guildsman.ops
-            com.billpiel.guildsman.common)
+            [com.billpiel.guildsman.ops :as o]
+            [com.billpiel.guildsman.data-type :as dt]
+            com.billpiel.guildsman.common
+            [clojure.walk :as w])
   (:import [com.billpiel.guildsman.common Graph]
            [com.billpiel.guildsman.session Session]))
+
+(def dt-float dt/float-kw)
+(def dt-double dt/double-kw)
+(def dt-int dt/int-kw)
+(def dt-uint dt/uint-kw)
+(def dt-string dt/string-kw)
+(def dt-long dt/long-kw)
+(def dt-bool dt/bool-kw)
+(def dt-type dt/type-kw)
+(def dt-list dt/list-kw)
+(def dt-tensor dt/tensor-kw)
+(def dt-shape dt/shape-kw)
+
 
 #_ (def plugins (atom #{}))
 (defonce plugins (atom #{})) ;; only support one for now?
@@ -297,3 +314,59 @@
   `(def ~ws-name
      (mk-workspace '~ws-name
                    (do ~@body))))
+
+
+(defn- mk-initilizer-from-template
+  [template shape dtype]
+  (update template :attrs
+          (partial w/postwalk-replace
+                   {:$/shape shape
+                    :$/dtype dtype})))
+
+(defn- mk-initilizer
+  [init {:keys [initializer]} shape dtype]
+  (let [init' (or init initializer)
+        dtype' (or dtype dt/float-kw)]
+    (cond (fn? init')
+          (mk-initilizer-from-template (init')
+                                       shape
+                                       dtype')
+          (map? init') (mk-initilizer-from-template init'
+                                                   shape
+                                                   dtype')
+          (nil? shape) init'
+          ;; TODO handle dtype/init mismatch
+          ;; TODO reshape the constant
+          :else init')))
+
+(defn- mk-regularizer
+  [regu {:keys [regularizer]}]
+  (let [regu' (or regu regularizer)]
+    (if (fn? regu')
+      (regu')
+      regu')))
+
+(defn vari
+  "MACRO Variable"
+  ([id-attrs] (vari id-attrs nil))
+  ([id-attrs init] (vari (ogu/id-attrs->id id-attrs)
+                      (ogu/id-attrs->attrs id-attrs)
+                      init))
+  ([id {:keys [dtype shape] :as attrs} init]
+   (sc/assoc-scopes-to-plan ;; TODO :(
+    {:macro :variable
+     :id id
+     :inputs [(mk-initilizer init sc/*var-scope* shape dtype)]
+     :attrs (if attrs
+              (update attrs
+                      :regularizer
+                      mk-regularizer
+                      sc/*var-scope*)
+              {})})))
+
+
+(load "core_random_ops")
+(load "core_init_ops")
+(load "core_math_ops")
+(load "core_array_ops")
+(load "core_nn_ops")
