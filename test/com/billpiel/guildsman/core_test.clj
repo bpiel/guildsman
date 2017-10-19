@@ -1,7 +1,7 @@
 (ns com.billpiel.guildsman.core-test
   (:require [clojure.test :as t]
             [com.billpiel.guildsman.core :as g]
-            [com.billpiel.guildsman.ops :as o]))
+            [com.billpiel.guildsman.ops.single :as o]))
 
 
 (t/deftest addition-scalar-float

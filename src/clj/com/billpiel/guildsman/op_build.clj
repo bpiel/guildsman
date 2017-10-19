@@ -1,6 +1,6 @@
 (ns com.billpiel.guildsman.op-build
   (:require [com.billpiel.guildsman.op-node :as opn]
-            [com.billpiel.guildsman.ops-gen-config :as ogc]
+            [com.billpiel.guildsman.ops.gen-config :as ogc]
             [com.billpiel.guildsman.data-type :as dt]
             [com.billpiel.guildsman.graph :as gr]
             [com.billpiel.guildsman.tensor :as tsr]

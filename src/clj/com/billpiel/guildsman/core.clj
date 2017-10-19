@@ -5,17 +5,27 @@
             [com.billpiel.guildsman.tensor-mgr :as tm]
             [com.billpiel.guildsman.op-node :as opn]
             [com.billpiel.guildsman.util :as ut]
-            com.billpiel.guildsman.macros
             com.billpiel.guildsman.gradients
             com.billpiel.guildsman.grad-desc-opt
-            com.billpiel.guildsman.gradients2
-            com.billpiel.guildsman.grad-desc-opt2
-            com.billpiel.guildsman.plan-time-comps
-            com.billpiel.guildsman.build-time-comps
-            com.billpiel.guildsman.ops
+            com.billpiel.guildsman.gradients-clj
+            com.billpiel.guildsman.grad-desc-opt-clj
+            [com.billpiel.guildsman.data-type :as dt]
             com.billpiel.guildsman.common)
   (:import [com.billpiel.guildsman.common Graph]
            [com.billpiel.guildsman.session Session]))
+
+(def dt-float dt/float-kw)
+(def dt-double dt/double-kw)
+(def dt-int dt/int-kw)
+(def dt-uint dt/uint-kw)
+(def dt-string dt/string-kw)
+(def dt-long dt/long-kw)
+(def dt-bool dt/bool-kw)
+(def dt-type dt/type-kw)
+(def dt-list dt/list-kw)
+(def dt-tensor dt/tensor-kw)
+(def dt-shape dt/shape-kw)
+
 
 #_ (def plugins (atom #{}))
 (defonce plugins (atom #{})) ;; only support one for now?
@@ -297,3 +307,10 @@
   `(def ~ws-name
      (mk-workspace '~ws-name
                    (do ~@body))))
+
+
+;; (load "core_random_ops")
+;; (load "core_init_ops")
+;; (load "core_math_ops")
+;; (load "core_array_ops")
+;; (load "core_nn_ops")
