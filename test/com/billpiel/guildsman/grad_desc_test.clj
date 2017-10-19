@@ -199,6 +199,20 @@
     (t/is (< (g/produce sess loss)
              loss-init))))
 
+(t/deftest relu6
+  (let [init-a 1.
+        a (p/v :a init-a)
+        loss (o/relu-6 a)
+        opt (p/grad-desc-opt2 :opt 0.5 loss)
+        sess (g/build->session opt)
+        _ (g/run-global-vars-init sess)
+        loss-init (g/produce sess loss)]
+    (g/run sess opt)
+    (t/is (< (g/produce sess a)
+             init-a))
+    (t/is (< (g/produce sess loss)
+             loss-init))))
+
 (t/deftest l2-loss
   (let [init-a 1.
         a (p/v :a init-a)
@@ -282,6 +296,8 @@
     (t/is (ndvec-less-than? (g/produce sess loss feed)
                             loss-init))))
 
+
+
 ;; no grad defined for arg-max
 #_
 (t/deftest arg-max-var-const
@@ -298,3 +314,79 @@
                             init-a))
     (t/is (< (g/produce sess loss)
              loss-init))))
+
+(t/deftest reduce-mean
+  (let [init-a [[1. 2. 3.]]
+        a (p/v :a init-a)
+        loss (p/reduce-mean a)
+        opt (p/grad-desc-opt2 :opt 0.5 loss)
+        sess (g/build->session opt)
+        _ (g/run-global-vars-init sess)
+        loss-init (g/produce sess loss)]
+    (g/run sess opt)
+    (t/is (ndvec-less-than? (g/produce sess a)
+                            init-a))
+    (t/is (< (g/produce sess loss)
+             loss-init))))
+
+(t/deftest reduce-sum
+  (let [init-a [[1. 2. 3.]]
+        a (p/v :a init-a)
+        loss (p/reduce-sum a)
+        opt (p/grad-desc-opt2 :opt 0.5 loss)
+        sess (g/build->session opt)
+        _ (g/run-global-vars-init sess)
+        loss-init (g/produce sess loss)]
+    (g/run sess opt)
+    (t/is (ndvec-less-than? (g/produce sess a)
+                            init-a))
+    (t/is (< (g/produce sess loss)
+             loss-init))))
+
+;; no grad for prod
+#_
+(t/deftest reduce-prod
+  (let [init-a [[1. 2. 3.]]
+        a (p/v :a init-a)
+        loss (p/reduce-prod a)
+        opt (p/grad-desc-opt2 :opt 0.5 loss)
+        sess (g/build->session opt)
+        _ (g/run-global-vars-init sess)
+        loss-init (g/produce sess loss)]
+    (g/run sess opt)
+    (t/is (ndvec-less-than? (g/produce sess a)
+                            init-a))
+    (t/is (< (g/produce sess loss)
+             loss-init))))
+
+;; no grad defined for floor
+#_
+(t/deftest dropout
+  (let [init-a [[1. 2. 3.]]
+        a (p/v :a init-a)
+        loss (p/dropout 0.5 a)
+        opt (p/grad-desc-opt2 :opt 0.5 loss)
+        sess (g/build->session opt)
+        _ (g/run-global-vars-init sess)
+        loss-init (g/produce sess loss)]
+    (g/run sess opt)
+    (t/is (ndvec-less-than? (g/produce sess a)
+                            init-a))
+    (t/is (< (g/produce sess loss)
+             loss-init))))
+
+;; no gradient defined for softmax-cross-entropy-with-logits
+#_
+(t/deftest softmax-cross-entropy-with-logits-var-var
+  (let [init-a [[1. 2. 3.]]
+        init-b [[2. 4. 4.]]
+        a (p/v :a init-a)
+        b (p/v :b init-b)
+        loss (o/softmax-cross-entropy-with-logits a b)
+        opt (p/grad-desc-opt2 :opt 0.5 loss)
+        sess (g/build->session opt)
+        _ (g/run-global-vars-init sess)
+        loss-init (g/produce sess loss)]
+    (g/run sess opt)
+    (t/is (ndvec-less-than? (g/produce sess loss)
+                            loss-init))))
