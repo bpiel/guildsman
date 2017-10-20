@@ -186,6 +186,8 @@ These seem to more important. Ordered by priority:
 
 SoftmaxCrossEntropyWithLogits
 
+Floor
+
 Cast
 
 GatherV2
