@@ -5,32 +5,14 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 
-/**
- * Helper class for loading the TensorFlow Java native library.
- *
- * <p>The Java TensorFlow bindings require a native (JNI) library. This library
- * (libtensorflow_jni.so on Linux, libtensorflow_jni.dylib on OS X, tensorflow_jni.dll on Windows)
- * can be made available to the JVM using the java.library.path System property (e.g., using
- * -Djava.library.path command-line argument). However, doing so requires an additional step of
- * configuration.
- *
- * <p>Alternatively, the native libraries can be packaed in a .jar, making them easily usable from
- * build systems like Maven. However, in such cases, the native library has to be extracted from the
- * .jar archive.
- *
- * <p>NativeLibrary.load() takes care of this. First looking for the library in java.library.path
- * and failing that, it tries to find the OS and architecture specific version of the library in the
- * set of ClassLoader resources (under org/tensorflow/native/OS-ARCH). The resources paths used for
- * lookup must be consistent with any packaging (such as on Maven Central) of the TensorFlow Java
- * native libraries.
- */
 final class NativeLibrary {
   private static final boolean DEBUG =
       System.getProperty("org.tensorflow.NativeLibrary.DEBUG") != null;
-  private static final String LIBNAME = "tensorflow";
-  private static final String LIBNAME_JNI = "guildsman_jni";
+  private static final String LIB_TF = "tensorflow";
+  private static final String LIB_TF_FW = "tensorflow_framework";
+  private static final String LIB_GM_JNI = "guildsman_jni";
 
-  public static void load() {
+  public static void load() throws Exception, UnsatisfiedLinkError{
     if (isLoaded() || tryLoadLibrary()) {
       // Either:
       // (1) The native library has already been statically loaded, OR
@@ -44,58 +26,38 @@ final class NativeLibrary {
     }
     // Native code is not present, perhaps it has been packaged into the .jar file containing this.
 
-    // LOAD TF LIB
-    final String resourceNameLib = makeResourceName(LIBNAME);
+    loadLibrary(LIB_TF_FW);
+    loadLibrary(LIB_TF);
+    loadLibrary(LIB_GM_JNI);
+  }
+
+  private static boolean loadLibrary(String libname) throws Exception, UnsatisfiedLinkError{
+    final String resourceNameLib = makeResourceName(libname);
     log("resourceName: " + resourceNameLib);
     final InputStream resourceLib =
         NativeLibrary.class.getClassLoader().getResourceAsStream(resourceNameLib);
     if (resourceLib == null) {
       throw new UnsatisfiedLinkError(
           String.format(
-              "Cannot find TensorFlow library for OS: %s, architecture: %s. See "
-                  + "https://github.com/tensorflow/tensorflow/tree/master/tensorflow/java/README.md"
-                  + " for possible solutions (such as building the library from source). Additional"
-                  + " information on attempts to find the native library can be obtained by adding"
-                  + " org.tensorflow.NativeLibrary.DEBUG=1 to the system properties of the JVM.",
-              os(), architecture()));
+              "CANNOT FIND LIBRARY ==> file: %s, OS: %s, architecture: %s" +
+              " \n\nPlease contact Bill. ",
+              resourceNameLib, os(), architecture()));
     }
     try {
-        System.load(extractResource(resourceLib, LIBNAME));
+        System.load(extractResource(resourceLib, libname));
     } catch (IOException e) {
       throw new UnsatisfiedLinkError(
           String.format(
               "Unable to extract tensorflow library into a temporary file (%s)", e.toString()));
     }
-
-    // LOAD JNI LIB
-    final String resourceNameLibJNI = makeResourceName(LIBNAME_JNI);
-    log("resourceName: " + resourceNameLibJNI);
-    final InputStream resourceLibJNI =
-        NativeLibrary.class.getClassLoader().getResourceAsStream(resourceNameLibJNI);
-    if (resourceLibJNI == null) {
-      throw new UnsatisfiedLinkError(
-          String.format(
-              "Cannot find TensorFlow native library for OS: %s, architecture: %s. See "
-                  + "https://github.com/tensorflow/tensorflow/tree/master/tensorflow/java/README.md"
-                  + " for possible solutions (such as building the library from source). Additional"
-                  + " information on attempts to find the native library can be obtained by adding"
-                  + " org.tensorflow.NativeLibrary.DEBUG=1 to the system properties of the JVM.",
-              os(), architecture()));
-    }
-    try {
-      System.load(extractResource(resourceLibJNI, LIBNAME_JNI));
-    } catch (IOException e) {
-      throw new UnsatisfiedLinkError(
-          String.format(
-              "Unable to extract native library into a temporary file (%s)", e.toString()));
-    }
-    
+    return true;
   }
 
   private static boolean tryLoadLibrary() {
     try {
-      System.loadLibrary(LIBNAME);
-      System.loadLibrary(LIBNAME_JNI);
+      System.loadLibrary(LIB_TF);
+      System.loadLibrary(LIB_TF_FW);
+      System.loadLibrary(LIB_GM_JNI);
       return true;
     } catch (UnsatisfiedLinkError e) {
       log("tryLoadLibraryFailed: " + e.getMessage());
@@ -113,8 +75,19 @@ final class NativeLibrary {
     }
   }
 
-    private static String extractResource(InputStream resource, String libname) throws IOException {
-    final String sampleFilename = System.mapLibraryName(libname);
+  private static String mapLibraryName(String libname) throws Exception {
+      String os1 = os();
+      if (os1.equals("linux")) {
+              return "lib" + libname + ".so";
+      } else if (os1.equals("darwin")) {
+              return "lib" + libname + ".so";              
+      } else {
+            throw new Exception ("Windows not supported. Please contact Bill.");
+      }      
+  }
+    
+    private static String extractResource(InputStream resource, String libname) throws Exception {
+    final String sampleFilename = mapLibraryName(libname);
     //final int dot = sampleFilename.indexOf(".");
     //final String prefix = (dot < 0) ? sampleFilename : sampleFilename.substring(0, dot);
     //final String suffix = (dot < 0) ? null : sampleFilename.substring(dot);
@@ -154,11 +127,11 @@ final class NativeLibrary {
       System.err.println("org.tensorflow.NativeLibrary: " + msg);
     }
   }
-
-  private static String makeResourceName(String libname) {
+    
+  private static String makeResourceName(String libname) throws Exception{
     return "native/"
         + String.format("%s-%s/", os(), architecture())
-        + System.mapLibraryName(libname);
+        + mapLibraryName(libname);
   }
 
   private static long copy(InputStream src, File dstFile) throws IOException {
