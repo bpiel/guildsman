@@ -192,7 +192,11 @@ In the example below, both `graph` and `session` will be closed upon
        (build->session graph)
        (run-all plans feed))))
 
-(defn run-global-vars-init [^Session session]
+(defn run-global-vars-init
+  "Runs all variable initialization nodes in a graph. Variable state
+  exists only in the context of a session. This function is typically
+  called immediately after a session is created."
+  [^Session session]
   (let [g (:graph session)
         inits (gr/get-global-var-init-assign-ops g)]
     (run-all session inits)
@@ -218,6 +222,13 @@ In the example below, both `graph` and `session` will be closed upon
       (fetch-all plans feed)))
 
 (defn produce
+  "Given a plan, creates a graph, builds the plan, starts a session,
+  executes the plan root, fetches and returns the value. The graph and
+  session are closed automatically.
+
+  Given a Session defrecord, plan, and, optionally a feed map, will
+  build a plan, executes the plan root, fetches and returns the
+  value. Graph and session are not closed."
   ([plan]
    (with-close-let [{:keys [graph] :as session} (build->session plan)]
      (-> session
