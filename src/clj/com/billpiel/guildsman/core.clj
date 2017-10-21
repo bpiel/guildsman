@@ -30,7 +30,9 @@
 #_ (def plugins (atom #{}))
 (defonce plugins (atom #{})) ;; only support one for now?
 
-(defmulti close (fn [v] (type v)))
+(defmulti close
+  "Close a Graph or Session defrecord."
+  (fn [v] (type v)))
 
 (defmethod close :default [_])
 
@@ -55,6 +57,13 @@
          r#))))
 
 (defmacro with-close-let
+  "Calls `close` on all local bindings in `bindings`.
+In the example below, both `graph` and `session` will be closed upon
+  exiting the `with-close-let` form.
+
+(with-close-let [{:keys [graph] :as session} (build->session plan)]
+  ...use session...
+)"
   [bindings & body]
   (with-close-let* bindings body))
 
@@ -66,14 +75,23 @@
     (tm/release-tensor-ref tensor)    
     r))
 
-(defn graph->session [^Graph graph]
+(defn graph->session
+  "Takes a Graph defrecord. Creates and returns a Session defrecord."
+  [^Graph graph]
   (sess/create graph))
 
 (defn build->graph
+  "Given a plan, creates a Graph defrecord, builds the plan in that
+  graph and returns the new graph.
+
+  Given a Graph defrecord and a plan, builds the plan in that graph
+  and returns the graph.
+"
   ([plan] (build->graph (gr/create) plan))
   ([^Graph graph plan] (bdr/build->graph graph plan)))
 
 (defn build-all->graph
+  "Like `build->graph` except that it takes a sequence of plans."
   ([plans]
    (build-all->graph (build->graph (first plans))
                      (rest plans)))
@@ -83,6 +101,12 @@
    graph))
 
 (defn build->session
+  "Given a plan, creates a Graph defrecord, builds the plan in that
+  graph, creates a Session defrecord and returns the new session.
+
+  Given a Graph defrecord and a plan, builds the plan in that graph,
+  creates a Session defrecord and returns the new session.
+"
   ([plan]
    (-> plan
        build->graph
@@ -93,6 +117,7 @@
         graph->session)))
 
 (defn build-all->session
+  "Like `build->session` except that it takes a sequence of plans."
   ([plans]
    (-> plans
        build-all->graph
@@ -102,13 +127,27 @@
         (build-all->graph graph)
         graph->session)))
 
-(defn run [^Session session plan & [feed]]
+(defn run
+  "Runs the node at the root of `plan` within `session`.
+
+  `feed` can be provided optionally. It is a map. Keys are either
+  plans or keywords that correspond to pre-built nodes. Values will
+  override the values of their respective nodes. This is typically
+  used to provide values for placeholder nodes."
+   [^Session session plan & [feed]]
   (sess/run session plan feed))
 
-(defn run-all [^Session session plans & [feed]]
+(defn run-all
+  "Like `run` except that it takes a sequence of plans. In the example
+  below, the 'opt' node is run one-hundred times, which might be done
+  to train a network.
+
+  (run-all session (repeat 100 opt))"
+  [^Session session plans & [feed]]
   (sess/run-all session plans feed))
 
-(defn fetch->tensor [^Session session plan & [feed]]
+(defn fetch->tensor
+  [^Session session plan & [feed]]
   (sess/fetch->tensor session plan feed))
 
 (defn fetch-all->tensors [^Session session plans & [feed targets]]
@@ -130,6 +169,9 @@
             (fetch-all session plans feed targets))))
 
 (defn exec
+  "`exec` creates a new Session defrecord, builds plan and runs the root of plan. Returns the new session.
+  It can optionally be provided an existing Graph defrecord and feed
+  map. "
   ([plan]
    (-> plan
        build->graph
@@ -140,6 +182,7 @@
        (run plan feed))))
 
 (defn exec-all
+  "Like `exec` except that it takes a sequence of plans."
   ([plans]
    (-> plans
        build-all->session
@@ -307,10 +350,3 @@
   `(def ~ws-name
      (mk-workspace '~ws-name
                    (do ~@body))))
-
-
-;; (load "core_random_ops")
-;; (load "core_init_ops")
-;; (load "core_math_ops")
-;; (load "core_array_ops")
-;; (load "core_nn_ops")
