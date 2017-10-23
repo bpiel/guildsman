@@ -67,7 +67,12 @@
        vari])))
 
 (defn vari
-  "MACRO Variable"
+  "Creates a plan for a variable (VariableV2).
+
+  init - initial value; scalar or vector
+  shape - shape of the tensor managed by this variable as vector
+  dtype - type of the tensor values as keyword (ex dt-float)
+"
   ([id-attrs] (vari id-attrs nil))
   ([id-attrs init] (vari (ogu/id-attrs->id id-attrs)
                       (ogu/id-attrs->attrs id-attrs)
@@ -85,6 +90,8 @@
               {})})))
 
 (defn accuracy
+  "Returns plans to calculate what percentage (0.0 - 1.0) of elements
+  of 'a' and 'b' are equal. 'a' and 'b' are plans."
   ([a b] (accuracy nil a b))  
   ([id a b]
    (ut/$- ->> (o/equal a b)

@@ -20,6 +20,17 @@
          (o/add mean))]))
 
 (defn truncated-normal
+  "Outputs random values from a truncated normal distribution.
+  Can be used as a variable initializer.
+
+  The generated values follow a normal distribution with specified mean and
+  standard deviation, except that values whose magnitude is more than 2 standard
+  deviations from the mean are dropped and re-picked.
+
+  shape:  1-D vector. The shape of the output tensor.
+  mean:   scalar value of type `dtype`. The mean of the truncated normal distribution.
+  stddev: scalar value of type `dtype`. The standard deviation of the truncated normal distribution.
+  dtype:  type of the output (ex dt-float)"
   ([]
    (sc/assoc-scopes-to-plan
     {:macro :truncated-normal
@@ -41,6 +52,8 @@
                        shape)]))
 
 (defn random-uniform
+  "Can ONLY be used as a variable initializer. For other uses, use the
+  single op."
   ([]
    {:macro :random-uniform
     :attrs {:shape :$/shape
