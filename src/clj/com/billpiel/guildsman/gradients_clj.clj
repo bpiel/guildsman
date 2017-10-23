@@ -1,5 +1,5 @@
 (ns com.billpiel.guildsman.gradients-clj
-  (:require [com.billpiel.guildsman.ops.single :as o]
+  (:require [com.billpiel.guildsman.ops.basic :as o]
             [com.billpiel.guildsman.ops.composite :as c]
             [com.billpiel.guildsman.macros :as mcro]
             [com.billpiel.guildsman.graph :as gr]

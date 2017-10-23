@@ -9,7 +9,7 @@
             [com.billpiel.guildsman.scope :as sc]
             [com.billpiel.guildsman.macros :as mc]
             [com.billpiel.guildsman.util :as ut]
-            [com.billpiel.guildsman.ops.single :as o]
+            [com.billpiel.guildsman.ops.basic :as o]
             [com.billpiel.guildsman.data-type :as dt]
             com.billpiel.guildsman.common
             [clojure.walk :as w])

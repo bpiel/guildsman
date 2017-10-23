@@ -128,14 +128,14 @@
 (defn dyn-defn
   [name-sym bodies & [docs]]
   (let [d (or docs "UNDOCUMENTED")]
-    (binding [*ns* (the-ns 'com.billpiel.guildsman.ops.single)] ;; TODO not great?
+    (binding [*ns* (the-ns 'com.billpiel.guildsman.ops.basic)] ;; TODO not great?
       (eval `(defn ~name-sym
                ~d
                ~@bodies)))))
 
 (defn dyn-defmethod
   [name-sym dispatch-val body]
-  (binding [*ns* (the-ns 'com.billpiel.guildsman.ops.single)]
+  (binding [*ns* (the-ns 'com.billpiel.guildsman.ops.basic)]
     (eval `(defmethod ~name-sym ~dispatch-val
              ~body))))
 

@@ -2,7 +2,7 @@
   (:require [com.billpiel.guildsman.core :as ft]
             [com.billpiel.guildsman.scope :as sc]
             [com.billpiel.guildsman.shape :as sh]
-            [com.billpiel.guildsman.ops.single :as o]
+            [com.billpiel.guildsman.ops.basic :as o]
             [com.billpiel.guildsman.macros :as mcro]
             [com.billpiel.guildsman.op-node :as opn]
             [com.billpiel.guildsman.ops-gen :as ops-gen]

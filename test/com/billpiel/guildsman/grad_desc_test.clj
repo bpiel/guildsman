@@ -1,7 +1,7 @@
 (ns com.billpiel.guildsman.grad-desc-test
   (:require [clojure.test :as t]
             [com.billpiel.guildsman.core :as g]
-            [com.billpiel.guildsman.ops.single :as o]
+            [com.billpiel.guildsman.ops.basic :as o]
             [com.billpiel.guildsman.ops.composite :as c]
             [com.billpiel.guildsman.data-type :as dt]))
 

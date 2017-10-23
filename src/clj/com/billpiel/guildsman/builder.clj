@@ -1,6 +1,6 @@
 (ns com.billpiel.guildsman.builder
   (:require [com.billpiel.guildsman.common :as com]
-            [com.billpiel.guildsman.ops.single :as o]
+            [com.billpiel.guildsman.ops.basic :as o]
             [com.billpiel.guildsman.op-node :as opn]
             [com.billpiel.guildsman.op-build :as obld]
             [com.billpiel.guildsman.graph :as gr]

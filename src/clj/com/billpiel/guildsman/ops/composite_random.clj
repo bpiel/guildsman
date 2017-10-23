@@ -53,7 +53,7 @@
 
 (defn random-uniform
   "Can ONLY be used as a variable initializer. For other uses, use the
-  single op."
+  basic op."
   ([]
    {:macro :random-uniform
     :attrs {:shape :$/shape

@@ -1,5 +1,5 @@
 (ns com.billpiel.guildsman.grad-desc-opt-clj
-  (:require [com.billpiel.guildsman.ops.single :as o]
+  (:require [com.billpiel.guildsman.ops.basic :as o]
             [com.billpiel.guildsman.op-node :as opn]
             [com.billpiel.guildsman.macros :as mc]
             [com.billpiel.guildsman.ops.gen-config :as ogc]
