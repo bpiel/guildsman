@@ -301,7 +301,7 @@ In the example below, both `graph` and `session` will be closed upon
             (reset! last-ex ex)))))
     true))
 
-(defn update-alpha
+(defn- update-alpha
   [{:keys [alpha] :as feed} step]
   (cond (nil? alpha)
         feed
