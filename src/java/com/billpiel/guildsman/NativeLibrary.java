@@ -12,7 +12,7 @@ final class NativeLibrary {
   private static final String LIB_TF_FW = "tensorflow_framework";
   private static final String LIB_GM_JNI = "guildsman_jni";
 
-  public static void load() throws Exception, UnsatisfiedLinkError{
+  public static void load() throws UnsatisfiedLinkError{
     if (isLoaded() || tryLoadLibrary()) {
       // Either:
       // (1) The native library has already been statically loaded, OR
@@ -26,9 +26,13 @@ final class NativeLibrary {
     }
     // Native code is not present, perhaps it has been packaged into the .jar file containing this.
 
-    loadLibrary(LIB_TF_FW);
-    loadLibrary(LIB_TF);
-    loadLibrary(LIB_GM_JNI);
+    try {
+        loadLibrary(LIB_TF_FW);
+        loadLibrary(LIB_TF);
+        loadLibrary(LIB_GM_JNI);
+    } catch (Exception e) {
+        String.format("EXCEPTION: %s", e.toString());
+    }
   }
 
   private static boolean loadLibrary(String libname) throws Exception, UnsatisfiedLinkError{
