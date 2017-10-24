@@ -26,6 +26,9 @@
 (def dt-tensor dt/tensor-kw)
 (def dt-shape dt/shape-kw)
 
+(defmacro id$->>
+  [& body]
+  `(ut/id$->> ~@body))
 
 #_ (def plugins (atom #{}))
 (defonce plugins (atom #{})) ;; only support one for now?
