@@ -295,8 +295,6 @@
     (t/is (ndvec-less-than? (g/produce sess loss feed)
                             loss-init))))
 
-
-
 ;; no grad defined for arg-max
 #_
 (t/deftest arg-max-var-const
@@ -341,6 +339,20 @@
                             init-a))
     (t/is (< (g/produce sess loss)
              loss-init))))
+
+(t/deftest mean-squared-error
+  (let [init-a [[10.]]
+        init-b [-3.]
+        a (c/vari :a init-a)
+        b (c/vari :b init-b)
+        loss (c/mean-squared-error a b)
+        opt (c/grad-desc-opt :opt 0.5 loss)
+        sess (g/build->session opt)
+        _ (g/run-global-vars-init sess)
+        loss-init (g/produce sess loss)]
+    (g/run sess opt)
+    (t/is (ndvec-less-than? (g/produce sess loss)
+                            loss-init))))
 
 ;; no grad for prod
 #_

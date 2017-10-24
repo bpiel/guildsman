@@ -89,15 +89,6 @@
                       sc/*var-scope*)
               {})})))
 
-(defn accuracy
-  "Returns plans to calculate what percentage (0.0 - 1.0) of elements
-  of 'a' and 'b' are equal. 'a' and 'b' are plans."
-  ([a b] (accuracy nil a b))  
-  ([id a b]
-   (ut/$- ->> (o/equal a b)
-          (o/cast-tf {:SrcT dt/bool-kw :DstT dt/float-kw})
-          (o/mean :accuracy $ (reduction-dims $))
-          (sc/with-push-both-scopes (or id :accuracy)))))
 
 (load "composite_random")
 (load "composite_init")
@@ -105,3 +96,4 @@
 (load "composite_array")
 (load "composite_nn")
 (load "composite_grad")
+(load "composite_metrics")
