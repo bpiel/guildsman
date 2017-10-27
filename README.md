@@ -200,6 +200,10 @@ Prod
 
 ConcatV2
 
+Slice
+
+Tile
+
 TopKV2
 
 
