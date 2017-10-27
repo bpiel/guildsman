@@ -182,7 +182,7 @@ https://github.com/tensorflow/tensorflow/pull/12391
 
 #### Prioritized
 
-These seem to more important. Ordered by priority:
+These seem to be more important. Ordered by priority:
 
 SoftmaxCrossEntropyWithLogits
 
