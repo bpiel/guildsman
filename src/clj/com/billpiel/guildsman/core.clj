@@ -387,10 +387,20 @@ In the example below, both `graph` and `session` will be closed upon
   [ws & args]
   :INIT-MAIN-NOT-IMPLEMENTED)
 
-
 (defn- ws-build-main
   [ws & args]
   :BUILD-MAIN-NOT-IMPLEMENTED)
+
+(defn- ws-create-session-main [ws & args] :NOT-IMPLEMENTED)
+(defn- ws-init-vars-main [ws & args] :NOT-IMPLEMENTED)
+(defn- ws-restore-vars-main [ws & args] :NOT-IMPLEMENTED)
+(defn- ws-save-vars-main [ws & args] :NOT-IMPLEMENTED)
+(defn- ws-train-main [ws & args] :NOT-IMPLEMENTED)
+(defn- ws-train-interval-main [ws & args] :NOT-IMPLEMENTED)
+(defn- ws-test-main [ws & args] :NOT-IMPLEMENTED)
+(defn- ws-predict-main [ws & args] :NOT-IMPLEMENTED)
+(defn- ws-close-session-main [ws & args] :NOT-IMPLEMENTED)
+(defn- ws-close-main [ws & args] :NOT-IMPLEMENTED)
 
 (defn- get-plugin-forms
   [ws-name ws-def plugins hook]
@@ -403,52 +413,35 @@ In the example below, both `graph` and `session` will be closed upon
 ;; TODO support override
 (defn- mk-ws-src-*
   [main-fn hook ws-name ws-def plugins ]
-  `(fn [~'cmd ~'ws ~'& ~'args]
+  `(fn [~'cmd ~'& ~'args]
      (let [{:keys [~'state]} ~'ws]
        ~@(get-plugin-forms ws-name ws-def plugins [hook :pre])
        (let [~'r (apply ~main-fn ~'ws ~'args)]
          ~@(get-plugin-forms ws-name ws-def plugins [hook :post])
          ~'r))))
 
-(defn- mk-ws-src-build
-  [ws-name ws-def plugins]
-  `(fn [~'cmd ~'ws ~'& ~'args]
-     (let [{:keys [~'state]} ~'ws]
-       ~@(get-plugin-forms ws-name ws-def plugins [:build :pre])
-       (let [~'r (apply ws-build-main ~'ws ~'args)]
-         ~@(get-plugin-forms ws-name ws-def plugins [:build :post])
-         ~'r))))
+(defmacro mk-ws-src-**
+  [cmd-name]
+  (let [fn-sym (symbol "com.billpiel.guildsman.core" (str "ws-" cmd-name "-main"))
+        hook (keyword cmd-name)]
+    `(mk-ws-src-* '~fn-sym ~hook ~'ws-name ~'ws-def ~'plugins)))
 
 (defn mk-ws-src-map
   [ws-name {:keys [plugins] :as ws-def}]
-  {:status `(fn ~'[_ ws & args] (apply ws-status-main ~'ws ~'args))
-   :init  (mk-ws-src-* `ws-build-main :build ws-name ws-def plugins)
-   :build (mk-ws-src-* `ws-build-main :build ws-name ws-def plugins)
-   :create-session (mk-ws-src-* `ws-build-main :build ws-name ws-def plugins)
-   :init-vars (mk-ws-src-* `ws-build-main :build ws-name ws-def plugins)
-   :restore-vars (mk-ws-src-* `ws-build-main :build ws-name ws-def plugins)
-   :save-vars (mk-ws-src-* `ws-build-main :build ws-name ws-def plugins)
-   :train (mk-ws-src-* `ws-build-main :build ws-name ws-def plugins)
-   :train-interval (mk-ws-src-* `ws-build-main :build ws-name ws-def plugins)
-   :test (mk-ws-src-* `ws-build-main :build ws-name ws-def plugins)
-   :predict (mk-ws-src-* `ws-build-main :build ws-name ws-def plugins)
-   :close-session (mk-ws-src-* `ws-build-main :build ws-name ws-def plugins)
-   :close (mk-ws-src-* `ws-build-main :build ws-name ws-def plugins)})
-
-#_
-(fn [cmd & args]
-  (let [{:keys [state]} ws]
-    (apply dev/pre-build state args)
-    :...
-    (let [r (apply build ws args)]
-      (apply dev/post-build state r args)
-      :...
-      r)))
-
-
-#_(defmacro def-workspace*
-  [ws-name src]
-  (list 'def ws-name src))
+  {:status (mk-ws-src-** "status")
+   :init (mk-ws-src-** "init")
+   :build (mk-ws-src-** "build")
+   #_(mk-ws-src-* `ws-build-main :build ws-name ws-def plugins)
+   :create-session (mk-ws-src-** "create-session")
+   :init-vars (mk-ws-src-** "init-vars")
+   :restore-vars (mk-ws-src-** "restore-vars")
+   :save-vars (mk-ws-src-** "save-vars")
+   :train (mk-ws-src-** "train")
+   :train-interval (mk-ws-src-** "train-interval")
+   :test (mk-ws-src-** "test")
+   :predict (mk-ws-src-** "predict")
+   :close-session (mk-ws-src-** "close-session")
+   :close (mk-ws-src-** "close")})
 
 (defmacro def-workspace
   [ws-name & body]
@@ -457,12 +450,8 @@ In the example below, both `graph` and `session` will be closed upon
          src# (mk-ws-source '~ws-name src-map#)]
      (def ~ws-name (eval src#))
      (alter-meta! (var ~ws-name) assoc :source src# :source-map src-map#)
+     ((-> ~ws-name :multi) :init)
      (var ~ws-name)))
-
-
-#_(clojure.pprint/pprint  (macroexpand '(defmulti mmm (fn [a & _] a))))
-
-#_(clojure.pprint/pprint  (macroexpand '(defmethod mmm :hi [_ b] (inc b))))
 
 #_ (def-workspace wsx {:plugins #{com.billpiel.guildsman.dev/plugin}})
 
@@ -471,31 +460,5 @@ In the example below, both `graph` and `session` will be closed upon
 
 #_(clojure.pprint/pprint (meta #'wsx))
 
-#_((-> wsx :multi) :build 1 2)
-
-(defn mm1*
-  [& body]
-  `(inc ~@body))
-
-(defmacro idmac [x] x)
-
-(defmacro mm2
-  [& body]
-  (apply mm1* body))
-
-(defmacro mm3
-  [body]
-  (let [f (fn [b] `~b)]
-    (f body)))
-
-(defmacro mm1
-  [& body]
-  `(let [src# (mm2 ~@body)]
-     (+ src#)))
-
-
-(macroexpand '(mm1 (dec 44) 5))
-
-(mm1 (dec 44))
-
+#_((wsx :multi) :status)
 

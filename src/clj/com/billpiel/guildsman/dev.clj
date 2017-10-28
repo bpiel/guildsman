@@ -564,6 +564,9 @@
 (defn plugin-build-post
   [a] a)
 
+(defn plugin-train-pre
+  [a] a)
+
 (defn plugin-setup-release-pre
   [])
 
@@ -572,18 +575,19 @@
   )
 (defn plugin-setup-build-post [ws-name ws-def]
   [`(plugin-build-post :hello )])
-(defn plugin-setup-train-fetch [])
-(defn plugin-setup-log-post [])
-(defn plugin-setup-test-fetch [])
-(defn plugin-setup-dev-dummy-override [])
+(defn plugin-setup-train-pre [ws-name ws-def]
+  [`(plugin-train-pre :hello )])
+(defn plugin-setup-train-interval-post [ws-name ws-def])
+(defn plugin-setup-test-pre [ws-name ws-def])
+(defn plugin-setup-test-post [ws-name ws-def])
+(defn plugin-setup-dev-dummy-override [ws-name ws-def])
 
 (def plugin
   {:init {:post plugin-setup-init-post}
    :build {:post plugin-setup-build-post}
-   :train {:fetch plugin-setup-train-fetch
-           :log nil}
-   :test {:fetch  plugin-setup-test-fetch
-          :log nil}
+   :train-interval {:post plugin-setup-train-interval-post}
+   :train {:pre plugin-setup-train-pre}
+   :test {:pre  plugin-setup-test-pre
+          :post plugin-setup-test-post}
    :release {:pre plugin-setup-release-pre}
-   ::start-web-svr {:override plugin-setup-dev-dummy-override}
-   ::stop-web-svr {:override plugin-setup-dev-dummy-override}})
+   ::dummy {:override plugin-setup-dev-dummy-override}})
