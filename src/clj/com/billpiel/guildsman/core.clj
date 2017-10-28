@@ -359,8 +359,143 @@ In the example below, both `graph` and `session` will be closed upon
     (ws-do-auto m)
     m))
 
-(defmacro def-workspace
+#_(defmacro def-workspace
   [ws-name & body]
   `(def ~ws-name
      (mk-workspace '~ws-name
                    (do ~@body))))
+
+(defn ws-status-main
+  [ws]
+  :cool!)
+
+(defn ws-status [{:keys [multi] :as ws}]
+  (multi :status))
+
+(defn mk-ws-source
+  [ws-name src-map]
+  `(let [state# (atom {})
+         mm# (clojure.lang.MultiFn. (str ~ws-name "-multi")
+                                    ~'(fn [cmd & _] cmd)
+                                    :default #'clojure.core/global-hierarchy)
+         ~'ws {:state state# :multi mm#}]
+     (doseq [[~'cmd ~'f] ~src-map]
+       (. mm# clojure.core/addMethod ~'cmd (eval ~'f)))
+     ~'ws))
+
+(defn- ws-init-main
+  [ws & args]
+  :INIT-MAIN-NOT-IMPLEMENTED)
+
+
+(defn- ws-build-main
+  [ws & args]
+  :BUILD-MAIN-NOT-IMPLEMENTED)
+
+(defn- get-plugin-forms
+  [ws-name ws-def plugins hook]
+  (->> (for [p plugins]
+         (when-let [f (get-in p hook)]
+           (f ws-name ws-def)))
+       (remove nil?)
+       (apply concat)))
+
+;; TODO support override
+(defn- mk-ws-src-*
+  [main-fn hook ws-name ws-def plugins ]
+  `(fn [~'cmd ~'ws ~'& ~'args]
+     (let [{:keys [~'state]} ~'ws]
+       ~@(get-plugin-forms ws-name ws-def plugins [hook :pre])
+       (let [~'r (apply ~main-fn ~'ws ~'args)]
+         ~@(get-plugin-forms ws-name ws-def plugins [hook :post])
+         ~'r))))
+
+(defn- mk-ws-src-build
+  [ws-name ws-def plugins]
+  `(fn [~'cmd ~'ws ~'& ~'args]
+     (let [{:keys [~'state]} ~'ws]
+       ~@(get-plugin-forms ws-name ws-def plugins [:build :pre])
+       (let [~'r (apply ws-build-main ~'ws ~'args)]
+         ~@(get-plugin-forms ws-name ws-def plugins [:build :post])
+         ~'r))))
+
+(defn mk-ws-src-map
+  [ws-name {:keys [plugins] :as ws-def}]
+  {:status `(fn ~'[_ ws & args] (apply ws-status-main ~'ws ~'args))
+   :init  (mk-ws-src-* `ws-build-main :build ws-name ws-def plugins)
+   :build (mk-ws-src-* `ws-build-main :build ws-name ws-def plugins)
+   :create-session (mk-ws-src-* `ws-build-main :build ws-name ws-def plugins)
+   :init-vars (mk-ws-src-* `ws-build-main :build ws-name ws-def plugins)
+   :restore-vars (mk-ws-src-* `ws-build-main :build ws-name ws-def plugins)
+   :save-vars (mk-ws-src-* `ws-build-main :build ws-name ws-def plugins)
+   :train (mk-ws-src-* `ws-build-main :build ws-name ws-def plugins)
+   :train-interval (mk-ws-src-* `ws-build-main :build ws-name ws-def plugins)
+   :test (mk-ws-src-* `ws-build-main :build ws-name ws-def plugins)
+   :predict (mk-ws-src-* `ws-build-main :build ws-name ws-def plugins)
+   :close-session (mk-ws-src-* `ws-build-main :build ws-name ws-def plugins)
+   :close (mk-ws-src-* `ws-build-main :build ws-name ws-def plugins)})
+
+#_
+(fn [cmd & args]
+  (let [{:keys [state]} ws]
+    (apply dev/pre-build state args)
+    :...
+    (let [r (apply build ws args)]
+      (apply dev/post-build state r args)
+      :...
+      r)))
+
+
+#_(defmacro def-workspace*
+  [ws-name src]
+  (list 'def ws-name src))
+
+(defmacro def-workspace
+  [ws-name & body]
+  `(let [src-map# (mk-ws-src-map '~ws-name
+                                 (do ~@body))
+         src# (mk-ws-source '~ws-name src-map#)]
+     (def ~ws-name (eval src#))
+     (alter-meta! (var ~ws-name) assoc :source src# :source-map src-map#)
+     (var ~ws-name)))
+
+
+#_(clojure.pprint/pprint  (macroexpand '(defmulti mmm (fn [a & _] a))))
+
+#_(clojure.pprint/pprint  (macroexpand '(defmethod mmm :hi [_ b] (inc b))))
+
+#_ (def-workspace wsx {:plugins #{com.billpiel.guildsman.dev/plugin}})
+
+
+#_ (clojure.pprint/pprint  (macroexpand '(def-workspace wsx {:plugins #{com.billpiel.guildsman.dev/plugin}})))
+
+#_(clojure.pprint/pprint (meta #'wsx))
+
+#_((-> wsx :multi) :build 1 2)
+
+(defn mm1*
+  [& body]
+  `(inc ~@body))
+
+(defmacro idmac [x] x)
+
+(defmacro mm2
+  [& body]
+  (apply mm1* body))
+
+(defmacro mm3
+  [body]
+  (let [f (fn [b] `~b)]
+    (f body)))
+
+(defmacro mm1
+  [& body]
+  `(let [src# (mm2 ~@body)]
+     (+ src#)))
+
+
+(macroexpand '(mm1 (dec 44) 5))
+
+(mm1 (dec 44))
+
+

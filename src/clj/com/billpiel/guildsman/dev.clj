@@ -1,13 +1,12 @@
 (ns com.billpiel.guildsman.dev
-  (:require [com.billpiel.guildsman.core :as ft]
+  (:require [com.billpiel.guildsman.core :as g]
             [com.billpiel.guildsman.scope :as sc]
             [com.billpiel.guildsman.shape :as sh]
             [com.billpiel.guildsman.ops.basic :as o]
             [com.billpiel.guildsman.macros :as mcro]
             [com.billpiel.guildsman.op-node :as opn]
-            [com.billpiel.guildsman.ops-gen :as ops-gen]
+            [com.billpiel.guildsman.ops.gen :as ops-gen]
             [com.billpiel.guildsman.ops.composite :as c]
-            [com.billpiel.guildsman.layers :as l]
             [com.billpiel.guildsman.util :as ut]
             [com.billpiel.guildsman.data-type :as dt]
             [com.billpiel.guildsman.graph :as gr]
@@ -40,7 +39,7 @@
   [& [enable?]]
   (enable-op-meta-assoc enable?)
   (if-not (false? enable?)
-    (do (swap! ft/plugins conj ::dev)
+    (do (swap! g/plugins conj ::dev)
         (wsvr/start-server))
     (throw (Exception. "NOT IMPLEMENTED"))))
 
@@ -54,17 +53,17 @@
   (when-let [dev-ns (and (@dev-nses ns-sym)
                          (the-ns ns-sym))]
     ;; TODO check if graph/session is running
-    (ft/close (ns-resolve dev-ns 'graph))
-    (ft/close (ns-resolve dev-ns 'session))
+    (g/close (ns-resolve dev-ns 'graph))
+    (g/close (ns-resolve dev-ns 'session))
     (remove-ns ns-sym)
     (swap! dev-nses disj ns-sym)
     (println "removed ns " ns-sym)))
 
-(defmethod ft/call-plugin [::dev :release]
+(defmethod g/call-plugin [::dev :release]
   [_ {:keys [ws-name]}]
   (release-dev-ns (mk-ns-sym ws-name)))
 
-(defmethod ft/call-plugin [::dev :new]
+(defmethod g/call-plugin [::dev :new]
   [_ {:keys [state ws-name]}]
   (let [ns-sym (mk-ns-sym ws-name)
         _ (release-dev-ns ns-sym)
@@ -96,7 +95,7 @@
 ;; TODO can be fn (now)
 (defmacro fetch
   [op & feed]
-  `(ft/fetch (deref (ns-resolve (-> (var ~op) meta :ns)
+  `(g/fetch (deref (ns-resolve (-> (var ~op) meta :ns)
                                 (quote ~'$session)))
              ~op
              (or ~feed {})))
@@ -330,7 +329,7 @@
       set-selected-node-watcher))
 
 
-(defmethod ft/call-plugin [::dev :init]
+(defmethod g/call-plugin [::dev :init]
   [_ {:keys [state ws-def]} {:keys [graph] :as session}]
   (let [dev-ns (-> @state ::dev :ns)]
     (intern dev-ns 'graph graph)
@@ -421,10 +420,10 @@
                    (mapcat (partial mk-summary-plans g
                                     vari->agd))
                    (remove nil?))]
-    (ft/build-all->graph g added)
+    (g/build-all->graph g added)
     added))
 
-(defmethod ft/call-plugin [::dev :post-build]
+(defmethod g/call-plugin [::dev :post-build]
   [_ {:keys [state ws-def]}]
   (let [dev-ns (-> @state ::dev :ns)
         {:keys [summaries]} (:train ws-def)
@@ -440,7 +439,7 @@
                  (set smries))))
     (w-update graph dev-ns [] nil)))
 
-(defmethod ft/call-plugin [::dev :train-fetch]
+(defmethod g/call-plugin [::dev :train-fetch]
   [_ {:keys [state]}]
   (def tf-state1 @state)
   (some-> @state ::dev :summaries))
@@ -519,7 +518,7 @@
          (ut/fmap fetched->log-entry*
                   $)))
 
-(defmethod ft/call-plugin [::dev :log-step]
+(defmethod g/call-plugin [::dev :log-step]
   [_ {:keys [state ws-def]} {:keys [test train]} step]
   (let [state' @state
         dev-state (::dev state')
@@ -538,7 +537,7 @@
             :step step})
     (w-update graph dev-ns @log-atom @wsvr/selected-node)))
 
-(defmethod ft/call-plugin [::dev :write-tb]
+(defmethod g/call-plugin [::dev :write-tb]
   [_ {:keys [state ws-def]}]
   (let [dev-ns (-> @state ::dev :ns)
         {:keys [tb-out]} ws-def
@@ -560,3 +559,31 @@
   (w-push {:cmd :chart
            :type :bar
            :data data}))
+
+
+(defn plugin-build-post
+  [a] a)
+
+(defn plugin-setup-release-pre
+  [])
+
+(defn plugin-setup-init-post [ws-name ws-def]
+  [`(plugin-init-post )]
+  )
+(defn plugin-setup-build-post [ws-name ws-def]
+  [`(plugin-build-post :hello )])
+(defn plugin-setup-train-fetch [])
+(defn plugin-setup-log-post [])
+(defn plugin-setup-test-fetch [])
+(defn plugin-setup-dev-dummy-override [])
+
+(def plugin
+  {:init {:post plugin-setup-init-post}
+   :build {:post plugin-setup-build-post}
+   :train {:fetch plugin-setup-train-fetch
+           :log nil}
+   :test {:fetch  plugin-setup-test-fetch
+          :log nil}
+   :release {:pre plugin-setup-release-pre}
+   ::start-web-svr {:override plugin-setup-dev-dummy-override}
+   ::stop-web-svr {:override plugin-setup-dev-dummy-override}})
