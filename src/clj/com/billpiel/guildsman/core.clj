@@ -10,7 +10,8 @@
             com.billpiel.guildsman.gradients-clj
             com.billpiel.guildsman.grad-desc-opt-clj
             [com.billpiel.guildsman.data-type :as dt]
-            com.billpiel.guildsman.common)
+            com.billpiel.guildsman.common
+            clojure.pprint)
   (:import [com.billpiel.guildsman.common Graph]
            [com.billpiel.guildsman.session Session]))
 
@@ -29,9 +30,6 @@
 (defmacro id$->>
   [& body]
   `(ut/id$->> ~@body))
-
-#_ (def plugins (atom #{}))
-(defonce plugins (atom #{})) ;; only support one for now?
 
 (defmulti close
   "Close a Graph or Session defrecord."
@@ -260,7 +258,7 @@ In the example below, both `graph` and `session` will be closed upon
       (swap! state assoc :session s)
       s)))
 
-(defn ws-build
+#_(defn ws-build
   [{:keys [state ws-def] :as m}]
   (let [{:keys [graph]}  (ws-init-graph&session m)]
     (call-plugins :pre-build m)
@@ -359,15 +357,9 @@ In the example below, both `graph` and `session` will be closed upon
     (ws-do-auto m)
     m))
 
-#_(defmacro def-workspace
-  [ws-name & body]
-  `(def ~ws-name
-     (mk-workspace '~ws-name
-                   (do ~@body))))
-
 (defn ws-status-main
   [ws]
-  :cool!)
+  {:return :cool!})
 
 (defn ws-status [{:keys [multi] :as ws}]
   (multi :status))
@@ -375,7 +367,7 @@ In the example below, both `graph` and `session` will be closed upon
 (defn mk-ws-source
   [ws-name src-map]
   `(let [state# (atom {})
-         mm# (clojure.lang.MultiFn. (str ~ws-name "-multi")
+         mm# (clojure.lang.MultiFn. (str '~ws-name "-multi")
                                     ~'(fn [cmd & _] cmd)
                                     :default #'clojure.core/global-hierarchy)
          ~'ws {:state state# :multi mm#}]
@@ -383,65 +375,118 @@ In the example below, both `graph` and `session` will be closed upon
        (. mm# clojure.core/addMethod ~'cmd (eval ~'f)))
      ~'ws))
 
-(defn- ws-init-main
+;; TODO move ws-*-main fns to ws ns??
+(defn ws-init-main
   [ws & args]
-  :INIT-MAIN-NOT-IMPLEMENTED)
+  {:INIT-MAIN-NOT-IMPLEMENTED 1})
 
-(defn- ws-build-main
+(defn ws-build-main
   [ws & args]
-  :BUILD-MAIN-NOT-IMPLEMENTED)
+  {:return :BUILD-MAIN-NOT-IMPLEMENTED})
 
-(defn- ws-create-session-main [ws & args] :NOT-IMPLEMENTED)
-(defn- ws-init-vars-main [ws & args] :NOT-IMPLEMENTED)
-(defn- ws-restore-vars-main [ws & args] :NOT-IMPLEMENTED)
-(defn- ws-save-vars-main [ws & args] :NOT-IMPLEMENTED)
-(defn- ws-train-main [ws & args] :NOT-IMPLEMENTED)
-(defn- ws-train-interval-main [ws & args] :NOT-IMPLEMENTED)
-(defn- ws-test-main [ws & args] :NOT-IMPLEMENTED)
-(defn- ws-predict-main [ws & args] :NOT-IMPLEMENTED)
-(defn- ws-close-session-main [ws & args] :NOT-IMPLEMENTED)
-(defn- ws-close-main [ws & args] :NOT-IMPLEMENTED)
+(defn ws-build [{:keys [multi] :as ws}]
+  (multi :build))
 
-(defn- get-plugin-forms
+;; TODO take state instead of ws??
+(defn ws-create-session-main [ws & args] {:NOT-IMPLEMENTED 1})
+(defn ws-init-vars-main [ws & args] {:NOT-IMPLEMENTED 1})
+(defn ws-restore-vars-main [ws & args] {:NOT-IMPLEMENTED 1})
+(defn ws-save-vars-main [ws & args] {:NOT-IMPLEMENTED 1})
+(defn ws-train-main [ws & args] {:NOT-IMPLEMENTED 1})
+(defn ws-train-interval-main [ws & args] {:NOT-IMPLEMENTED 1})
+(defn ws-test-main [ws & args] {:NOT-IMPLEMENTED 1})
+(defn ws-predict-main [ws & args] {:NOT-IMPLEMENTED 1})
+(defn ws-close-session-main [ws & args] {:NOT-IMPLEMENTED 1})
+(defn ws-close-main [ws & args] {:NOT-IMPLEMENTED 1})
+(defn ws-interrupt-training-main [ws & args] {:NOT-IMPLEMENTED 1})
+
+(defn- get-plugin-form-pairs
+  [ws-name ws-def plugins hook]
+  (->> (for [p plugins]
+         (let [p-ns (-> p :meta :ns)]
+           (when-let [f (get-in p hook)]
+             [p-ns (f ws-name ws-def)])))
+       (remove nil?)))
+
+(defn- get-plugin-overide-form
   [ws-name ws-def plugins hook]
   (->> (for [p plugins]
          (when-let [f (get-in p hook)]
            (f ws-name ws-def)))
        (remove nil?)
+       not-empty))
+
+(defn update-state
+  [ns-str old-state new-state])
+
+(defn mk-hook-forms
+  [hook-forms]
+  (->> (for [[ns-str frms] hook-forms
+             frm frms]
+         `(~'state (update-state ~ns-str
+                                 ~'state
+                                 ~frm)))
        (apply concat)))
 
-;; TODO support override
+(defn mk-pre-req-forms
+  [pre-reqs]
+  (for [[cmd & args] pre-reqs]
+    `(apply (~'ws :multi) ~cmd ~(or args []))))
+
 (defn- mk-ws-src-*
-  [main-fn hook ws-name ws-def plugins ]
-  `(fn [~'cmd ~'& ~'args]
-     (let [{:keys [~'state]} ~'ws]
-       ~@(get-plugin-forms ws-name ws-def plugins [hook :pre])
-       (let [~'r (apply ~main-fn ~'ws ~'args)]
-         ~@(get-plugin-forms ws-name ws-def plugins [hook :post])
-         ~'r))))
+  [main-fn hook ws-name ws-def plugins pre-reqs]
+  (let [pre-req-forms (mk-pre-req-forms pre-reqs)
+        pre-hooks (get-plugin-form-pairs ws-name ws-def plugins [hook :pre])
+        pre-forms (mk-hook-forms pre-hooks)
+        post-hooks (get-plugin-form-pairs ws-name ws-def plugins [hook :pre])
+        post-forms (mk-hook-forms post-hooks)
+        override-hook (get-plugin-overide-form ws-name ws-def plugins [hook :override])
+        main-form ['state (or override-hook
+                              `(apply ~main-fn ~'ws ~'args))]]
+    `(fn [~'cmd ~'& ~'args]
+       ~@pre-req-forms
+       (let [{~'state-atom :state} ~'ws]
+         (locking ~'state-atom
+           (let [~'state (deref ~'state-atom)
+                 ~@pre-forms
+                 ~@main-form
+                 ~@post-forms]
+             (swap! ~'state-atom merge ~'state)
+             (:return ~'state)))))))
 
 (defmacro mk-ws-src-**
-  [cmd-name]
+  [cmd-name & [pre-reqs]]
   (let [fn-sym (symbol "com.billpiel.guildsman.core" (str "ws-" cmd-name "-main"))
         hook (keyword cmd-name)]
-    `(mk-ws-src-* '~fn-sym ~hook ~'ws-name ~'ws-def ~'plugins)))
+    `(mk-ws-src-* '~fn-sym ~hook ~'ws-name ~'ws-def ~'plugins ~pre-reqs)))
+
+(defn- mk-ws-src-verify-vars-loaded [] `(fn [~'& ~'_] 1))
 
 (defn mk-ws-src-map
   [ws-name {:keys [plugins] :as ws-def}]
   {:status (mk-ws-src-** "status")
    :init (mk-ws-src-** "init")
-   :build (mk-ws-src-** "build")
-   #_(mk-ws-src-* `ws-build-main :build ws-name ws-def plugins)
+   :build (mk-ws-src-** "build" [[:verify-vars-loaded]])
+   :verify-vars-loaded (mk-ws-src-verify-vars-loaded)
    :create-session (mk-ws-src-** "create-session")
    :init-vars (mk-ws-src-** "init-vars")
    :restore-vars (mk-ws-src-** "restore-vars")
    :save-vars (mk-ws-src-** "save-vars")
    :train (mk-ws-src-** "train")
    :train-interval (mk-ws-src-** "train-interval")
+   :interrupt-training (mk-ws-src-** "interrupt-training")
    :test (mk-ws-src-** "test")
    :predict (mk-ws-src-** "predict")
    :close-session (mk-ws-src-** "close-session")
    :close (mk-ws-src-** "close")})
+
+(defmacro ws-show-cmd-source
+  [ws cmd]
+  `(-> ~ws
+       var
+       meta
+       :source-map
+       ~cmd))
 
 (defmacro def-workspace
   [ws-name & body]
@@ -450,15 +495,5 @@ In the example below, both `graph` and `session` will be closed upon
          src# (mk-ws-source '~ws-name src-map#)]
      (def ~ws-name (eval src#))
      (alter-meta! (var ~ws-name) assoc :source src# :source-map src-map#)
-     ((-> ~ws-name :multi) :init)
+     ((~ws-name :multi) :init)
      (var ~ws-name)))
-
-#_ (def-workspace wsx {:plugins #{com.billpiel.guildsman.dev/plugin}})
-
-
-#_ (clojure.pprint/pprint  (macroexpand '(def-workspace wsx {:plugins #{com.billpiel.guildsman.dev/plugin}})))
-
-#_(clojure.pprint/pprint (meta #'wsx))
-
-#_((wsx :multi) :status)
-

@@ -67,3 +67,17 @@
                    :keep 1.}}
      :predict {:args [:data] ;; or map
                :return :classes}}))
+
+
+#_(clojure.pprint/pprint (macroexpand '(g/def-workspace hi {:plugins #{dev/plugin}})))
+
+
+#_(g/def-workspace hi {:plugins #{dev/plugin}})
+
+#_(g/ws-status hi)
+
+#_(g/ws-build hi)
+
+#_(clojure.pprint/pprint (g/ws-show-cmd-source hi :build))
+
+#_(clojure.pprint/pprint hi)
