@@ -39,7 +39,7 @@
   [& [enable?]]
   (enable-op-meta-assoc enable?)
   (if-not (false? enable?)
-    (do (swap! g/plugins conj ::dev)
+    (do #_(swap! g/plugins conj ::dev)
         (wsvr/start-server))
     (throw (Exception. "NOT IMPLEMENTED"))))
 
@@ -59,11 +59,11 @@
     (swap! dev-nses disj ns-sym)
     (println "removed ns " ns-sym)))
 
-(defmethod g/call-plugin [::dev :release]
+#_(defmethod g/call-plugin [::dev :release]
   [_ {:keys [ws-name]}]
   (release-dev-ns (mk-ns-sym ws-name)))
 
-(defmethod g/call-plugin [::dev :new]
+#_(defmethod g/call-plugin [::dev :new]
   [_ {:keys [state ws-name]}]
   (let [ns-sym (mk-ns-sym ws-name)
         _ (release-dev-ns ns-sym)
@@ -329,7 +329,7 @@
   (-> (partial w-update* g dev-ns log)
       set-selected-node-watcher))
 
-(defmethod g/call-plugin [::dev :init]
+#_(defmethod g/call-plugin [::dev :init]
   [_ {:keys [state ws-def]} {:keys [graph] :as session}]
   (let [dev-ns (-> @state ::dev :ns)]
     (intern dev-ns 'graph graph)
@@ -423,7 +423,7 @@
     (g/build-all->graph g added)
     added))
 
-(defmethod g/call-plugin [::dev :post-build]
+#_(defmethod g/call-plugin [::dev :post-build]
   [_ {:keys [state ws-def]}]
   (let [dev-ns (-> @state ::dev :ns)
         {:keys [summaries]} (:train ws-def)
@@ -439,7 +439,7 @@
                  (set smries))))
     (w-update graph dev-ns [] nil)))
 
-(defmethod g/call-plugin [::dev :train-fetch]
+#_(defmethod g/call-plugin [::dev :train-fetch]
   [_ {:keys [state]}]
   (def tf-state1 @state)
   (some-> @state ::dev :summaries))
@@ -518,7 +518,7 @@
          (ut/fmap fetched->log-entry*
                   $)))
 
-(defmethod g/call-plugin [::dev :log-step]
+#_(defmethod g/call-plugin [::dev :log-step]
   [_ {:keys [state ws-def]} {:keys [test train]} step]
   (let [state' @state
         dev-state (::dev state')
@@ -537,7 +537,7 @@
             :step step})
     (w-update graph dev-ns @log-atom @wsvr/selected-node)))
 
-(defmethod g/call-plugin [::dev :write-tb]
+#_(defmethod g/call-plugin [::dev :write-tb]
   [_ {:keys [state ws-def]}]
   (let [dev-ns (-> @state ::dev :ns)
         {:keys [tb-out]} ws-def
@@ -560,12 +560,6 @@
            :type :bar
            :data data}))
 
-
-
-
-(defn plugin-setup-release-pre
-  [])
-
 (defn plugin-setup-init-post [ws-name ws-def]
   [`(plugin-init-post '~ws-name)])
 
@@ -582,21 +576,19 @@
 
 (defn plugin-setup-build-post [ws-name ws-def]
   [`(plugin-build-post ~'state
-                       ~(-> ws-def :train ::summaries)
-                       ~(-> ws-def :test ::summaries))])
+                       (-> ~'ws-def :train ::summaries)
+                       (-> ~'ws-def :test ::summaries))])
 
 (defn plugin-build-post
   [{:keys [graph] ::keys [ws-ns]} train-smries test-smries]
   (mk-nodes-in-ns graph ws-ns)
   (intern ws-ns '$graph graph)
   (let [train-smry-ops (->> train-smries
-                            (apply concat)
                             distinct
                             (add-summaries graph)
                             (map :id)
                             distinct)
         test-smry-ops (->> test-smries
-                           (apply concat)
                            distinct
                            (add-summaries graph) ;; TODO make idempotent!
                            (map :id)
@@ -605,19 +597,19 @@
     {::train-fetch train-smry-ops
      ::test-fetch test-smry-ops}))
 
-(defn plugin-train-pre [train-smries] {::fetch train-smries})
-(defn plugin-setup-train-pre [ws-name ws-def]
-  [`(plugin-train-pre ~(-> ws-def :train ::summaries))])
+(defn plugin-setup-train-interval-post [ws-name ws-def]
+  [`(plugin-train-interval-post)])
 
 (defn plugin-train-interval-post
   [{:keys [graph step train-fetched test-fetched] ::keys [log summaries]}]
   ;; TODO update-log
   {})
-(defn plugin-setup-train-interval-post [ws-name ws-def])
 
-(defn plugin-test-pre [test-smries] {::fetch train-smries})
-(defn plugin-setup-test-pre [ws-name ws-def])
-(defn plugin-setup-test-post [ws-name ws-def])
+(defn plugin-release-pre [{::keys [ws-ns]}]
+  (release-dev-ns ws-ns))
+(defn plugin-setup-release-pre []
+  [`(plugin-release-pre ~'state)])
+
 (defn plugin-setup-dev-dummy-override [ws-name ws-def])
 
 (def plugin
@@ -626,7 +618,5 @@
    :init {:post plugin-setup-init-post}
    :build {:post plugin-setup-build-post}
    :train-interval {:post plugin-setup-train-interval-post}
-   :train {:pre plugin-setup-train-pre}
-   :test {:pre  plugin-setup-test-pre}
    :release {:pre plugin-setup-release-pre}
    ::dummy {:override plugin-setup-dev-dummy-override}})
