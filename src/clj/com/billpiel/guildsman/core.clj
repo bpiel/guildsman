@@ -417,7 +417,12 @@ In the example below, both `graph` and `session` will be closed upon
        not-empty))
 
 (defn update-state
-  [ns-str old-state new-state])
+  [ns-str old-state new-state]
+  (->> new-state
+       keys
+       (filter #(= (namespace %) ns-str))
+       (select-keys new-state)
+       (merge old-state)))
 
 (defn mk-hook-forms
   [hook-forms]
@@ -460,23 +465,23 @@ In the example below, both `graph` and `session` will be closed upon
         hook (keyword cmd-name)]
     `(mk-ws-src-* '~fn-sym ~hook ~'ws-name ~'ws-def ~'plugins ~pre-reqs)))
 
-(defn- mk-ws-src-verify-vars-loaded [] `(fn [~'& ~'_] 1))
+(defn- mk-ws-src-ensure-vars-set [] `(fn [~'& ~'_] 1))
 
 (defn mk-ws-src-map
   [ws-name {:keys [plugins] :as ws-def}]
   {:status (mk-ws-src-** "status")
    :init (mk-ws-src-** "init")
-   :build (mk-ws-src-** "build" [[:verify-vars-loaded]])
-   :verify-vars-loaded (mk-ws-src-verify-vars-loaded)
-   :create-session (mk-ws-src-** "create-session")
-   :init-vars (mk-ws-src-** "init-vars")
-   :restore-vars (mk-ws-src-** "restore-vars")
-   :save-vars (mk-ws-src-** "save-vars")
-   :train (mk-ws-src-** "train")
+   :build (mk-ws-src-** "build")
+   :create-session (mk-ws-src-** "create-session" [[:build]])
+   :ensure-vars-set (mk-ws-src-ensure-vars-set)
+   :init-vars (mk-ws-src-** "init-vars" [[:create-session]])
+   :restore-vars (mk-ws-src-** "restore-vars" [[:create-session]])
+   :save-vars (mk-ws-src-** "save-vars" [[:create-session]])
+   :train (mk-ws-src-** "train" [[:ensure-vars-set]])
    :train-interval (mk-ws-src-** "train-interval")
    :interrupt-training (mk-ws-src-** "interrupt-training")
-   :test (mk-ws-src-** "test")
-   :predict (mk-ws-src-** "predict")
+   :test (mk-ws-src-** "test" [[:ensure-vars-set]])
+   :predict (mk-ws-src-** "predict" [[:ensure-vars-set]])
    :close-session (mk-ws-src-** "close-session")
    :close (mk-ws-src-** "close")})
 
