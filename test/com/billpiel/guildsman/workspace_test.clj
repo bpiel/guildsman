@@ -19,7 +19,7 @@
         {:keys [data logits classes]}
         (g/id$->> (o/placeholder :data 
                                  g/dt-float
-                                 [-1 2]) ;;TODO feedable iterator macro
+                                 [-1 4]) ;;TODO feedable iterator macro
                   (c/dense {:id :logits
                             :units 10})
                   (o/arg-max :classes $ 1))

@@ -447,9 +447,49 @@ In the example below, both `graph` and `session` will be closed upon
                   ~'(:train ws-def)
                   ~'(:test ws-def)))
 
-(defn find-ns-kws
+
+(defn- get-plugin-form-pairs
+  [ws-name ws-def plugins hook]
+  (->> (for [p plugins]
+         (let [p-ns (-> p :meta :ns)]
+           (when-let [f (get-in p hook)]
+             [p-ns (f ws-name ws-def)])))
+       (remove nil?)))
+
+(defn mk-hook-forms
+  [hook-forms]
+  (->> (for [[ns-str frms] hook-forms
+             frm frms]
+         `(~'state (update-state ~ns-str
+                                 ~'state
+                                 ~frm)))
+       (apply concat)))
+
+(defn mk-hook-fn-form*
+  [hook-forms]
+  (when-not (empty? hook-forms)
+    `(fn [~'state]
+       (let [~@hook-forms]
+         ~'state))))
+
+(defn mk-hook-fn-form
+  [ws-name ws-def plugins hook]
+  (mk-hook-fn-form*
+   (mk-hook-forms
+    (get-plugin-form-pairs
+     ws-name ws-def plugins hook))))
+
+
+(defn find-qual-kws
   [m kw]
-  [])
+  (let [kw-name (name kw)]
+    (->> m
+         seq
+         (filter #(-> %
+                      first
+                      name
+                      (= kw-name)))
+         (into {}))))
 
 (defn mk-ws-src-train-test
   [ws-name ws-def plugins]
@@ -469,6 +509,13 @@ In the example below, both `graph` and `session` will be closed upon
                               ~'(:test ws-def)
                               ~hook-fns))))
 
+(defn- extract-distinct-vals
+  [m kw]
+  (->> (find-qual-kws m kw)
+       vals
+       (apply concat)
+       distinct))
+
 (defn ws-train-test-handler
   [state-atom interrupt-training train-def test-def hook-fns]
   (let [state @state-atom
@@ -476,17 +523,15 @@ In the example below, both `graph` and `session` will be closed upon
          tr-te-post :train-test-post} hook-fns
         {:keys [session]} state
         {:keys [targets feed duration interval]} train-def
-        train-fetch (->> (find-ns-kws state :train-fetch)
-                         (apply concat)
-                         distinct
+        train-fetch (->> (extract-distinct-vals state :train-fetch)
                          not-empty)
-        test-fetch (->> (find-ns-kws state :test-fetch)
-                        (apply concat)
-                        distinct
+        test-fetch (->> (extract-distinct-vals state :test-fetch)
                         not-empty)
         train-feed (->> (find-ns-kws state :train-feed)
+                        vals
                         (apply merge {} feed))
         test-feed (->> (find-ns-kws state :test-feed)
+                       vals
                        (apply merge {} #_test-feed))
         [_ dur-steps] duration ;; TODO support other units?
         [_ int-steps] interval ;; TODO support other units?
@@ -565,14 +610,6 @@ In the example below, both `graph` and `session` will be closed upon
   (swap! (:state ws)
          assoc :vars-set true))
 
-(defn- get-plugin-form-pairs
-  [ws-name ws-def plugins hook]
-  (->> (for [p plugins]
-         (let [p-ns (-> p :meta :ns)]
-           (when-let [f (get-in p hook)]
-             [p-ns (f ws-name ws-def)])))
-       (remove nil?)))
-
 (defn- get-plugin-overide-form
   [ws-name ws-def plugins hook]
   (->> (for [p plugins]
@@ -588,29 +625,6 @@ In the example below, both `graph` and `session` will be closed upon
        (filter #(= (namespace %) ns-str))
        (select-keys new-state)
        (merge old-state)))
-
-(defn mk-hook-forms
-  [hook-forms]
-  (->> (for [[ns-str frms] hook-forms
-             frm frms]
-         `(~'state (update-state ~ns-str
-                                 ~'state
-                                 ~frm)))
-       (apply concat)))
-
-(defn mk-hook-fn-form*
-  [hook-forms]
-  (when-not (empty? hook-forms)
-    `(fn [~'state]
-       (let [~@hook-forms]
-         ~'state))))
-
-(defn mk-hook-fn-form
-  [ws-name ws-def plugins hook]
-  (mk-hook-fn-form*
-   (mk-hook-forms
-    (get-plugin-form-pairs
-     ws-name ws-def plugins hook))))
 
 (defn mk-pre-req-forms
   [pre-reqs]
@@ -669,7 +683,6 @@ In the example below, both `graph` and `session` will be closed upon
                   [:interrupt-training ws-interrupt-training-setup-main]
                   [:test ws-test-setup-main]
                   [:train-test (mk-ws-src-train-test ws-name ws-def plugins)]
-                  ;; [:train-test ws-train-test-setup-main [[:ensure-vars-set]]]
                   [:predict ws-predict-setup-main [[:ensure-vars-set]]]
                   [:close-session ws-close-session-setup-main]
                   [:close ws-close-setup-main]))
