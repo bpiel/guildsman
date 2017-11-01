@@ -6,63 +6,55 @@
             [com.billpiel.guildsman.dev :as dev]))
 
 (def dummy-data
-  (map (fn [x] [x x x x])
-       (range 1 1000)))
+  [[0. 0.]
+   [0. 1.]
+   [1. 0.]
+   [1. 1.]])
 
-(def dummy-labels (range 1 1000))
+(def dummy-labels
+  [0. 1. 1. 0.])
 
 ;; TODO spec
 
 (g/def-workspace ws1
-  (let [train-num 100
-        test-num 100
-        {:keys [data logits classes]}
+  (let [{:keys [data logits classes]}
         (g/id$->> (o/placeholder :data 
                                  g/dt-float
-                                 [-1 4]) ;;TODO feedable iterator macro
+                                 [-1 2]) ;;TODO feedable iterator macro
                   (c/dense {:id :logits
-                            :units 10})
-                  (o/arg-max :classes $ 1))
-        alpha (o/placeholder :alpha g/dt-float [])
+                            :units 1}))
         {:keys [labels loss opt]}
         (g/id$->> (o/placeholder :labels
-                                 g/dt-int
+                                 g/dt-float
                                  [-1])
-                  (c/one-hot $ 10)
                   (c/mean-squared-error logits)
-                  (c/reduce-mean :loss)
-                  (c/grad-desc-opt :opt alpha))
+                  (c/grad-desc-opt :opt 0.1))
         acc (c/accuracy :acc
                         ;; TODO clean up cast mess
-                        (o/cast-tf {:SrcT g/dt-long
-                                    :DstT g/dt-int}
-                                   classes)
+                        logits
                         labels)]
     {:plugins #{dev/plugin}
      :plans [acc opt]
-     :train {::dev/summaries [alpha acc loss logits]
+     :train {::dev/summaries [acc logits]
              :targets [opt] ;;TODO include iterator next step somewhere
-             :feed {:data (take train-num dummy-data)
+             :feed {:data dummy-data
                     #_{:type :seq ;; TODO file, files, dir?
                        :batch-size 100
                        :repeat true
                        :source (take train-num dummy-data)}
-                    :labels (take train-num dummy-labels)
+                    :labels dummy-labels
                     #_ {:type :seq
-                             :batch-size 100
-                             :repeat true
-                             :source (take train-num dummy-data)}
-                    :alpha 0.01 #_ #(* 0.1 (Math/pow 0.99 %)) ;;TODO represent as data!!?!?
-                    }
+                        :batch-size 100
+                        :repeat true
+                        :source (take train-num dummy-data)}}
              :duration [:steps 100] ;; or :epochs :ms
              :interval [:steps 10]}
      :test {::dev/summaries [acc]
             :targets []
-            :feed {:data (take test-num (reverse dummy-data))
-                   :labels (take test-num (reverse dummy-labels))
-                   :alpha 0.}}
+            :feed {:data dummy-data
+                   :labels dummy-labels}}
      :predict {:args [:data] ;; or map
-               :return :classes}}))
+               :return :logits}}))
 
 #_(g/ws-status ws1)
 

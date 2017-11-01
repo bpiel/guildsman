@@ -412,10 +412,10 @@ In the example below, both `graph` and `session` will be closed upon
                          not-empty)
         test-fetch (->> (extract-distinct-vals state :test-fetch)
                         not-empty)
-        train-feed (->> (find-ns-kws state :train-feed)
+        train-feed (->> (find-qual-kws state :train-feed)
                         vals
                         (apply merge {} feed))
-        test-feed (->> (find-ns-kws state :test-feed)
+        test-feed (->> (find-qual-kws state :test-feed)
                        vals
                        (apply merge {} #_test-feed))
         [_ dur-steps] duration ;; TODO support other units?
@@ -465,7 +465,7 @@ In the example below, both `graph` and `session` will be closed upon
                  (do (when tr-te-post
                        (swap! state-atom tr-te-post))
                      (swap! state-atom
-                            update :training? false)))))
+                            assoc :training? false)))))
            (catch Exception e
              (reset! last-ex e)
              (swap! state-atom assoc :last-ex e))))
