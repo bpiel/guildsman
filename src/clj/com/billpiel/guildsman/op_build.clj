@@ -5,9 +5,10 @@
             [com.billpiel.guildsman.graph :as gr]
             [com.billpiel.guildsman.tensor :as tsr]
             [com.billpiel.guildsman.shape :as sh]
-            [com.billpiel.guildsman.util :as util]
+            [com.billpiel.guildsman.util :as ut]
             [flatland.protobuf.core :as pr]
-            [com.billpiel.guildsman.common])
+            [com.billpiel.guildsman.common]
+            clojure.pprint)
   (:import [com.billpiel.guildsman.common Graph Op GraphRef]
            [org.tensorflow.framework OpDef OpList NodeDef]))
 
@@ -69,8 +70,8 @@
   [inputs]
   (vec (for [i inputs]
          (if (vector? i)
-           (mapv util/mk-tf-id i)
-           (util/mk-tf-id i)))))
+           (mapv ut/mk-tf-id i)
+           (ut/mk-tf-id i)))))
 
 (defn- add-ctrl-inputs
   [builder-handle inputs]
@@ -94,7 +95,7 @@
 
 (defn- get-handles
   [inputs]
-  (util/visit-pre #(do
+  (ut/visit-pre #(do
                      (when (:state %)
                        (throw (Exception. (str "WTF is this? " %))))
                      (if (map? %) (:handle %) %))
@@ -107,7 +108,7 @@
   [{:keys [^Graph g plan op-def]}]
   (try
     (let [{:keys [id scope op hsh inputs ctrl-inputs attrs output-idx]} plan
-          collections (util/get-collections plan)
+          collections (ut/get-collections plan)
           {tf-op :name def-attr :attr} op-def
           attrs' (or attrs {})
           id' (mk-id scope id op (:counter g))
@@ -124,7 +125,7 @@
                                [] ;; TODO add :0, when appropriate
                                op
                                (flatten (inputs->tf-ids inputs)) 
-                               (mapv util/mk-tf-id ctrl-inputs)
+                               (mapv ut/mk-tf-id ctrl-inputs)
                                hsh
                                attrs'
                                handle
@@ -141,8 +142,16 @@
       (def p1 plan)
       #_(clojure.pprint/pprint p1)
       #_(clojure.pprint/pprint (meta p1))
-      
-      (throw e))))
+      (let [pr-plan (with-out-str
+                      (clojure.pprint/pprint
+                       (ut/prune-plan plan)))]
+        (throw (ex-info (format "%s \n %s"
+                                (.getMessage e)
+                                pr-plan)
+                        {:plan plan
+                         :ex e}))))))
+
+
 
 (defmulti build (fn [g op-plan] (:op op-plan)))
 

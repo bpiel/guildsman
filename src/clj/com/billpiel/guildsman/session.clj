@@ -32,7 +32,7 @@
   (Session. (com.billpiel.guildsman.SessionNI/allocate (:handle g))
             g))
 
-(defn- ->op-node
+(defn ->op-node
   [^Graph g x]
   (cond (com/Op? x) x
         (keyword? x) ((gr/id->node g) (name x))

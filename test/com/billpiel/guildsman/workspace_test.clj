@@ -5,54 +5,75 @@
             [com.billpiel.guildsman.ops.composite :as c]
             [com.billpiel.guildsman.dev :as dev]))
 
-(def dummy-data
-  [[0. 0.]
-   [0. 1.]
-   [1. 0.]
-   [1. 1.]])
+(def color-idx
+  (zipmap [:red :orange :yellow :green :blue :purple :black :white]
+          (range)))
 
-(def dummy-labels
-  [0. 1. 1. 0.])
+(def train-data
+  [[[1. -1. -1.] (color-idx :red)]
+   [[1. 0. -1.] (color-idx :orange)]
+   [[1. 1. -1.] (color-idx :yellow)]
+   [[-1. 1. -1.] (color-idx :green)]
+   [[-1. -1. 1.] (color-idx :blue)]
+   [[1. -1. 1.] (color-idx :purple)]
+   [[-1. -1. -1.] (color-idx :black)]
+   [[1. 1. 1.] (color-idx :white)]])
+
+(def test-data
+  [[[0.9 -1. -0.8] (color-idx :red)]
+   [[1. 0.2 -1.] (color-idx :orange)]
+   [[0.8 1. -1.] (color-idx :yellow)]
+   [[-1. 0.9 -1.] (color-idx :green)]
+   [[-0.8 -1. 1.] (color-idx :blue)]
+   [[1. -0.9 1.] (color-idx :purple)]
+   [[-1. -0.8 -1.] (color-idx :black)]
+   [[0.8 0.9 1.] (color-idx :white)]])
 
 ;; TODO spec
 
 (g/def-workspace ws1
-  (let [{:keys [data logits classes]}
-        (g/id$->> (o/placeholder :data 
+  (let [{:keys [features logits classes]}
+        (g/id$->> (o/placeholder :features 
                                  g/dt-float
-                                 [-1 2]) ;;TODO feedable iterator macro
+                                 [-1 3]) ;;TODO feedable iterator macro
                   (c/dense {:id :logits
-                            :units 1}))
+                            :units 8})
+                  (o/arg-max {:id :classes
+                              :output_type g/dt-int}
+                             $ 0))
         {:keys [labels loss opt]}
         (g/id$->> (o/placeholder :labels
-                                 g/dt-float
+                                 g/dt-int
                                  [-1])
+                  (c/one-hot $ 8)
                   (c/mean-squared-error logits)
-                  (c/grad-desc-opt :opt 0.1))
+                  (c/grad-desc-opt :opt 0.3))
         acc (c/accuracy :acc
                         ;; TODO clean up cast mess
-                        logits
+                        classes
                         labels)]
     {:plugins #{dev/plugin}
      :plans [acc opt]
-     :train {::dev/summaries [acc logits]
+     :train {::dev/summaries [logits acc]
+             :fetch [acc]
              :targets [opt] ;;TODO include iterator next step somewhere
-             :feed {:data dummy-data
+             :feed {:features (map first train-data)
                     #_{:type :seq ;; TODO file, files, dir?
                        :batch-size 100
                        :repeat true
                        :source (take train-num dummy-data)}
-                    :labels dummy-labels
+                    :labels (map second train-data)
                     #_ {:type :seq
                         :batch-size 100
                         :repeat true
                         :source (take train-num dummy-data)}}
-             :duration [:steps 100] ;; or :epochs :ms
-             :interval [:steps 10]}
+             :duration [:steps 10000] ;; or :epochs :ms :intervals
+             :interval [:steps 100]}
      :test {::dev/summaries [acc]
+            :fetch [acc]
             :targets []
-            :feed {:data dummy-data
-                   :labels dummy-labels}}
+            :feed {:features (map first test-data)
+                   :labels (map second test-data)}}
      :predict {:args [:data] ;; or map
                :return :logits}}))
 
@@ -90,4 +111,5 @@
 
 
 #_(clojure.pprint/pprint hi)
+
 

@@ -267,3 +267,17 @@
   [bindings & exprs]
   (let [b (let+* bindings)]
     `(let ~b ~@exprs)))
+
+(defn prune-plan*
+  [v]
+  (if (and (map? v)
+           (-> v :inputs not-empty))
+    (assoc v :inputs :PRUNED)
+    v))
+
+(defn prune-plan
+  [plan]
+  (update plan
+          :inputs
+          (partial walk/prewalk
+                   prune-plan*)))

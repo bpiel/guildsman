@@ -165,7 +165,7 @@ In the example below, both `graph` and `session` will be closed upon
 (defn fetch-map [^Session session plans & [feed targets]]
   (let [g (:graph session)]
     (zipmap (map (comp :id
-                       (partial opn/find-op g))
+                       (partial sess/->op-node g))
                  plans)
             (fetch-all session plans feed targets))))
 
@@ -247,7 +247,11 @@ In the example below, both `graph` and `session` will be closed upon
                    ~'(-> ws :interrupt-training deref)))
 
 (defn ws-status-main [state interrupt-training]
-  {:return (assoc (select-keys state [:step :training? :last-ex])
+  {:return (assoc (select-keys state [:step
+                                      :training?
+                                      :last-ex
+                                      :train-fetched
+                                      :test-fetched])
                   :interrupt-training interrupt-training)})
 
 (defn ws-status [{:keys [multi] :as ws}]
@@ -279,6 +283,7 @@ In the example below, both `graph` and `session` will be closed upon
 
 (defn ws-build-main
   [plans]
+  ;; TODO don't run if graph exists
   {:graph (build-all->graph plans)
    :return :BUILD-DONE})
 
@@ -401,61 +406,92 @@ In the example below, both `graph` and `session` will be closed upon
        (apply concat)
        distinct))
 
+
+(defn- get-run-req-specs
+  [^Graph g state t-def fetch-kw feed-kw]
+  (let [{:keys [feed fetch]} t-def
+        orig-fetch-nodes (map (partial sess/->op-node g)
+                              fetch)
+        orig-fetch-ids (map :id orig-fetch-nodes)
+        all-fetch-nodes (->> (extract-distinct-vals state fetch-kw)
+                             (map (partial sess/->op-node g))
+                             (into orig-fetch-nodes)
+                             distinct
+                             not-empty)
+        all-feeds (->> (find-qual-kws state feed-kw)
+                       (apply merge {} feed))]
+    (merge t-def
+           {:fetch all-fetch-nodes
+            :orig-fetch-ids orig-fetch-ids
+            :feed all-feeds})))
+
 (defn ws-train-test-handler
   [state-atom interrupt-training train-def test-def hook-fns]
   (let [state @state-atom
         {tr-int-post :train-interval-post
          tr-te-post :train-test-post} hook-fns
-        {:keys [session]} state
-        {:keys [targets feed duration interval]} train-def
-        train-fetch (->> (extract-distinct-vals state :train-fetch)
-                         not-empty)
-        test-fetch (->> (extract-distinct-vals state :test-fetch)
-                        not-empty)
-        train-feed (->> (find-qual-kws state :train-feed)
-                        vals
-                        (apply merge {} feed))
-        test-feed (->> (find-qual-kws state :test-feed)
-                       vals
-                       (apply merge {} #_test-feed))
+        {:keys [graph session]} state
+        
+        {:keys [duration interval]
+         train-targets :targets
+         train-feed :feed
+         train-fetch :fetch
+         orig-train-fetch :orig-fetch-ids}
+        (get-run-req-specs graph
+                           state
+                           train-def
+                           :train-fetch
+                           :train-feed)
+        {test-targets :targets
+         test-feed :feed
+         test-fetch :fetch
+         orig-test-fetch :orig-fetch-ids}
+        (get-run-req-specs graph
+                           state
+                           test-def
+                           :test-fetch
+                           :test-feed)
         [_ dur-steps] duration ;; TODO support other units?
         [_ int-steps] interval ;; TODO support other units?
         run-steps (if train-fetch
                     (dec int-steps)
                     int-steps)
-        targets' (repeat run-steps
-                         (first targets))]
-    (when (> (count targets) 1)
+        train-targets' (repeat run-steps
+                               (first train-targets))]
+    (when (> (count train-targets) 1)
       (throw (Exception. "Only one training target supported.")))
     (future
       (try (loop [step 0]
              (swap! state-atom assoc :step step)
-             (let [[run-steps' step' targets''] (case step
-                                                  0 [0 1]
-                                                  1 [(max 0 (dec run-steps))
-                                                     (max int-steps 2)
-                                                     (repeat (max 0 (dec run-steps))
-                                                             (first targets))]
-                                                  [run-steps
-                                                   (+ step int-steps)
-                                                   targets'])]
+             (let [[run-steps' step' train-targets'] (case step
+                                                       0 [0 1]
+                                                       1 [(max 0 (dec run-steps))
+                                                          (max int-steps 2)
+                                                          (repeat (max 0 (dec run-steps))
+                                                                  (first train-targets))]
+                                                       [run-steps
+                                                        (+ step int-steps)
+                                                        train-targets])]
                (if (and (false? @interrupt-training)
                         (< step dur-steps))
                  (do (when (> run-steps' 0)
                        (run-all session
-                                targets''
+                                train-targets
                                 train-feed))
                      ;; TODO are fetched tensors immutable???
                      (let [train-fetched (when train-fetch
                                            (fetch-map session
                                                       train-fetch
                                                       train-feed
-                                                      targets))
+                                                      train-targets'))
                            test-fetched (when test-fetch
                                           ;; TODO support test targets
                                           (fetch-map session
                                                      test-fetch
                                                      test-feed))]
+                       (swap! state-atom assoc
+                              :train-fetched (select-keys train-fetched orig-train-fetch)
+                              :test-fetched (select-keys test-fetched orig-test-fetch))
                        (when tr-int-post
                          (future (tr-int-post (assoc state
                                                      :step step
