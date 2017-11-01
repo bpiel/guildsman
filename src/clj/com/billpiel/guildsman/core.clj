@@ -27,6 +27,10 @@
 (def dt-tensor dt/tensor-kw)
 (def dt-shape dt/shape-kw)
 
+(defmacro let+
+  [& body]
+  `(ut/let+ ~@body))
+
 (defmacro id$->>
   [& body]
   `(ut/id$->> ~@body))

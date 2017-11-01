@@ -224,7 +224,7 @@
                  :plan r#
                  :form ut/*enclosing-form*})))
 
-(defn- id-merge
+(defn id-merge
   [m v]
   (let [m' (assoc m :$ v)]
     (if-let [id (:id v)]

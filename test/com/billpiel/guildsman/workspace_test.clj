@@ -32,26 +32,25 @@
 ;; TODO spec
 
 (g/def-workspace ws1
-  (let [{:keys [features logits classes]}
-        (g/id$->> (o/placeholder :features 
-                                 g/dt-float
-                                 [-1 3]) ;;TODO feedable iterator macro
-                  (c/dense {:id :logits
-                            :units 8})
-                  (o/arg-max {:id :classes
-                              :output_type g/dt-int}
-                             $ 0))
-        {:keys [labels loss opt]}
-        (g/id$->> (o/placeholder :labels
-                                 g/dt-int
-                                 [-1])
-                  (c/one-hot $ 8)
-                  (c/mean-squared-error logits)
-                  (c/grad-desc-opt :opt 0.3))
-        acc (c/accuracy :acc
-                        ;; TODO clean up cast mess
-                        classes
-                        labels)]
+  (g/let+ [{:keys [features logits classes]}
+           (+>> (o/placeholder :features 
+                               g/dt-float
+                               [-1 3]) ;;TODO feedable iterator macro
+                (c/dense {:id :logits
+                          :units 8})
+                (o/arg-max {:id :classes
+                            :output_type g/dt-int}
+                           $ 0))
+           {:keys [labels opt]}
+           (+>> (o/placeholder :labels
+                               g/dt-int
+                               [-1])
+                (c/one-hot $ 8)
+                (c/mean-squared-error logits)
+                (c/grad-desc-opt :opt 0.3))
+           acc (c/accuracy :acc
+                           classes
+                           labels)]
     {:plugins #{dev/plugin}
      :plans [acc opt]
      :train {::dev/summaries [logits acc]
@@ -74,7 +73,7 @@
             :targets []
             :feed {:features (map first test-data)
                    :labels (map second test-data)}}
-     :predict {:args [:data] ;; or map
+     :predict {:args [:features] ;; or map
                :return :logits}}))
 
 #_(g/ws-status ws1)
