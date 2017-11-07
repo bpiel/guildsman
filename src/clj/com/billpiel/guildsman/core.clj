@@ -4,6 +4,7 @@
             [com.billpiel.guildsman.session :as sess]
             [com.billpiel.guildsman.tensor-mgr :as tm]
             [com.billpiel.guildsman.op-node :as opn]
+            [com.billpiel.guildsman.workspace :as ws1]
             [com.billpiel.guildsman.util :as ut]
             com.billpiel.guildsman.gradients
             com.billpiel.guildsman.grad-desc-opt
@@ -243,14 +244,33 @@ In the example below, both `graph` and `session` will be closed upon
    (build->graph (:graph session) plan)
    (fetch session plan feed)))
 
+(defn ws-status [{:keys [multi] :as ws}]
+  (multi :status))
+
+(defn ws-build [{:keys [multi] :as ws}]
+  (multi :build))
+
+(defn ws-init-vars [{:keys [multi] :as ws}]
+  (multi :init-vars))
+
+(defn ws-restore-vars [{:keys [multi] :as ws} & [alt-var-source]]
+  (multi :restore-vars))
+
+(defn ws-train [{:keys [multi] :as ws}]
+  (multi :train))
+
+(defn ws-train-test [{:keys [multi] :as ws}]
+  (multi :train-test))
+
+
 (def last-ex (atom nil))
 #_ (clojure.pprint/pprint last-ex)
 
-(defn ws-status-setup-main [ws-name ws-def]
-  `(ws-status-main ~'state
+(defn --ws-status-setup-main [ws-name ws-def]
+  `(--ws-status-main ~'state
                    ~'(-> ws :interrupt-training deref)))
 
-(defn ws-status-main [state interrupt-training]
+(defn --ws-status-main [state interrupt-training]
   {:return (assoc (select-keys state [:step
                                       :training?
                                       :last-ex
@@ -258,10 +278,9 @@ In the example below, both `graph` and `session` will be closed upon
                                       :test-fetched])
                   :interrupt-training interrupt-training)})
 
-(defn ws-status [{:keys [multi] :as ws}]
-  (multi :status))
 
-(defn mk-ws-source
+
+(defn --mk-ws-source
   [ws-name src-map]
   `(fn [~'ws-def]
      (let [mm# (clojure.lang.MultiFn. (str '~ws-name "-multi")
@@ -274,104 +293,66 @@ In the example below, both `graph` and `session` will be closed upon
          (. mm# clojure.core/addMethod ~'cmd ~'f))
        ~'ws)))
 
-(defn ws-init-setup-main [ws-name ws-def]
-  `(ws-init-main))
+(defn --ws-init-setup-main [ws-name ws-def]
+  `(--ws-init-main))
 
 ;; TODO move ws-*-main fns to ws ns??
-(defn ws-init-main
+(defn --ws-init-main
   []
   {:INIT-MAIN-NOT-IMPLEMENTED 1})
 
-(defn ws-build-setup-main [ws-name ws-def]
-  `(ws-build-main ~'(ws-def :plans)))
+(defn --ws-build-setup-main [ws-name ws-def]
+  `(--ws-build-main ~'(ws-def :plans)))
 
-(defn ws-build-main
+(defn --ws-build-main
   [plans]
   ;; TODO don't run if graph exists
   {:graph (build-all->graph plans)
    :return :BUILD-DONE})
 
-(defn ws-build [{:keys [multi] :as ws}]
-  (multi :build))
+
 
 ;; TODO take state instead of ws??
-(defn ws-create-session-setup-main [ws-name ws-def]
-  `(ws-create-session-main ~'(:graph state)
+(defn --ws-create-session-setup-main [ws-name ws-def]
+  `(--ws-create-session-main ~'(:graph state)
                            ~'(:session state)))
 
-(defn ws-create-session-main [graph session]
+(defn --ws-create-session-main [graph session]
   (if-not session
     {:session (graph->session graph)
      :return true}
     {:return false}))
 
-(defn ws-init-vars-setup-main [ws-name ws-def] `(ws-init-vars-main ~'(:session state)))
+(defn --ws-init-vars-setup-main [ws-name ws-def] `(--ws-init-vars-main ~'(:session state)))
 
-(defn ws-init-vars-main [session]
+(defn --ws-init-vars-main [session]
   (run-global-vars-init session)
   {:return true
    :vars-set true})
 
-(defn ws-init-vars [{:keys [multi] :as ws}]
-  (multi :init-vars))
 
-(defn ws-restore-vars-setup-main [ws-name ws-def] `(ws-restore-vars-main ~'state))
-(defn ws-restore-vars-main [state] {:return :NOT-IMPLEMENTED})
-(defn ws-restore-vars [{:keys [multi] :as ws} & [alt-var-source]]
-  (multi :restore-vars))
 
-(defn ws-save-vars-setup-main [ws-name ws-def] `(ws-save-vars-main ~'state))
-(defn ws-save-vars-main [state] {:return :NOT-IMPLEMENTED})
+(defn --ws-restore-vars-setup-main [ws-name ws-def] `(--ws-restore-vars-main ~'state))
+(defn --ws-restore-vars-main [state] {:return :NOT-IMPLEMENTED})
+(defn --ws-save-vars-setup-main [ws-name ws-def] `(--ws-save-vars-main ~'state))
+(defn --ws-save-vars-main [state] {:return :NOT-IMPLEMENTED})
+(defn --ws-train-setup-main [ws-name ws-def] `(--ws-train-main ~'state))
+(defn --ws-train-main [state] {:return :NOT-IMPLEMENTED})
+(defn --ws-train-interval-setup-main [ws-name ws-def] `(--ws-train-interval-main ~'state))
+(defn --ws-train-interval-main [ws & args] {:NOT-IMPLEMENTED 1})
+(defn --ws-test-setup-main [ws-name ws-def] `(--ws-test-main ~'state))
+(defn --ws-test-main [ws & args] {:NOT-IMPLEMENTED 1})
 
-(defn ws-train [{:keys [multi] :as ws}]
-  (multi :train))
-(defn ws-train-setup-main [ws-name ws-def] `(ws-train-main ~'state))
-(defn ws-train-main [state] {:return :NOT-IMPLEMENTED})
-
-(defn ws-train-interval-setup-main [ws-name ws-def] `(ws-train-interval-main ~'state))
-(defn ws-train-interval-main [ws & args] {:NOT-IMPLEMENTED 1})
-
-(defn ws-test-setup-main [ws-name ws-def] `(ws-test-main ~'state))
-(defn ws-test-main [ws & args] {:NOT-IMPLEMENTED 1})
-
-(defn ws-train-test [{:keys [multi] :as ws}]
-  (multi :train-test))
-(defn ws-train-test-setup-main [ws-name ws-def]
-  `(ws-train-main ~'state
+(defn --ws-train-test-setup-main [ws-name ws-def]
+  `(--ws-train-main ~'state
                   ~'(:train ws-def)
                   ~'(:test ws-def)))
 
 
-(defn- get-plugin-form-pairs
-  [ws-name ws-def plugins hook]
-  (->> (for [p plugins]
-         (let [p-ns (-> p :meta :ns)]
-           (when-let [f (get-in p hook)]
-             [p-ns (f ws-name ws-def)])))
-       (remove nil?)))
 
-(defn mk-hook-forms
-  [hook-forms]
-  (->> (for [[ns-str frms] hook-forms
-             frm frms]
-         `(~'state (update-state ~ns-str
-                                 ~'state
-                                 ~frm)))
-       (apply concat)))
 
-(defn mk-hook-fn-form*
-  [hook-forms]
-  (when-not (empty? hook-forms)
-    `(fn [~'state]
-       (let [~@hook-forms]
-         ~'state))))
 
-(defn mk-hook-fn-form
-  [ws-name ws-def plugins hook]
-  (mk-hook-fn-form*
-   (mk-hook-forms
-    (get-plugin-form-pairs
-     ws-name ws-def plugins hook))))
+
 
 
 (defn find-qual-kws
@@ -385,19 +366,19 @@ In the example below, both `graph` and `session` will be closed upon
                       (= kw-name)))
          (into {}))))
 
-(defn mk-ws-src-train-test
+(defn --mk-ws-src-train-test
   [ws-name ws-def plugins]
-  (let [hook-fns {:train-interval-post (mk-hook-fn-form ws-name
+  (let [hook-fns {:train-interval-post (ws1/mk-hook-fn-form ws-name
                                                         ws-def
                                                         plugins
                                                         [:train-interval :post])
-                  :train-test-post (mk-hook-fn-form ws-name
+                  :train-test-post (ws1/mk-hook-fn-form ws-name
                                                     ws-def
                                                     plugins
                                                     [:train-test :post])}]
     `(fn [~'& ~'_]
        ~'((:multi ws) :ensure-vars-set)
-       (ws-train-test-handler ~'(:state ws)
+       (--ws-train-test-handler ~'(:state ws)
                               ~'(:interrupt-training ws)
                               ~'(:train ws-def)
                               ~'(:test ws-def)
@@ -429,7 +410,7 @@ In the example below, both `graph` and `session` will be closed upon
             :orig-fetch-ids orig-fetch-ids
             :feed all-feeds})))
 
-(defn ws-train-test-handler
+(defn --ws-train-test-handler
   [state-atom interrupt-training train-def test-def hook-fns]
   (let [state @state-atom
         {tr-int-post :train-interval-post
@@ -515,19 +496,19 @@ In the example below, both `graph` and `session` will be closed upon
     true))
 
 
-(defn ws-predict-setup-main [ws-name ws-def] `(ws-predict-main ~'state))
-(defn ws-predict-main [state] {:return :NOT-IMPLEMENTED})
-(defn ws-close-session-setup-main [ws-name ws-def] `(ws-close-session-main ~'state))
-(defn ws-close-session-main [state] {:return :NOT-IMPLEMENTED})
-(defn ws-close-setup-main [ws-name ws-def] `(ws-close-main ~'state))
-(defn ws-close-main [state] {:return :NOT-IMPLEMENTED})
-(defn ws-interrupt-training-setup-main [ws-name ws-def] `(ws-train-interval-main ~'state))
-(defn ws-interrupt-training-main [state] {:return :NOT-IMPLEMENTED})
+(defn --ws-predict-setup-main [ws-name ws-def] `(--ws-predict-main ~'state))
+(defn --ws-predict-main [state] {:return :NOT-IMPLEMENTED})
+(defn --ws-close-session-setup-main [ws-name ws-def] `(--ws-close-session-main ~'state))
+(defn --ws-close-session-main [state] {:return :NOT-IMPLEMENTED})
+(defn --ws-close-setup-main [ws-name ws-def] `(--ws-close-main ~'state))
+(defn --ws-close-main [state] {:return :NOT-IMPLEMENTED})
+(defn --ws-interrupt-training-setup-main [ws-name ws-def] `(--ws-train-interval-main ~'state))
+(defn --ws-interrupt-training-main [state] {:return :NOT-IMPLEMENTED})
 
-(defn ws-ensure-vars-set-setup-main []
+(defn --ws-ensure-vars-set-setup-main []
   `(fn [~'cmd ~'& ~'_]
-     (ws-ensure-vars-set-main ~'ws)))
-(defn ws-ensure-vars-set-main
+     (--ws-ensure-vars-set-main ~'ws)))
+(defn --ws-ensure-vars-set-main
   [ws]
   (when-not (-> ws :state deref :vars-set)
     (ws-init-vars ws)
@@ -535,82 +516,25 @@ In the example below, both `graph` and `session` will be closed upon
   (swap! (:state ws)
          assoc :vars-set true))
 
-(defn- get-plugin-overide-form
-  [ws-name ws-def plugins hook]
-  (->> (for [p plugins]
-         (when-let [f (get-in p hook)]
-           (f ws-name ws-def)))
-       (remove nil?)
-       not-empty))
-
-(defn update-state
-  [ns-str old-state new-state]
-  (->> new-state
-       keys
-       (filter #(= (namespace %) ns-str))
-       (select-keys new-state)
-       (merge old-state)))
-
-(defn mk-pre-req-forms
-  [pre-reqs]
-  (for [[cmd & args] pre-reqs]
-    `(apply (~'ws :multi) ~cmd ~(or args []))))
-
-(defn- mk-ws-src-*
-  [main-form hook ws-name ws-def plugins pre-reqs]
-  (let [pre-req-forms (mk-pre-req-forms pre-reqs)
-        pre-hooks (get-plugin-form-pairs ws-name ws-def plugins [hook :pre])
-        pre-forms (mk-hook-forms pre-hooks)
-        post-hooks (get-plugin-form-pairs ws-name ws-def plugins [hook :post])
-        post-forms (mk-hook-forms post-hooks)
-        override-hook (get-plugin-overide-form ws-name ws-def plugins [hook :override])
-        main-form' `[~'state (merge ~'state
-                                   ~(or override-hook
-                                        main-form))]]
-    `(fn [~'cmd ~'& ~'args]
-       ~@pre-req-forms
-       (let [{~'state-atom :state} ~'ws]
-         (locking ~'state-atom
-           (let [~'state (assoc (deref ~'state-atom)
-                                :return nil)
-                 ~@pre-forms
-                 ~@main-form'
-                 ~@post-forms]
-             (swap! ~'state-atom merge ~'state)
-             (:return ~'state)))))))
-
-(defn mk-ws-src-map*
-  [ws-name {:keys [plugins] :as ws-def} & cmd-defs]
-  (->> (for [[cmd-kw setup-fn & [pre-reqs]] cmd-defs]
-         [cmd-kw (if (sequential? setup-fn)
-                   setup-fn
-                   (mk-ws-src-* (setup-fn ws-name ws-def)
-                                cmd-kw
-                                ws-name
-                                ws-def
-                                plugins
-                                pre-reqs))])
-       (into {})))
-
-(defn mk-ws-src-map
+(defn --mk-ws-src-map
   [ws-name {:keys [plugins] :as ws-def}]
-  (mk-ws-src-map* ws-name ws-def
-                  [:init ws-init-setup-main]
-                  [:status ws-status-setup-main]
-                  [:build ws-build-setup-main]
-                  [:create-session ws-create-session-setup-main [[:build]]]
-                  [:ensure-vars-set (ws-ensure-vars-set-setup-main)] 
-                  [:init-vars ws-init-vars-setup-main [[:create-session]]]
-                  [:restore-vars ws-restore-vars-setup-main [[:create-session]]]
-                  [:save-vars ws-save-vars-setup-main [[:create-session]]]
-                  [:train ws-train-setup-main [[:ensure-vars-set]]]
-                  [:train-interval ws-train-interval-setup-main ]
-                  [:interrupt-training ws-interrupt-training-setup-main]
-                  [:test ws-test-setup-main]
-                  [:train-test (mk-ws-src-train-test ws-name ws-def plugins)]
-                  [:predict ws-predict-setup-main [[:ensure-vars-set]]]
-                  [:close-session ws-close-session-setup-main]
-                  [:close ws-close-setup-main]))
+  (ws1/mk-ws-src-map* ws-name ws-def
+                  [:init --ws-init-setup-main]
+                  [:status --ws-status-setup-main]
+                  [:build --ws-build-setup-main]
+                  [:create-session --ws-create-session-setup-main [[:build]]]
+                  [:ensure-vars-set (--ws-ensure-vars-set-setup-main)] 
+                  [:init-vars --ws-init-vars-setup-main [[:create-session]]]
+                  [:restore-vars --ws-restore-vars-setup-main [[:create-session]]]
+                  [:save-vars --ws-save-vars-setup-main [[:create-session]]]
+                  [:train --ws-train-setup-main [[:ensure-vars-set]]]
+                  [:train-interval --ws-train-interval-setup-main ]
+                  [:interrupt-training --ws-interrupt-training-setup-main]
+                  [:test --ws-test-setup-main]
+                  [:train-test (--mk-ws-src-train-test ws-name ws-def plugins)]
+                  [:predict --ws-predict-setup-main [[:ensure-vars-set]]]
+                  [:close-session --ws-close-session-setup-main]
+                  [:close --ws-close-setup-main]))
 
 (defmacro ws-show-cmd-source
   [ws cmd]
@@ -624,9 +548,9 @@ In the example below, both `graph` and `session` will be closed upon
 (defmacro def-workspace
   [ws-name & body]
   `(let [~'ws-def (do ~@body)
-         src-map# (mk-ws-src-map '~ws-name
+         src-map# (--mk-ws-src-map '~ws-name
                                  ~'ws-def)
-         src# (mk-ws-source '~ws-name src-map#)]
+         src# (--mk-ws-source '~ws-name src-map#)]
      (def ~ws-name ((eval src#) ~'ws-def))
      (alter-meta! (var ~ws-name)
                   assoc
