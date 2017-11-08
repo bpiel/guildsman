@@ -312,13 +312,19 @@
          [head & tail :as body] words
          col' col]
     (if head
-      (let [hc (count head)]
-        (cond (>= indent width) (recur (conj agg head)
+      (let [hc (and (string? head) (count head))]
+        (cond (= head ::br) (recur (conj agg "\n\n")
+                                   tail
+                                   0)
+              (>= indent width) (recur (conj agg head)
                                        tail
                                        (+ col' hc))
               (< col' indent) (recur (conj agg (spacer (- indent col')))
                                      body
                                      indent)
+              (> hc width) (recur (conj agg "\n" head "\n")
+                                  tail
+                                  0)
               (> (+ hc col') width) (recur (conj agg "\n")
                                            body
                                            0)
@@ -330,10 +336,24 @@
                            (+ col' hc 1))))
       [agg "\n"])))
 
+(drop-last
+ (interleave (clojure.string/split "a b" #"\n\n+")
+             (repeat ::br)))
+
 (defn- dx-stack-text
   [width indent col doc]
-  (dx-stack-text* (clojure.string/split doc #"\s+")
-                  width col indent))
+  ($- -> doc
+      (clojure.string/split #"\n\n+")
+      (interleave (repeat ::br))
+      drop-last
+      (map #(if (string? %)
+              (clojure.string/split % #"\s+")
+              %)
+           $)
+      flatten
+      (dx-stack-text* width col indent)
+      flatten
+      (apply str $)))
 
 (defn restv [v] (-> v rest vec))
 
@@ -463,3 +483,69 @@
        (apply str "\n")
        dx-remove-extra-lines))
 
+
+
+(defn defn-comp-op-arities
+  [name-sym {:keys [id attrs inputs]}]
+  (let [attrs' (some-> attrs keys not-empty)
+        inputs' (some->> inputs (map first) not-empty)]
+    (->> [(when (and id attrs' inputs')
+            `([~'id-attrs ~@inputs']
+              (~name-sym (ut/id-attrs->id ~'id-attrs)
+                       (ut/id-attrs->attrs ~'id-attrs)
+                       ~@inputs')))
+          (when inputs'
+            `([~@inputs']
+              (~name-sym nil {} ~@inputs')))]
+         (remove nil?))))
+
+(defn defn-comp-op-main*
+  [name-sym {:keys [id attrs inputs] :as attr-map} body]
+  (let [attrs' (some-> attrs keys not-empty)
+        inputs' (some->> inputs (map first) not-empty)
+        ctrl-inputs' (when (:ctrl-inputs-attr? attr-map true)
+                       '(ctrl-inputs))
+        arg-list (cond (and id attrs' inputs')
+                       `[~'id
+                         {:keys [~@attrs' ~@ctrl-inputs']}
+                         ~@inputs'])]
+    `(~arg-list
+      (sc/with-push-both-scopes (or ~'id ~id)
+        (sc/assoc-scopes-to-plan
+         (ut/with-op-meta
+           (assoc (do ~@body)
+                  :ctrl-inputs ~@ctrl-inputs')))))))
+
+(defn defn-comp-op-fn-attr-map
+  [name-sym {:keys [doc attrs inputs]}]
+  {:doc (dx [doc
+             (into ['inputs] inputs)
+             (into ['attrs] (mapv vec attrs))]
+            75)})
+
+(defn- defn-comp-op*
+  [name-sym attrs-map body]
+  `(defn ~name-sym
+     ~(defn-comp-op-fn-attr-map name-sym attrs-map)
+     ~@(defn-comp-op-arities name-sym attrs-map)
+     ~(defn-comp-op-main* name-sym attrs-map body)))
+
+(defmacro defn-comp-op
+  [name-sym attrs-map & body]
+  (defn-comp-op* name-sym
+    (merge {:ctrl-inputs-attr? true
+            :assoc-scopes? false
+            :with-op-meta? true
+            :with-push-id-to-scopes true}
+           attrs-map)
+    body))
+
+(defmacro defn-comp-macro-op
+  [name-sym attrs-map & body]
+  (defn-comp-op* name-sym
+    (merge {:ctrl-inputs-attr? true
+            :assoc-scopes? true
+            :with-op-meta? true
+            :with-push-id-to-scopes true}
+           attrs-map)
+    body))

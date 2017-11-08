@@ -183,7 +183,7 @@ In the example below, both `graph` and `session` will be closed upon
          '["`exec` creates a new Session defrecord, builds plan and
 runs the root of plan. Returns the new session. It can optionally be
 provided an existing Graph defrecord and feed map."
-           [Returns "the new session"]
+           [Returns "the session"]
            [Args
             [plan "The Plan."]
             [graph "Optional. A Graph defrecord."]
