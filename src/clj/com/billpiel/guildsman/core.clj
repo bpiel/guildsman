@@ -174,10 +174,23 @@ In the example below, both `graph` and `session` will be closed upon
                  plans)
             (fetch-all session plans feed targets))))
 
-(defn exec
-  "`exec` creates a new Session defrecord, builds plan and runs the root of plan. Returns the new session.
+"`exec` creates a new Session defrecord, builds plan and runs the root of plan. Returns the new session.
   It can optionally be provided an existing Graph defrecord and feed
   map. "
+
+(defn exec
+  {:doc (ut/dx
+         '["`exec` creates a new Session defrecord, builds plan and
+runs the root of plan. Returns the new session. It can optionally be
+provided an existing Graph defrecord and feed map."
+           [Returns "the new session"]
+           [Args
+            [plan "The Plan."]
+            [graph "Optional. A Graph defrecord."]
+            [feed "Optional. It is a map. Keys are either plans or
+             keywords that correspond to pre-built nodes. Values will
+             override the values of their respective nodes. This is
+             typically used to provide values for placeholder nodes."]]])}
   ([plan]
    (-> plan
        build->graph

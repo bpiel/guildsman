@@ -281,3 +281,99 @@
           :inputs
           (partial walk/prewalk
                    prune-plan*)))
+
+
+
+(defn id-attrs->id
+  [id-attrs]
+  (if (keyword? id-attrs)
+    id-attrs
+    (:id id-attrs)))
+
+(defn id-attrs->attrs
+  [id-attrs]
+  (if (map? id-attrs)
+    (dissoc id-attrs :id)
+    {}))
+
+(defn id-attrs->ctrl-inputs
+  [id-attrs]
+  (if (map? id-attrs)
+    (:ctrl-inputs id-attrs [])
+    []))
+
+
+
+(defn- spacer [n] (apply str (repeat n " ")))
+
+(defn- dx-text*
+  [words width col indent]
+  (loop [agg []
+         [head & tail :as body] words
+         col' col]
+    (if head
+      (let [hc (count head)]
+        (cond (>= indent width) (recur (conj agg head)
+                                       tail
+                                       (+ col' hc))
+              (< col' indent) (recur (conj agg (spacer (- indent col')))
+                                     body
+                                     indent)
+              (> (+ hc col') width) (recur (conj agg "\n")
+                                           body
+                                           0)
+              (= col' indent) (recur (conj agg head)
+                                     tail
+                                     (+ col' hc))
+              :else (recur (conj agg " " head)
+                           tail
+                           (+ col' hc 1))))
+      agg)))
+
+(defn- dx-text
+  [text width col indent]
+  (let [words (if (symbol? text)
+                [(name text)]
+                (clojure.string/split text #"\s+"))]
+    (dx-text* words width col indent)))
+
+(defn- dx-element*
+  [title text width col indent]
+  (if title
+    (let [t (if (symbol? title)
+              (name title)
+              title)
+          title-delim " - "
+          offset (+ (count t) (count title-delim))]
+      [(spacer (- indent col))
+       t title-delim (dx-element* nil text width
+                              (+ indent offset)
+                              (+ indent offset))])
+    (dx-text (or text "") width col indent)))
+
+(defn- dx-element
+  [doc width indent]
+  (cond (string? doc) [(dx-element* nil doc width 0 indent) "\n\n"]
+        (and (vector? doc)
+             (-> doc second vector?))
+        [(dx-element* nil (first doc) width 0 indent)
+         "\n"
+         (mapv #(dx-element %  width (+ indent 2))
+               (rest doc))
+         "\n\n"]
+        (and (vector? doc)
+             (= (count doc) 1))
+        (dx-element (first doc) width indent)
+        (vector? doc)
+        [(dx-element* (first doc) (second doc) width 0 indent) "\n"]))
+
+(defn dx
+  [doc & [width indent]]
+  "Docstring formatter."
+  (->> doc
+       (map #(dx-element %
+                         (or width 75)
+                         (or indent 0)))
+       flatten
+       (apply str "\n")))
+
