@@ -306,7 +306,7 @@
 
 (defn- spacer [n] (apply str (repeat n " ")))
 
-(defn- dx-text*
+(defn- dx-stack-text*
   [words width col indent]
   (loop [agg []
          [head & tail :as body] words
@@ -328,52 +328,138 @@
               :else (recur (conj agg " " head)
                            tail
                            (+ col' hc 1))))
-      agg)))
+      [agg "\n"])))
 
-(defn- dx-text
-  [text width col indent]
-  (let [words (if (symbol? text)
-                [(name text)]
-                (clojure.string/split text #"\s+"))]
-    (dx-text* words width col indent)))
+(defn- dx-stack-text
+  [width indent col doc]
+  (dx-stack-text* (clojure.string/split doc #"\s+")
+                  width col indent))
 
-(defn- dx-element*
-  [title text width col indent]
-  (if title
-    (let [t (if (symbol? title)
-              (name title)
-              title)
-          title-delim " - "
-          offset (+ (count t) (count title-delim))]
-      [(spacer (- indent col))
-       t title-delim (dx-element* nil text width
-                              (+ indent offset)
-                              (+ indent offset))])
-    (dx-text (or text "") width col indent)))
+(defn restv [v] (-> v rest vec))
 
-(defn- dx-element
-  [doc width indent]
-  (cond (string? doc) [(dx-element* nil doc width 0 indent) "\n\n"]
-        (and (vector? doc)
-             (-> doc second vector?))
-        [(dx-element* nil (first doc) width 0 indent)
-         "\n"
-         (mapv #(dx-element %  width (+ indent 2))
-               (rest doc))
-         "\n\n"]
-        (and (vector? doc)
-             (= (count doc) 1))
-        (dx-element (first doc) width indent)
-        (vector? doc)
-        [(dx-element* (first doc) (second doc) width 0 indent) "\n"]))
+(defn- dx->str
+  [doc]
+  (cond (string? doc) doc
+        (keyword? doc) (name doc)
+        (symbol? doc) (name doc)
+        (number? doc) (str doc)
+        :else nil))
+
+#_ (def dx-element nil)
+(defmulti dx-element
+  (fn [mode width indent doc] mode))
+
+(defn dx-stack-element
+  [width indent col doc]
+  (let [doc' (dx->str doc)]
+    (cond (string? doc') (dx-stack-text width indent col doc')
+          (vector? doc) (dx-element :section width indent doc)
+          :else (throw (Exception. (str "what's this? " doc))))))
+
+(defn dx-section-element
+  [width indent doc]
+  (let [doc' (dx->str doc)]
+    (cond (string? doc') (dx-stack-text width indent 0 doc')
+          (and (vector? doc)
+               (not-empty doc)) (dx-element :table width indent doc)
+          (empty? doc) []
+          :else (throw (Exception. (str "what's this? " doc))))))
+
+(defn dx-prep-section-contents**
+  [[head tail] item]
+  (let [head' (or head [])
+        tail' (or tail [])]
+    (if (vector? item)
+      [head' (conj (or tail' []) item)]
+      [(conj head' tail' item) []])))
+
+(defn not-empty2
+  [v]
+  (when (or (-> v nil? not)
+            (not-empty v))
+    v))
+
+(defn dx-prep-section-contents*
+  [doc]
+  (let [[head tail] (reduce dx-prep-section-contents**
+                            [] doc)]
+    (->> (conj head tail)
+         (keep not-empty2))))
+
+(defn dx-prep-section-contents
+  [doc]
+  (if-let [s (dx->str doc)]
+    [s]
+    (dx-prep-section-contents* doc)))
+
+(defn dx-prep-stack-contents
+  [doc]
+  (if (vector? doc)
+    doc
+    [doc]))
+
+(defn dx-element-stack
+  [width indent doc col & [inter-lines?]]
+  (let [doc' (dx-prep-stack-contents doc)
+        out [(dx-stack-element width indent col (first doc'))
+             (mapv (partial dx-stack-element
+                            width indent 0)
+                   (restv doc'))]]
+    (if inter-lines?
+      (interleave out (repeat "\n"))
+      out)))
+
+(defmethod dx-element :stack
+  [_ width indent doc]
+  (dx-element-stack width indent doc 0 (= indent 0)))
+
+(defmethod dx-element :section
+  [_ width indent [title & tail]]
+  ["\n"
+   (spacer indent)
+   (dx->str title) "\n"
+   (mapv (partial dx-section-element
+                  width (+ indent 2))
+         (dx-prep-section-contents (vec tail)))
+   "\n"])
+
+(defn dx-get-left-col-width
+  [rows]
+  (->> rows
+       (map first)
+       (map dx->str)
+       (map count)
+       (apply max 0)))
+
+(defn dx-table-row
+  [width indent left-col-width [head & tail]]
+  (let [h' (dx->str head)
+        hc (count h')
+        delim (str (spacer (- left-col-width hc)) " - ")]
+    [(spacer indent) h' delim
+     (dx-element-stack width
+                       (+ indent hc (count delim))
+                       (vec tail)
+                       (+ indent hc (count delim)))]))
+
+(defmethod dx-element :table
+  [_ width indent doc]
+  (let [left-col-width (dx-get-left-col-width doc)]
+    (mapv (partial dx-table-row
+                   width indent left-col-width)
+          doc)))
+
+(defn dx-remove-extra-lines [s]
+  (clojure.string/replace s #"\n\n+" "\n\n"))
 
 (defn dx
   [doc & [width indent]]
-  "Docstring formatter."
   (->> doc
-       (map #(dx-element %
-                         (or width 75)
-                         (or indent 0)))
+       (dx-element
+        :stack
+        (or width 75)
+        (or indent 0))
        flatten
-       (apply str "\n")))
+       (apply str "\n")
+       dx-remove-extra-lines))
 

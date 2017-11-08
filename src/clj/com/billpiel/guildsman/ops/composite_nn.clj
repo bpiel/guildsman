@@ -235,8 +235,7 @@ Attributes
 
 (defn defn-comp-op-fn-attr-map*
   [name-sym {:keys [doc attrs inputs]}]
-  {:doc (ut/dx [""
-                doc
+  {:doc (ut/dx [doc
                 (into ['inputs] inputs)
                 (into ['attrs] (mapv vec attrs))]
               75)})
@@ -251,28 +250,6 @@ Attributes
 (defmacro defn-comp-op
   [name-sym attrs-map & body]
   (defn-comp-op* name-sym attrs-map body))
-
-#_(clojure.pprint/pprint
- (macroexpand
-  '(defn-comp-op dropout
-     {:doc "Drops out. Stays out."
-      :id :dropout ;; can be `true`, nil/false or a default value
-      :attrs {noise-shape "Shape of noise"
-              seed "The seed"
-              seed2 "The second seed"}
-      :inputs [[keep-prob "Probability of keeping"]
-               [x "the thing that gets dropped"]]
-      :ctrl-inputs-attr? true ;;default
-      :assoc-scopes? true     ;; default
-      :with-op-meta? true     ;; default
-      :with-push-id-to-scopes true }
-     {:macro :dropout
-      :id id
-      :inputs [keep-prob x]
-      :noise-shape noise-shape
-      :seed seed
-      :seed2 seed2})))
-
 
 (defn-comp-op dropout
      {:doc "Drops out. Stays out."
