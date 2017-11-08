@@ -223,3 +223,61 @@
                 {:stack (get-stack)
                  :plan r#
                  :form ut/*enclosing-form*})))
+
+(defn id-merge
+  [m v]
+  (let [m' (assoc m :$ v)]
+    (if-let [id (:id v)]
+      (assoc m' id v)
+      m')))
+
+(defn let+***
+  [v]
+  (cond (some #{'$} (tree-seq sequential? seq v)) v
+        (list? v) (concat v ['$])
+        :else (list v '$)))
+
+(defn let+**
+  [[b v]]
+  (if (and (seq? v)
+           (= (first v) '+>>))
+    (let [[_ v1 & vrest] v]
+      (concat `(~'$gm$ (id-merge ~'$gm$
+                                 ~(wrap-bind-form v1 v1))
+                ~b ~'$gm$
+                {~'$ :$} ~'$gm$) 
+              (mapcat (fn [vv]
+                        `(~'$gm$ (id-merge ~'$gm$
+                                           ~(wrap-bind-form vv
+                                                            (let+*** vv)))
+                          ~b ~'$gm$
+                          {~'$ :$} ~'$gm$))
+                      vrest)))
+    [b (wrap-bind-form v v)]))
+
+(defn- let+*
+  [bindings]
+  (->> bindings
+       (partition 2)
+       (mapcat let+**)
+       vec
+       (into ['$gm$ {}])))
+
+(defmacro let+
+  [bindings & exprs]
+  (let [b (let+* bindings)]
+    `(let ~b ~@exprs)))
+
+(defn prune-plan*
+  [v]
+  (if (and (map? v)
+           (-> v :inputs not-empty))
+    (assoc v :inputs :PRUNED)
+    v))
+
+(defn prune-plan
+  [plan]
+  (update plan
+          :inputs
+          (partial walk/prewalk
+                   prune-plan*)))

@@ -32,7 +32,7 @@
   (Session. (com.billpiel.guildsman.SessionNI/allocate (:handle g))
             g))
 
-(defn- ->op-node
+(defn ->op-node
   [^Graph g x]
   (cond (com/Op? x) x
         (keyword? x) ((gr/id->node g) (name x))
@@ -71,7 +71,8 @@
                          id->node)
                      ;; TODO don't assume output-idx 0
                      dtype (first dtypes)]
-
+                 (when (nil? node)
+                   (throw (Exception. (str "No node found to feed: " k))))
                  [(-> v
                       (dt/maybe-convert-whatever dtype)
                       tm/get-tensor-ref-by-value)

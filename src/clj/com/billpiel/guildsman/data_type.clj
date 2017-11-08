@@ -296,6 +296,8 @@
 (defn convert-whatever
   [v dt-kw]
   (let [{:keys [scalar-fn]} (kw->dt dt-kw)]
+    (when (nil? scalar-fn)
+      (throw (Exception. (str "No scalar function found for type: " dt-kw))))
     (if (sh/scalar? v)
       (scalar-fn v)
       (convert-vecs v scalar-fn)))) 
@@ -304,7 +306,4 @@
   [v dt-kw]
   (if (= (-> v data-type-of-whatever :kw) dt-kw)
     v
-    (let [{:keys [scalar-fn]} (kw->dt dt-kw)]
-      (if (sh/scalar? v)
-        (scalar-fn v)
-        (convert-vecs v scalar-fn)))))
+    (convert-whatever v dt-kw)))

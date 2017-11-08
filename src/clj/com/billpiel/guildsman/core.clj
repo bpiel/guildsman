@@ -4,13 +4,15 @@
             [com.billpiel.guildsman.session :as sess]
             [com.billpiel.guildsman.tensor-mgr :as tm]
             [com.billpiel.guildsman.op-node :as opn]
+            [com.billpiel.guildsman.workspace :as ws1]
             [com.billpiel.guildsman.util :as ut]
             com.billpiel.guildsman.gradients
             com.billpiel.guildsman.grad-desc-opt
             com.billpiel.guildsman.gradients-clj
             com.billpiel.guildsman.grad-desc-opt-clj
             [com.billpiel.guildsman.data-type :as dt]
-            com.billpiel.guildsman.common)
+            com.billpiel.guildsman.common
+            clojure.pprint)
   (:import [com.billpiel.guildsman.common Graph]
            [com.billpiel.guildsman.session Session]))
 
@@ -26,12 +28,13 @@
 (def dt-tensor dt/tensor-kw)
 (def dt-shape dt/shape-kw)
 
+(defmacro let+
+  [& body]
+  `(ut/let+ ~@body))
+
 (defmacro id$->>
   [& body]
   `(ut/id$->> ~@body))
-
-#_ (def plugins (atom #{}))
-(defonce plugins (atom #{})) ;; only support one for now?
 
 (defmulti close
   "Close a Graph or Session defrecord."
@@ -167,7 +170,7 @@ In the example below, both `graph` and `session` will be closed upon
 (defn fetch-map [^Session session plans & [feed targets]]
   (let [g (:graph session)]
     (zipmap (map (comp :id
-                       (partial opn/find-op g))
+                       (partial sess/->op-node g))
                  plans)
             (fetch-all session plans feed targets))))
 
@@ -241,126 +244,316 @@ In the example below, both `graph` and `session` will be closed upon
    (build->graph (:graph session) plan)
    (fetch session plan feed)))
 
-(defmulti call-plugin (fn [plugin-id+hook & args] plugin-id+hook))
-(defmethod call-plugin :default
-  [[_ hook] & args] nil)
+(defn ws-status [{:keys [multi] :as ws}]
+  (multi :status))
 
-(defn- call-plugins
-  [hook m & args]
-  (let [plugin-ids @plugins]
-    (mapv #(apply call-plugin [% hook] m args)
-            plugin-ids)))
+(defn ws-build [{:keys [multi] :as ws}]
+  (multi :build))
 
-(defn- ws-init-graph&session
-  [{:keys [state] :as m}]
-  (if-let [session (:session @state)]
-    session
-    (let [s (build->session [])]
-      (call-plugins :init m s)
-      (swap! state assoc :session s)
-      s)))
+(defn ws-init-vars [{:keys [multi] :as ws}]
+  (multi :init-vars))
 
-(defn ws-build
-  [{:keys [state ws-def] :as m}]
-  (let [{:keys [graph]}  (ws-init-graph&session m)]
-    (call-plugins :pre-build m)
-    (build-all->graph graph (:build ws-def))
-    (call-plugins :post-build m)
-    true))
+(defn ws-restore-vars [{:keys [multi] :as ws} & [alt-var-source]]
+  (multi :restore-vars))
 
-;; TODO wrong way to do this
-(defn ws-write-tb
-  [{:keys [state ws-def] :as m}]
-  (call-plugins :write-tb m)
-  true)
+(defn ws-train [{:keys [multi] :as ws}]
+  (multi :train))
+
+(defn ws-train-test [{:keys [multi] :as ws}]
+  (multi :train-test))
+
 
 (def last-ex (atom nil))
 #_ (clojure.pprint/pprint last-ex)
 
-(defn ws-train
-  [{:keys [state ws-def] :as ws}]
-  (let [{:keys [train]} ws-def
-        {:keys [targets feed fetch steps log-step-interval]} train
-        {:keys [session]} @state]
-    (run-global-vars-init session)
-    (let [fetch' (->> (call-plugins :train-fetch ws)
-                      (apply concat fetch)
-                      distinct)]
-      (future
-        (try
-          (do (ut/$- ->> fetch'
-                     (fetch-map session $ feed)
-                     (future (call-plugins :log-step ws {:train $} 0))))
-          (dotimes [step steps]
-            (let [step+1 (inc step)]
-              (if (or (= step 0)
-                      (= (mod step+1 (or log-step-interval 1)) 0)
-                      (= step+1 steps))
-                (do (ut/$- ->> fetch'
-                           (fetch-map session $ feed targets)
-                           (future (call-plugins :log-step ws {:train $} step+1))))
-                (run-all session targets feed))))
-          (catch Exception ex
-            (reset! last-ex ex)))))
+(defn --ws-status-setup-main [ws-name ws-def]
+  `(--ws-status-main ~'state
+                   ~'(-> ws :interrupt-training deref)))
+
+(defn --ws-status-main [state interrupt-training]
+  {:return (assoc (select-keys state [:step
+                                      :training?
+                                      :last-ex
+                                      :train-fetched
+                                      :test-fetched])
+                  :interrupt-training interrupt-training)})
+
+
+
+(defn --mk-ws-source
+  [ws-name src-map]
+  `(fn [~'ws-def]
+     (let [mm# (clojure.lang.MultiFn. (str '~ws-name "-multi")
+                                      ~'(fn [cmd & _] cmd)
+                                      :default #'clojure.core/global-hierarchy)
+           ~'ws {:state (atom {})
+                 :interrupt-training (volatile! false)
+                 :multi mm#}]
+       (doseq [[~'cmd ~'f] ~src-map]
+         (. mm# clojure.core/addMethod ~'cmd ~'f))
+       ~'ws)))
+
+(defn --ws-init-setup-main [ws-name ws-def]
+  `(--ws-init-main))
+
+;; TODO move ws-*-main fns to ws ns??
+(defn --ws-init-main
+  []
+  {:INIT-MAIN-NOT-IMPLEMENTED 1})
+
+(defn --ws-build-setup-main [ws-name ws-def]
+  `(--ws-build-main ~'(ws-def :plans)))
+
+(defn --ws-build-main
+  [plans]
+  ;; TODO don't run if graph exists
+  {:graph (build-all->graph plans)
+   :return :BUILD-DONE})
+
+
+
+;; TODO take state instead of ws??
+(defn --ws-create-session-setup-main [ws-name ws-def]
+  `(--ws-create-session-main ~'(:graph state)
+                           ~'(:session state)))
+
+(defn --ws-create-session-main [graph session]
+  (if-not session
+    {:session (graph->session graph)
+     :return true}
+    {:return false}))
+
+(defn --ws-init-vars-setup-main [ws-name ws-def] `(--ws-init-vars-main ~'(:session state)))
+
+(defn --ws-init-vars-main [session]
+  (run-global-vars-init session)
+  {:return true
+   :vars-set true})
+
+
+
+(defn --ws-restore-vars-setup-main [ws-name ws-def] `(--ws-restore-vars-main ~'state))
+(defn --ws-restore-vars-main [state] {:return :NOT-IMPLEMENTED})
+(defn --ws-save-vars-setup-main [ws-name ws-def] `(--ws-save-vars-main ~'state))
+(defn --ws-save-vars-main [state] {:return :NOT-IMPLEMENTED})
+(defn --ws-train-setup-main [ws-name ws-def] `(--ws-train-main ~'state))
+(defn --ws-train-main [state] {:return :NOT-IMPLEMENTED})
+(defn --ws-train-interval-setup-main [ws-name ws-def] `(--ws-train-interval-main ~'state))
+(defn --ws-train-interval-main [ws & args] {:NOT-IMPLEMENTED 1})
+(defn --ws-test-setup-main [ws-name ws-def] `(--ws-test-main ~'state))
+(defn --ws-test-main [ws & args] {:NOT-IMPLEMENTED 1})
+
+(defn --ws-train-test-setup-main [ws-name ws-def]
+  `(--ws-train-main ~'state
+                  ~'(:train ws-def)
+                  ~'(:test ws-def)))
+
+
+
+
+
+
+
+
+(defn find-qual-kws
+  [m kw]
+  (let [kw-name (name kw)]
+    (->> m
+         seq
+         (filter #(-> %
+                      first
+                      name
+                      (= kw-name)))
+         (into {}))))
+
+(defn --mk-ws-src-train-test
+  [ws-name ws-def plugins]
+  (let [hook-fns {:train-interval-post (ws1/mk-hook-fn-form ws-name
+                                                        ws-def
+                                                        plugins
+                                                        [:train-interval :post])
+                  :train-test-post (ws1/mk-hook-fn-form ws-name
+                                                    ws-def
+                                                    plugins
+                                                    [:train-test :post])}]
+    `(fn [~'& ~'_]
+       ~'((:multi ws) :ensure-vars-set)
+       (--ws-train-test-handler ~'(:state ws)
+                              ~'(:interrupt-training ws)
+                              ~'(:train ws-def)
+                              ~'(:test ws-def)
+                              ~hook-fns))))
+
+(defn- extract-distinct-vals
+  [m kw]
+  (->> (find-qual-kws m kw)
+       vals
+       (apply concat)
+       distinct))
+
+
+(defn- get-run-req-specs
+  [^Graph g state t-def fetch-kw feed-kw]
+  (let [{:keys [feed fetch]} t-def
+        orig-fetch-nodes (map (partial sess/->op-node g)
+                              fetch)
+        orig-fetch-ids (map :id orig-fetch-nodes)
+        all-fetch-nodes (->> (extract-distinct-vals state fetch-kw)
+                             (map (partial sess/->op-node g))
+                             (into orig-fetch-nodes)
+                             distinct
+                             not-empty)
+        all-feeds (->> (find-qual-kws state feed-kw)
+                       (apply merge {} feed))]
+    (merge t-def
+           {:fetch all-fetch-nodes
+            :orig-fetch-ids orig-fetch-ids
+            :feed all-feeds})))
+
+(defn --ws-train-test-handler
+  [state-atom interrupt-training train-def test-def hook-fns]
+  (let [state @state-atom
+        {tr-int-post :train-interval-post
+         tr-te-post :train-test-post} hook-fns
+        {:keys [graph session]} state
+        
+        {:keys [duration interval]
+         train-targets :targets
+         train-feed :feed
+         train-fetch :fetch
+         orig-train-fetch :orig-fetch-ids}
+        (get-run-req-specs graph
+                           state
+                           train-def
+                           :train-fetch
+                           :train-feed)
+        {test-targets :targets
+         test-feed :feed
+         test-fetch :fetch
+         orig-test-fetch :orig-fetch-ids}
+        (get-run-req-specs graph
+                           state
+                           test-def
+                           :test-fetch
+                           :test-feed)
+        [_ dur-steps] duration ;; TODO support other units?
+        [_ int-steps] interval ;; TODO support other units?
+        run-steps (if train-fetch
+                    (dec int-steps)
+                    int-steps)
+        train-targets' (repeat run-steps
+                               (first train-targets))]
+    (when (> (count train-targets) 1)
+      (throw (Exception. "Only one training target supported.")))
+    (future
+      (try (loop [step 0]
+             (swap! state-atom assoc :step step)
+             (let [[run-steps' step' train-targets'] (case step
+                                                       0 [0 1]
+                                                       1 [(max 0 (dec run-steps))
+                                                          (max int-steps 2)
+                                                          (repeat (max 0 (dec run-steps))
+                                                                  (first train-targets))]
+                                                       [run-steps
+                                                        (+ step int-steps)
+                                                        train-targets])]
+               (if (and (false? @interrupt-training)
+                        (< step dur-steps))
+                 (do (when (> run-steps' 0)
+                       (run-all session
+                                train-targets
+                                train-feed))
+                     ;; TODO are fetched tensors immutable???
+                     (let [train-fetched (when train-fetch
+                                           (fetch-map session
+                                                      train-fetch
+                                                      train-feed
+                                                      train-targets'))
+                           test-fetched (when test-fetch
+                                          ;; TODO support test targets
+                                          (fetch-map session
+                                                     test-fetch
+                                                     test-feed))]
+                       (swap! state-atom assoc
+                              :train-fetched (select-keys train-fetched orig-train-fetch)
+                              :test-fetched (select-keys test-fetched orig-test-fetch))
+                       (when tr-int-post
+                         (future (tr-int-post (assoc state
+                                                     :step step
+                                                     :train-fetched train-fetched
+                                                     :test-fetched test-fetched))))
+                       (recur step')))
+                 (do (when tr-te-post
+                       (swap! state-atom tr-te-post))
+                     (swap! state-atom
+                            assoc :training? false)))))
+           (catch Exception e
+             (reset! last-ex e)
+             (swap! state-atom assoc :last-ex e))))
+    (swap! state-atom merge
+           {:training? true
+            :return true})
     true))
 
-(defn- update-alpha
-  [{:keys [alpha] :as feed} step]
-  (cond (nil? alpha)
-        feed
-        (fn? alpha)
-        (assoc feed :alpha (alpha step))
-        :else feed))
 
-(defn ws-train-test
-  [{:keys [state ws-def] :as ws}]
-  (let [{:keys [train test]} ws-def
-        {:keys [targets feed fetch steps log-step-interval]} train
-        {test-feed :feed} test
-        {:keys [session]} @state]
-    (run-global-vars-init session)
-    (let [fetch' (->> (call-plugins :train-fetch ws)
-                      (apply concat fetch)
-                      distinct)]
-      (future (try (dotimes [step steps]
-                     (let [step+1 (inc step)
-                           feed' (update-alpha feed step+1)]
-                       (if (or (= step 0)
-                               (= (mod step+1 (or log-step-interval 1)) 0)
-                               (= step+1 steps))
-                         (let [train-fetch (fetch-map session fetch' feed' targets)
-                               test-fetch (fetch-map session fetch' test-feed)]
-                           (future (call-plugins :log-step ws
-                                                 {:train train-fetch
-                                                  :test test-fetch}
-                                                 step+1)))
-                         (run-all session targets feed'))))
-                   (catch Exception ex
-                     (reset! last-ex ex)))))
-    true))
+(defn --ws-predict-setup-main [ws-name ws-def] `(--ws-predict-main ~'state))
+(defn --ws-predict-main [state] {:return :NOT-IMPLEMENTED})
+(defn --ws-close-session-setup-main [ws-name ws-def] `(--ws-close-session-main ~'state))
+(defn --ws-close-session-main [state] {:return :NOT-IMPLEMENTED})
+(defn --ws-close-setup-main [ws-name ws-def] `(--ws-close-main ~'state))
+(defn --ws-close-main [state] {:return :NOT-IMPLEMENTED})
+(defn --ws-interrupt-training-setup-main [ws-name ws-def] `(--ws-train-interval-main ~'state))
+(defn --ws-interrupt-training-main [state] {:return :NOT-IMPLEMENTED})
 
-(defn- ws-do-auto
-  [{:keys [ws-def] :as ws}]
-  (doseq [a (:auto ws-def)]
-    (case a
-      :build (ws-build ws)
-      :write-tb (ws-write-tb ws)
-      :train (ws-train ws)
-      :train-test (ws-train-test ws)
-      (throw (Exception. (str "Unknown auto " a))))))
+(defn --ws-ensure-vars-set-setup-main []
+  `(fn [~'cmd ~'& ~'_]
+     (--ws-ensure-vars-set-main ~'ws)))
+(defn --ws-ensure-vars-set-main
+  [ws]
+  (when-not (-> ws :state deref :vars-set)
+    (ws-init-vars ws)
+    (ws-restore-vars ws))
+  (swap! (:state ws)
+         assoc :vars-set true))
 
-(defn mk-workspace
-  [ws-name ws-def]
-  (let [m {:state (atom {})
-           :ws-name ws-name
-           :ws-def ws-def
-           :plugins @plugins}]
-    (call-plugins :new m)
-    (ws-do-auto m)
-    m))
+(defn --mk-ws-src-map
+  [ws-name {:keys [plugins] :as ws-def}]
+  (ws1/mk-ws-src-map* ws-name ws-def
+                  [:init --ws-init-setup-main]
+                  [:status --ws-status-setup-main]
+                  [:build --ws-build-setup-main]
+                  [:create-session --ws-create-session-setup-main [[:build]]]
+                  [:ensure-vars-set (--ws-ensure-vars-set-setup-main)] 
+                  [:init-vars --ws-init-vars-setup-main [[:create-session]]]
+                  [:restore-vars --ws-restore-vars-setup-main [[:create-session]]]
+                  [:save-vars --ws-save-vars-setup-main [[:create-session]]]
+                  [:train --ws-train-setup-main [[:ensure-vars-set]]]
+                  [:train-interval --ws-train-interval-setup-main ]
+                  [:interrupt-training --ws-interrupt-training-setup-main]
+                  [:test --ws-test-setup-main]
+                  [:train-test (--mk-ws-src-train-test ws-name ws-def plugins)]
+                  [:predict --ws-predict-setup-main [[:ensure-vars-set]]]
+                  [:close-session --ws-close-session-setup-main]
+                  [:close --ws-close-setup-main]))
 
+(defmacro ws-show-cmd-source
+  [ws cmd]
+  `(-> ~ws
+       var
+       meta
+       :source-map
+       ~cmd))
+
+;; TODO interrupt-training
 (defmacro def-workspace
   [ws-name & body]
-  `(def ~ws-name
-     (mk-workspace '~ws-name
-                   (do ~@body))))
+  `(let [~'ws-def (do ~@body)
+         src-map# (--mk-ws-src-map '~ws-name
+                                 ~'ws-def)
+         src# (--mk-ws-source '~ws-name src-map#)]
+     (def ~ws-name ((eval src#) ~'ws-def))
+     (alter-meta! (var ~ws-name)
+                  assoc
+                  :source-map src-map#)
+     ((~ws-name :multi) :init)
+     (var ~ws-name)))
