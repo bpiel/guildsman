@@ -92,15 +92,31 @@
          (o/bias-add bias)
          ((partial mk-activation-plan activation)))]))
 
-(defn dense
-  [{:keys [id activation units]} input]
-  (-> {:macro :dense
-       :id id
-       :inputs [input]
-       :units units
-       :activation (mk-activation-template activation)}
-      sc/assoc-scopes-to-plan
-      ut/with-op-meta))
+(ut/defn-comp-macro-op dense
+  {:doc "Densely-connected layer class.
+
+This layer implements the operation:
+
+outputs = activation(inputs.kernel + bias)
+
+  Where `activation` is the activation function passed as the
+  `activation` argument (if not `None`), `kernel` is a weights matrix
+  created by the layer, and `bias` is a bias vector created by the
+  layer (only if `use_bias` is `True`).  Note: if the input to the
+  layer has a rank greater than 2, then it is flattened prior to the
+  initial matrix multiply by `kernel`."
+   :id ::ut/req
+   :attrs {activation
+           "Optional. Activation function plan. Default (nil) is a
+           linear activation."
+           units
+           "Integer, dimensionality of the output space."}
+   :inputs [[input "THE input"]]}
+  {:macro :dense
+   :id id
+   :inputs [input]
+   :units units
+   :activation (mk-activation-template activation)})
 
 (defn- dropout*
   ([^Graph g keep-prob x]
@@ -127,17 +143,35 @@
   (let [[keep-prob x] inputs]
     [(dropout* g id keep-prob x args)]))
 
-(defn dropout
-  ([keep-prob x]
-   (dropout nil keep-prob x {}))
-  ([id keep-prob x & [{:keys [noise-shape seed seed2]}]] ;; TODO make signature consistent?
-   {:macro :dropout
-    :id id
-    :inputs [keep-prob x]
-    :noise-shape noise-shape
-    :seed seed
-    :seed2 seed2}))
+(ut/defn-comp-macro-op dropout
+  {:doc
+   "Returns a dropout plan.
 
+  With probability `keep_prob`, outputs the input element scaled up by
+  `1 / keep_prob`, otherwise outputs `0`.  The scaling is so that the expected
+  sum is unchanged.
+
+  By default, each element is kept or dropped independently.  If
+  `noise_shape` is specified, it must be broadcastable to the shape of
+  `x`, and only dimensions with `noise_shape[i] == shape(x)[i]` will
+  make independent decisions.  For example, if `shape(x) = [k, l, m,
+  n]` and `noise_shape = [k, 1, 1, n]`, each batch and channel
+  component will be kept independently and each row and column will be
+  kept or not kept together."
+   :id :dropout
+   :attrs {noise-shape "Optional. A 1-D `Tensor` of type `int32`,
+      representing the shape for randomly generated keep/drop flags."
+           seed "Optional. An integer. Used to create random seeds."
+           seed2 "Optional. An integer. Used to create random seeds."}
+   :inputs [[keep-prob "A scalar `Tensor` with the same type as x. The
+      probability that each element is kept." ]
+            [x "A floating point tensor."]]}
+  {:macro :dropout
+   :id id
+   :inputs [keep-prob x]
+   :noise-shape noise-shape
+   :seed seed
+   :seed2 seed2})
 
 (defmethod mc/build-macro :l2-loss
   [^Graph g {:keys [id attrs inputs] :as args}]
@@ -148,3 +182,5 @@
 (defn l2-loss
   ([] {:macro :l2-loss
        :inputs [:$/input]}))
+
+

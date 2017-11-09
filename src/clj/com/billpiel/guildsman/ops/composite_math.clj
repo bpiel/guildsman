@@ -16,23 +16,46 @@
           input-tensor
           (reduction-dims input-tensor axis)))
 
-(defn reduce-mean
-  ([input-tensor]
-   (reduce-mean nil {} input-tensor))
-  ([id-attrs input-tensor]
-   (reduce-mean (ogu/id-attrs->id id-attrs)
-                (ogu/id-attrs->attrs id-attrs)
-                input-tensor))
-  ([id {:keys [keep-dims axis]} input-tensor]
-   (o/mean id
-           {:keep_dims (true? keep-dims)}
-           input-tensor
-           (reduction-dims input-tensor axis))))
+(ut/defn-comp-op reduce-mean
+  {:doc "Computes the mean of elements across dimensions of a tensor.
 
-(defn reduce-sum
-  [input-tensor & {:keys [axis keep-dims id]}]
+  Reduces `input` along the dimensions given in `axis`.  Unless
+  `keepdims` is true, the rank of the tensor is reduced by 1 for each
+  entry in `axis`. If `keepdims` is true, the reduced dimensions are
+  retained with length 1.
+
+  If `axis` has no entries, all dimensions are reduced, and a
+  tensor with a single element is returned.
+"
+   :id :reduce-mean
+   :inputs [[input "The tensor to reduce. Should have numeric type."]]
+   :attrs {keep-dims "If true, retains reduced dimensions with length 1."
+           axis "The dimensions to reduce. If `nil` (the
+           default), reduces all dimensions. Must be in the range
+           `[-rank(input_tensor), rank(input_tensor))`." }}
+  (o/mean id
+          {:keep_dims (true? keep-dims)}
+          input
+          (reduction-dims input axis)))
+
+(ut/defn-comp-op reduce-sum
+  {:doc "Computes the sum of elements across dimensions of a tensor.
+
+  Reduces `input` along the dimensions given in `axis`.
+  Unless `keepdims` is true, the rank of the tensor is reduced by 1 for each
+  entry in `axis`. If `keepdims` is true, the reduced dimensions
+  are retained with length 1.
+
+  If `axis` has no entries, all dimensions are reduced, and a
+  tensor with a single element is returned.
+"
+   :id :reduce-sum
+   :inputs [[input "The tensor to reduce. Should have numeric type."]]
+   :attrs {keep-dims "If true, retains reduced dimensions with length 1."
+           axis "The dimensions to reduce. If `nil` (the
+           default), reduces all dimensions. Must be in the range
+           `[-rank(input), rank(input))`." }}
   (o/sum id
          {:keep_dims (true? keep-dims)}
-         input-tensor
-         (reduction-dims input-tensor axis)))
-
+         input
+         (reduction-dims input axis)))
