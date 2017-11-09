@@ -483,8 +483,6 @@
        (apply str "\n")
        dx-remove-extra-lines))
 
-
-
 (defn defn-comp-op-arities
   [name-sym {:keys [id attrs inputs]}]
   (let [attrs' (some-> attrs keys not-empty)

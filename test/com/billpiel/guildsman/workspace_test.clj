@@ -112,3 +112,10 @@
 #_(clojure.pprint/pprint hi)
 
 
+#_(g/produce
+ (o/iterator-to-string-handle (o/iterator {:output_types [g/dt-float]
+                                           :output_shapes [[]]} )))
+
+#_(g/produce
+ (o/iterator {:output_types [g/dt-float]
+              :output_shapes [[]]} ))

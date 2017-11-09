@@ -27,7 +27,7 @@
   [value def-type]
   (let [value' (maybe-auto-cast value)]
     (try
-      (condp = def-type ;; wtf
+      (condp = def-type                                      ;; wtf
         :tensor (:handle (tsr/create-ref-from-value value')) ;; TODO!!
         :type (if (keyword? value')
                 (dt/->tf-attr-val :int64 (-> value' dt/kw->dt :native))
@@ -35,6 +35,11 @@
         :shape (dt/->tf-attr-val :int64 value')
         :int (dt/->tf-attr-val :int32 value')
         (keyword "list(int)") (dt/->tf-attr-val :int64 value') ;; :int64 seems weird
+        (keyword "list(type)") (dt/->tf-attr-val :int32
+                                                 (map #(-> % dt/kw->dt :native)
+                                                      value'))
+        (keyword "list(shape)") (dt/->tf-attr-val :int64
+                                                 value')
         (dt/->tf-attr-val def-type value'))
       (catch Exception e
         (def e1 e)

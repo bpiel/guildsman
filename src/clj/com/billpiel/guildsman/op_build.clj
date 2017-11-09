@@ -23,23 +23,27 @@
   (try
     (condp = ty ;; wtf
       :tensor (com.billpiel.guildsman.OperationBuilderNI/setAttrTensor builder-handle
-                                                       k v)
+                                                                       k v)
       :type (if (keyword? v)
               (com.billpiel.guildsman.OperationBuilderNI/setAttrType builder-handle
-                                                     k
-                                                     (-> v dt/protobuf->dt :native))
+                                                                     k
+                                                                     (-> v dt/protobuf->dt :native))
               (com.billpiel.guildsman.OperationBuilderNI/setAttrType builder-handle
-                                                     k v))
+                                                                     k v))
       :shape (com.billpiel.guildsman.OperationBuilderNI/setAttrShape builder-handle
-                                                     k v (count v))
+                                                                     k v (count v))
       :string (com.billpiel.guildsman.OperationBuilderNI/setAttrString builder-handle
-                                                       k (get-attr-bytes v))
+                                                                       k (get-attr-bytes v))
       :int (com.billpiel.guildsman.OperationBuilderNI/setAttrInt builder-handle
-                                                 k v)
+                                                                 k v)
       (keyword "list(int)") (com.billpiel.guildsman.OperationBuilderNI/setAttrIntList builder-handle
-                                                                      k v)
+                                                                                      k v)
+      (keyword "list(type)") (com.billpiel.guildsman.OperationBuilderNI/setAttrTypeList builder-handle
+                                                                                       k v)
+      (keyword "list(shape)") (com.billpiel.guildsman.OperationBuilderNI/setAttrIntList builder-handle
+                                                                                       k v)
       (com.billpiel.guildsman.OperationBuilderNI/setAttr builder-handle
-                                         k v))
+                                                         k v))
     (catch Exception e
       (def e1 e)
       #_ (clojure.pprint/pprint e1)
