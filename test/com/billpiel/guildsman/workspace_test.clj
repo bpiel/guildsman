@@ -3,6 +3,7 @@
             [com.billpiel.guildsman.core :as g]
             [com.billpiel.guildsman.ops.basic :as o]
             [com.billpiel.guildsman.ops.composite :as c]
+            [com.billpiel.guildsman.data-type :as dt]
             [com.billpiel.guildsman.dev :as dev]))
 
 (def color-idx
@@ -119,3 +120,15 @@
 #_(g/produce
  (o/iterator {:output_types [g/dt-float]
               :output_shapes [[]]} ))
+
+#_(g/let+ [ph (o/placeholder :ph dt/string-kw [])
+         ph-itr (o/iterator-from-string-handle :ph-itr
+                                               {:output_types [dt/float-kw]
+                                                :output_shapes [[]]}
+                                               ph)
+         ds (o/range-dataset 0 5 1)
+         itr (o/one-shot-iterator :itr)
+         mitr (o/make-iterator :mitr ds itr)
+         itr-hnd (o/iterator-to-string-handle itr)
+         sess (g/build-all->session [itr-hnd mitr])]
+  (g/run sess [mitr]))
