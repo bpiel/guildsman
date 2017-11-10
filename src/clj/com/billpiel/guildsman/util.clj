@@ -457,10 +457,14 @@
         hc (count h')
         delim (str (spacer (- left-col-width hc)) " - ")]
     [(spacer indent) h' delim
-     (dx-element-stack width
-                       (+ indent hc (count delim))
-                       (vec tail)
-                       (+ indent hc (count delim)))]))
+     (->> (dx-element-stack width
+                        (+ indent hc (count delim))
+                        (vec tail)
+                        (+ indent hc (count delim)))
+          flatten
+          (apply str)
+          clojure.string/trim)
+     "\n"]))
 
 (defmethod dx-element :table
   [_ width indent doc]
