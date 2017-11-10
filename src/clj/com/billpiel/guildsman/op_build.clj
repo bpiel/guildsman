@@ -18,6 +18,12 @@
         (dt/is-goole-pb-byte-string? v) (.toByteArray v)
         :else (byte-array v)))
 
+(defn- get-shape-dims
+  [shapes]
+  (->> shapes
+       (map count)
+       int-array))
+
 (defn- set-attr
   [builder-handle k v ty]
   (try
@@ -36,19 +42,22 @@
                                                                        k (get-attr-bytes v))
       :int (com.billpiel.guildsman.OperationBuilderNI/setAttrInt builder-handle
                                                                  k v)
-      (keyword "list(int)") (com.billpiel.guildsman.OperationBuilderNI/setAttrIntList builder-handle
-                                                                                      k v)
-      (keyword "list(type)") (com.billpiel.guildsman.OperationBuilderNI/setAttrTypeList builder-handle
-                                                                                       k v)
-      (keyword "list(shape)") (com.billpiel.guildsman.OperationBuilderNI/setAttrIntList builder-handle
-                                                                                       k v)
+      dt/list-int-kw (com.billpiel.guildsman.OperationBuilderNI/setAttrIntList builder-handle
+                                                                               k v)
+      dt/list-type-kw (com.billpiel.guildsman.OperationBuilderNI/setAttrTypeList builder-handle
+                                                                                 k v)
+      dt/list-shape-kw (com.billpiel.guildsman.OperationBuilderNI/setAttrShapeList
+                        builder-handle k
+                        (dt/mk-typed-2d-array v Long/TYPE long-array)
+                        (get-shape-dims v) (count v))
       (com.billpiel.guildsman.OperationBuilderNI/setAttr builder-handle
                                                          k v))
     (catch Exception e
       (def e1 e)
       #_ (clojure.pprint/pprint e1)
-      (throw (Exception. (format "Failed to set attribute. type=%s, key=%s, value=%s"
-                                 ty k v))))))
+      (throw (Exception. (format "Failed to set attribute. type=%s, key=%s, value=%s, \n\nmsg=%s"
+                                 ty k v
+                                 (.getMessage e)))))))
 
 
 (defn- set-attrs

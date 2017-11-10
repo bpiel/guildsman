@@ -27,26 +27,27 @@
   [value def-type]
   (let [value' (maybe-auto-cast value)]
     (try
-      (condp = def-type                                      ;; wtf
+      (condp = def-type                                      ;; TODO move this logic to data_type ns????
         :tensor (:handle (tsr/create-ref-from-value value')) ;; TODO!!
         :type (if (keyword? value')
                 (dt/->tf-attr-val :int64 (-> value' dt/kw->dt :native))
                 (dt/->tf-attr-val :int64 value'))
         :shape (dt/->tf-attr-val :int64 value')
         :int (dt/->tf-attr-val :int32 value')
-        (keyword "list(int)") (dt/->tf-attr-val :int64 value') ;; :int64 seems weird
-        (keyword "list(type)") (dt/->tf-attr-val :int32
-                                                 (map #(-> % dt/kw->dt :native)
-                                                      value'))
-        (keyword "list(shape)") (dt/->tf-attr-val :int64
-                                                 value')
+        dt/list-int-kw (dt/->tf-attr-val :int64 value') ;; :int64 seems weird
+        dt/list-type-kw (dt/->tf-attr-val :int32
+                                          (map #(-> % dt/kw->dt :native)
+                                               value'))
+        dt/list-shape-kw (dt/->tf-attr-val :int64
+                                           value')
         (dt/->tf-attr-val def-type value'))
       (catch Exception e
         (def e1 e)
         #_ (clojure.pprint/pprint e1)
-        (throw (Exception. (format "Could not convert `%s` to %s"
+        (throw (Exception. (format "Could not convert `%s` to %s. \n\n%s"
                                    (str value)
-                                   (str def-type))))))))
+                                   (str def-type)
+                                   (.getMessage e))))))))
 
 (defn convert-attrs*
   [plan-attrs

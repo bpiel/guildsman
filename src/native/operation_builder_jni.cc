@@ -293,7 +293,7 @@ JNIEXPORT void JNICALL Java_com_billpiel_guildsman_OperationBuilderNI_setAttrStr
 
 JNIEXPORT void JNICALL Java_com_billpiel_guildsman_OperationBuilderNI_setAttrShapeList(
     JNIEnv* env, jobject object, jlong handle, jstring name, jobjectArray shapes, jintArray num_dims, jint num_shapes) {
-  TF_OperationDescription *d = requireOperationDescriptionHandle(env, handle);
+  TF_OperationDescription *d = requireHandle(env, handle);
   if (d == nullptr) return;
   std::unique_ptr<int[]> c_num_dims;
   std::unique_ptr<int64_t*[]> c_shapes;

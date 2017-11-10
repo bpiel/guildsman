@@ -3,16 +3,23 @@
             [clojure.walk :as w]))
 
 (def float-kw :float)
+(def list-float-kw (keyword "list(float)"))
 (def double-kw :double)
 (def int-kw :int32)
+(def list-int-kw (keyword "list(int)"))
 (def uint-kw :unit8)
 (def string-kw :string)
 (def long-kw :int64)
 (def bool-kw :bool)
+(def list-bool-kw (keyword "list(bool)"))
 (def type-kw :type)
-(def list-kw :list)
+(def list-type-kw (keyword "list(type)"))
 (def tensor-kw :tensor)
+(def list-tensor-kw (keyword "list(tensor)"))
 (def shape-kw :shape)
+(def list-shape-kw (keyword "list(shape)"))
+(def list-kw :list)
+
 
 (def xx (java.nio.ByteBuffer/wrap (byte-array [1 2 3 4])))
 
@@ -179,7 +186,9 @@
     :pb-attr-key :tensor}
    {:kw :shape
     :pb-attr-fn  sh/tensor-attr-shape->vec
-    :pb-attr-key :shape}])
+    :pb-attr-key :shape}
+   {:kw :resource
+    :native 20}])
 
 (def kw->dt
   (into {}
@@ -307,3 +316,17 @@
   (if (= (-> v data-type-of-whatever :kw) dt-kw)
     v
     (convert-whatever v dt-kw)))
+
+(defn mk-typed-2d-array
+  [v type-class array-fn]
+  (let [cv (count v)
+        r (make-array type-class cv 0)]
+    (->> v
+         (map-indexed (fn [i la]
+                        #_(clojure.pprint/pprint [r i
+                                                (array-fn la)])
+                        (aset r i
+                              (array-fn la))))
+         dorun)
+    r))
+

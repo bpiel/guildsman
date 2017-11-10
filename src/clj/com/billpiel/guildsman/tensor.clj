@@ -107,6 +107,7 @@
   (-> handle com.billpiel.guildsman.TensorNI/shape dt/md-array->vecs))
 
 (defn get-data-type-by-handle [handle]
+  (clojure.pprint/pprint (-> handle com.billpiel.guildsman.TensorNI/dtype))
   (-> handle com.billpiel.guildsman.TensorNI/dtype dt/native->dt))
 
 (defmulti get-scalar-value (fn [handle dtype] dtype))

@@ -17,16 +17,22 @@
            [com.billpiel.guildsman.session Session]))
 
 (def dt-float dt/float-kw)
+(def dt-list-float dt/list-float-kw)
 (def dt-double dt/double-kw)
 (def dt-int dt/int-kw)
+(def dt-list-int dt/list-int-kw)
 (def dt-uint dt/uint-kw)
 (def dt-string dt/string-kw)
 (def dt-long dt/long-kw)
 (def dt-bool dt/bool-kw)
+(def dt-list-bool dt/list-bool-kw)
 (def dt-type dt/type-kw)
-(def dt-list dt/list-kw)
+(def dt-list-type dt/list-type-kw)
 (def dt-tensor dt/tensor-kw)
+(def dt-list-tensor dt/list-tensor-kw)
 (def dt-shape dt/shape-kw)
+(def dt-list-shape dt/list-shape-kw)
+(def dt-list dt/list-kw)
 
 (defmacro let+
   [& body]
@@ -174,10 +180,6 @@ In the example below, both `graph` and `session` will be closed upon
                  plans)
             (fetch-all session plans feed targets))))
 
-"`exec` creates a new Session defrecord, builds plan and runs the root of plan. Returns the new session.
-  It can optionally be provided an existing Graph defrecord and feed
-  map. "
-
 (defn exec
   {:doc (ut/dx
          '["`exec` creates a new Session defrecord, builds plan and
@@ -185,8 +187,8 @@ runs the root of plan. Returns the new session. It can optionally be
 provided an existing Graph defrecord and feed map."
            [Returns "the session"]
            [Args
-            [plan "The Plan."]
             [graph "Optional. A Graph defrecord."]
+            [plan "The Plan."]
             [feed "Optional. It is a map. Keys are either plans or
              keywords that correspond to pre-built nodes. Values will
              override the values of their respective nodes. This is
