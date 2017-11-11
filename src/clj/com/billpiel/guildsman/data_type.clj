@@ -317,7 +317,10 @@
   [v dt-kw]
   (if (= (-> v data-type-of-whatever :kw) dt-kw)
     v
-    (convert-whatever v dt-kw)))
+    (if (= dt-kw string-kw)
+      v
+      (convert-whatever v dt-kw))))
+
 
 (defn mk-typed-2d-array
   [v type-class array-fn]

@@ -127,6 +127,11 @@
   [handle _]
   (com.billpiel.guildsman.TensorNI/scalarBytes handle))
 
+(defmethod get-scalar-value :resource
+  [handle _]
+  {:type :resource
+   :handle handle})
+
 (defmethod get-scalar-value :variant
   [handle _]
   {:type :variant
@@ -147,18 +152,23 @@
 
 (defn- mk-tensor-value
   [handle ref-id dtype shape]
-  (if (sh/scalar? shape)
-    (get-scalar-value handle (:kw dtype))
-    (mk-tensor-ndarray handle ref-id dtype shape)))
+  (if (nil? dtype)
+    :UNKNOWN-TYPE
+    (if (sh/scalar? shape)
+      (get-scalar-value handle (:kw dtype))
+      (mk-tensor-ndarray handle ref-id dtype shape))))
 
 (defn create-ref-from-value ^TensorRef [v]
   (let [shape (sh/shape-of-seq v)
         shape-arr (long-array shape)
         {:keys [kw native byte-size to-bytes-fn] :as dtype} (dt/data-type-of-whatever v)
-        handle (cond (not= kw dt/string-kw)
+        handle (cond (nil? kw) ;; TODO TEMP byte array becomes string
+                     (com.billpiel.guildsman.TensorNI/allocateScalarBytes v)
+
+                     (not= kw dt/string-kw)
                      (let [handle (com.billpiel.guildsman.TensorNI/allocate native
-                                                            shape-arr
-                                                            (apply * byte-size shape))]
+                                                                            shape-arr
+                                                                            (apply * byte-size shape))]
                        (com.billpiel.guildsman.TensorNI/setValue handle (dt/seq->md-array v)) ;; TODO more efficient?
                        handle)
 
@@ -167,9 +177,9 @@
 
                      :else
                      (com.billpiel.guildsman.TensorNI/allocateNonScalarBytes shape-arr
-                                                             (to-array
-                                                              (map #(.getBytes % "UTF-8")
-                                                                   v))))
+                                                                             (to-array
+                                                                              (map #(.getBytes % "UTF-8")
+                                                                                   v))))
         ref-id (gensym "tref")
         value (mk-tensor-value handle ref-id dtype shape)]
     (TensorRef. handle
