@@ -188,7 +188,9 @@
     :pb-attr-fn  sh/tensor-attr-shape->vec
     :pb-attr-key :shape}
    {:kw :resource
-    :native 20}])
+    :native 20}
+   {:kw :variant
+    :native 21}])
 
 (def kw->dt
   (into {}

@@ -42,6 +42,10 @@
                                                                        k (get-attr-bytes v))
       :int (com.billpiel.guildsman.OperationBuilderNI/setAttrInt builder-handle
                                                                  k v)
+
+      ;; TODO check :has-minimum for lists somewhere??
+      ;; other reqs specified in pb op defs to check?
+      
       dt/list-int-kw (com.billpiel.guildsman.OperationBuilderNI/setAttrIntList builder-handle
                                                                                k v)
       dt/list-type-kw (com.billpiel.guildsman.OperationBuilderNI/setAttrTypeList builder-handle

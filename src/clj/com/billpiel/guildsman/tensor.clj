@@ -127,6 +127,11 @@
   [handle _]
   (com.billpiel.guildsman.TensorNI/scalarBytes handle))
 
+(defmethod get-scalar-value :variant
+  [handle _]
+  {:type :variant
+   :handle handle})
+
 (defn- mk-tensor-ndarray
   [handle ref-id {:keys [kw byte-size]} shape]
   (let [bb (.order (com.billpiel.guildsman.TensorNI/buffer handle)

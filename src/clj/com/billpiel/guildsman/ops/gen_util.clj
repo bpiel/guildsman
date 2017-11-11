@@ -25,7 +25,7 @@
 
 (defn convert-attr
   [value def-type]
-  (let [value' (maybe-auto-cast value)]
+  (let [value' value #_(maybe-auto-cast value)]
     (try
       (condp = def-type                                      ;; TODO move this logic to data_type ns????
         :tensor (:handle (tsr/create-ref-from-value value')) ;; TODO!!

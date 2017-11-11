@@ -5,7 +5,9 @@
             [com.billpiel.guildsman.op-build :as obld]
             [com.billpiel.guildsman.graph :as gr]
             [com.billpiel.guildsman.util :as util]
-            [com.billpiel.guildsman.macros :as mcro])
+            [com.billpiel.guildsman.macros :as mcro]
+            [com.billpiel.guildsman.data-type :as dt]
+            [com.billpiel.guildsman.ops.gen-config :as og-cfg])
   (:import [com.billpiel.guildsman.common Graph Op]))
 
 (declare apply-plan-to-graph)
@@ -68,11 +70,31 @@
                          (apply-plan-to-graph g))
       :else (call-op-builder g (o/c plan) [] []))))
 
+(defn- plan-const-input
+  [input-def input]
+  (if-let [t (:type input-def)]
+    (o/c input (-> t dt/protobuf->dt :kw))
+    input))
+
+
+(defn- plan-const-inputs
+  [plan]
+  (if (and (map? plan) (:op plan))
+    (update plan
+            :inputs
+            (partial map
+                     (fn [input-def input]
+                       (if (map? input)
+                         input
+                         (plan-const-input input-def input)))
+                     (:input-arg (og-cfg/op-list-by-kw (:op plan)))))
+    plan))
+
 (defn- apply-plan-to-graph
   [^Graph g plan]
   (def p1 plan)
   (util/visit-plan (partial built? g)
-                   nil
+                   plan-const-inputs
                    (partial apply-plan-to-graph* g)
                    nil
                    plan))
@@ -81,3 +103,49 @@
   [^Graph g plan]
   (apply-plan-to-graph g plan)
   g)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -122,13 +122,25 @@
               :output_shapes [[]]} ))
 
 #_(g/let+ [ph (o/placeholder :ph dt/string-kw [])
-         ph-itr (o/iterator-from-string-handle :ph-itr
-                                               {:output_types [dt/float-kw]
-                                                :output_shapes [[]]}
-                                               ph)
-         ds (o/range-dataset 0 5 1)
-         itr (o/one-shot-iterator :itr)
-         mitr (o/make-iterator :mitr ds itr)
-         itr-hnd (o/iterator-to-string-handle itr)
-         sess (g/build-all->session [itr-hnd mitr])]
-  (g/run sess [mitr]))
+           ph-itr (o/iterator-from-string-handle :ph-itr
+                                                 {:output_types [dt/float-kw]
+                                                  :output_shapes [[1]]}
+                                                 ph)
+           ds (o/range-dataset 0 5 1)
+           itr (o/one-shot-iterator :itr)
+           mitr (o/make-iterator :mitr ds itr)
+           itr-hnd (o/iterator-to-string-handle itr)
+           sess (g/build-all->session [ph])]
+    (g/run-all sess [ph]
+               {:ph ""}))
+
+(g/produce (o/range-dataset
+            {:output_types [dt/float-kw]
+             :output_shapes [[1]]}
+            0
+            5
+            1))
+
+(g/produce (o/c 3 dt/long-kw))
+
+(g/produce (o/add 1 2))

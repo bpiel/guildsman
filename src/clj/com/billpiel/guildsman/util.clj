@@ -72,7 +72,7 @@
 (defn- visit-plan**
   [cache-fn pre-fn merge-fn post-fn top-fn plan]
   (or (cache-fn plan)
-      (let [pre (pre-fn plan)
+      (let [pre (pre-fn plan) ;; TODO set input const types here?!?!
             post (if (map? pre)
                    (cond-> pre
                      (-> pre :inputs not-empty)
