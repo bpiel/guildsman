@@ -121,7 +121,7 @@
  (o/iterator {:output_types [g/dt-float]
               :output_shapes [[]]} ))
 
-(g/let+ [ph (o/placeholder :ph dt/string-kw [])
+#_(g/let+ [ph (o/placeholder :ph dt/string-kw [])
          idph (o/identity-tf ph)
          ph-itr (o/iterator-from-string-handle :ph-itr
                                                {:output_types [dt/long-kw]
@@ -147,20 +147,50 @@
    (g/produce sess ign {:ph t1})
    (g/produce sess ign {:ph t1})
    (g/produce sess ign {:ph t1})
-   (g/produce sess ign {:ph t1})])
+   ])
 
 
-
-(String. t1 "UTF-8")
-
-
-(g/produce (o/range-dataset
-            {:output_types [dt/float-kw]
-             :output_shapes [[1]]}
-            0
-            5
-            1))
-
-(g/produce (o/c 3 dt/long-kw))
-
-(g/produce (o/add 1 2))
+[:workflow
+ {:plugins #{}
+  :modes {:train {:pre []
+                  :post []
+                  :targets []
+                  :feed {}
+                  :fetch []}
+          :validate {:pre []
+                     :post []
+                     :targets []
+                     :feed {}
+                     :fetch []}
+          :test {:pre []
+                 :post []
+                 :targets []
+                 :feed {}
+                 :fetch []}}
+  :interval {:pre []
+             :post []}
+  :main [[:build]
+         [:start-session]
+         [:init-vars]
+         [:process
+          [:intervals
+           {:duration :???
+            :pre []
+            :main [[:mode :train]
+                   [:steps
+                    {:count :???
+                     :middle [:run {:target []
+                                    :feed {}}]
+                     :last [:fetch {:target []
+                                    :feed {}
+                                    :fetch {}}]}]
+                   [:mode :validate]
+                   [:fetch {:target []
+                            :feed {}
+                            :fetch {}}]
+                   [:early-stop?]]
+            :post [[:load :last-checkpoint]
+                   [:mode :test]
+                   [:fetch {:target []
+                            :feed {}
+                            :fetch {}}]]}]]]}]
