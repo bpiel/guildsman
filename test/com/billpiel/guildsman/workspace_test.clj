@@ -194,3 +194,88 @@
                    [:fetch {:target []
                             :feed {}
                             :fetch {}}]]}]]]}]
+
+[:block {:type :workflow
+         :hooks {:mode {:train {:enter [[:run {:targets [:select-train-ds]}]]}
+                        :test {:enter [[:run {:targets [:select-test-ds]}]]}}}
+         ;; hmmmmmmmmmmmmmmm
+         :always [[:no-interrupt]]
+         :span {:steps 10000}}
+ [:block {:type :stage}
+  [:build {:plan {}}]
+  [:start-session]
+  [:init-varis]
+  [:block {:type :interval
+           :span {:intervals 0}} ;; 0-span interval to catch pre-run fetches
+   [:mode :train]
+   [:fetch]
+   [:mode :test]
+   [:fetch]]
+  [:block {:type :interval
+           :pre [[:require-span-completable]] ;; default for all blocks?
+           :span {:interval 1
+                  :steps 100}
+           :repeat? [:require-span-completable]
+           }
+   [:block {:type :step
+            :span {:steps [:steps :block :remaining -1]}
+            :pre [[:mode :train]]}
+    [:run-span-steps]]
+   [:block {:type :step
+            :pre [[:mode :train]]}
+    [:fetch]]
+   [:mode :test]
+   [:fetch]]]]
+
+
+[:block {:type :workflow
+         :hooks {:mode {:train {:enter [[:run {:targets [:select-train-ds]}]]}
+                        :test {:enter [[:run {:targets [:select-test-ds]}]]}}}
+         ;; hmmmmmmmmmmmmmmm
+         :always [[:no-interrupt]]
+         :span {:steps 10000}}
+ [:block {:type :stage}
+  [:build {:plan {}}]
+  [:start-session]
+  [:init-varis]
+  [:block {:type :interval
+           :span {:intervals 0}} ;; 0-span interval to catch pre-run fetches
+   [:mode :train]
+   [:fetch]
+   [:mode :test]
+   [:fetch]]
+  [:block {:type :interval
+           :start? [[:require-span-completable]] ;; default for all blocks?
+           :span {:interval 1
+                  :steps 100}}
+   [:block {:type :step
+            :span {:steps '(dec block-steps-remaining)}
+            :pre [[:mode :train]]}
+    [:run-span-steps]]
+   [:block {:type :step
+            :pre [[:mode :train]]}
+    [:fetch]]
+   [:mode :validate]
+   [:fetch]
+   [:repeat-block? [:require-span-completable]]]
+  [:block {:type :interval
+           :span {:intervals 0}} ;; 0-span interval to catch final test fetches
+   [:rewind-checkpoint]
+   [:mode :test]
+   [:fetch]]]]
+
+
+steps
+- limit
+- done
+- remaining
+interval-steps
+stage-steps
+steps-steps
+
+block-steps (which ever block we're in??? min of all scopes??)
+
+intervals
+ - limit
+ - done
+ - remaining
