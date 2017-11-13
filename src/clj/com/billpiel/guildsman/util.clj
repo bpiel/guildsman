@@ -72,7 +72,7 @@
 (defn- visit-plan**
   [cache-fn pre-fn merge-fn post-fn top-fn plan]
   (or (cache-fn plan)
-      (let [pre (pre-fn plan)
+      (let [pre (pre-fn plan) ;; TODO set input const types here?!?!
             post (if (map? pre)
                    (cond-> pre
                      (-> pre :inputs not-empty)
@@ -457,10 +457,14 @@
         hc (count h')
         delim (str (spacer (- left-col-width hc)) " - ")]
     [(spacer indent) h' delim
-     (dx-element-stack width
-                       (+ indent hc (count delim))
-                       (vec tail)
-                       (+ indent hc (count delim)))]))
+     (->> (dx-element-stack width
+                        (+ indent hc (count delim))
+                        (vec tail)
+                        (+ indent hc (count delim)))
+          flatten
+          (apply str)
+          clojure.string/trim)
+     "\n"]))
 
 (defmethod dx-element :table
   [_ width indent doc]
@@ -482,8 +486,6 @@
        flatten
        (apply str "\n")
        dx-remove-extra-lines))
-
-
 
 (defn defn-comp-op-arities
   [name-sym {:keys [id attrs inputs]}]

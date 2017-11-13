@@ -8,6 +8,7 @@
 
 ;; TODO default to false
 (def cache-tensors? (atom true))
+#_ (reset! cache-tensors? false)
 
 (def init-state {:handle->refs {} :cache {} :ref-id->tnda {} :dibs {}})
 (def state (atom init-state))

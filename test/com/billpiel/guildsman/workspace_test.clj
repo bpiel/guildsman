@@ -3,6 +3,7 @@
             [com.billpiel.guildsman.core :as g]
             [com.billpiel.guildsman.ops.basic :as o]
             [com.billpiel.guildsman.ops.composite :as c]
+            [com.billpiel.guildsman.data-type :as dt]
             [com.billpiel.guildsman.dev :as dev]))
 
 (def color-idx
@@ -112,3 +113,84 @@
 #_(clojure.pprint/pprint hi)
 
 
+#_(g/produce
+ (o/iterator-to-string-handle (o/iterator {:output_types [g/dt-float]
+                                           :output_shapes [[]]} )))
+
+#_(g/produce
+ (o/iterator {:output_types [g/dt-float]
+              :output_shapes [[]]} ))
+
+#_(g/let+ [ph (o/placeholder :ph dt/string-kw [])
+         idph (o/identity-tf ph)
+         ph-itr (o/iterator-from-string-handle :ph-itr
+                                               {:output_types [dt/long-kw]
+                                                :output_shapes [[1]]}
+                                               ph)
+         ign (o/iterator-get-next {:output_types [dt/long-kw]
+                                   :output_shapes [[1]]}
+                                  ph-itr)
+         ds (o/range-dataset
+             {:output_types [dt/long-kw]
+              :output_shapes [[1]]}
+             0 5 1)
+         itr (o/iterator :itr {:output_types [dt/long-kw]
+                               :output_shapes [[1]]})
+         mitr (o/make-iterator :mitr
+                               ds itr)
+         itr-hnd (o/iterator-to-string-handle itr)
+         sess (g/build-all->session [mitr itr-hnd ph-itr])]
+  (def t1  (g/produce sess itr-hnd))
+  (g/run sess mitr)
+  [(g/produce sess ign {:ph t1})
+   (g/produce sess ign {:ph t1})
+   (g/produce sess ign {:ph t1})
+   (g/produce sess ign {:ph t1})
+   (g/produce sess ign {:ph t1})
+   ])
+
+
+[:workflow
+ {:plugins #{}
+  :modes {:train {:pre []
+                  :post []
+                  :targets []
+                  :feed {}
+                  :fetch []}
+          :validate {:pre []
+                     :post []
+                     :targets []
+                     :feed {}
+                     :fetch []}
+          :test {:pre []
+                 :post []
+                 :targets []
+                 :feed {}
+                 :fetch []}}
+  :interval {:pre []
+             :post []}
+  :main [[:build]
+         [:start-session]
+         [:init-vars]
+         [:process
+          [:intervals
+           {:duration :???
+            :pre []
+            :main [[:mode :train]
+                   [:steps
+                    {:count :???
+                     :middle [:run {:target []
+                                    :feed {}}]
+                     :last [:fetch {:target []
+                                    :feed {}
+                                    :fetch {}}]}]
+                   [:mode :validate]
+                   [:fetch {:target []
+                            :feed {}
+                            :fetch {}}]
+                   [:early-stop?]]
+            :post [[:load :last-checkpoint]
+                   [:mode :test]
+                   [:fetch {:target []
+                            :feed {}
+                            :fetch {}}]]}]]]}]

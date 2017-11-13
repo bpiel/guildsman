@@ -108,4 +108,6 @@ public final class OperationBuilderNI {
     public static native void setAttrTensorList(long handle, String name, long[] tensorHandle);
 
     public static native void setAttrShape(long handle, String name, long[] shape, int numDims);
+
+    public static native void setAttrShapeList(long handle, String name, long[][] shapes, int[] numDims, int numShapes);
 }
