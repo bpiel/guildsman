@@ -21,12 +21,6 @@
 (def list-kw :list)
 
 
-(def xx (java.nio.ByteBuffer/wrap (byte-array [1 2 3 4])))
-
-(def ff  (.asFloatBuffer xx))
-
-
-
 (defn is-type?-fn
   [t]
   #(= (type %) t))
