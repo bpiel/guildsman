@@ -1,6 +1,7 @@
 (ns thinking
   (:require [com.billpiel.guildsman.util :as ut]
             [com.billpiel.guildsman.core :as gm]
+            [com.billpiel.guildsman.session :as sess]
             [com.billpiel.guildsman.ops.basic :as o]
             [com.billpiel.guildsman.ops.composite :as c]))
 
@@ -80,8 +81,14 @@
       
     {:plans [acc opt]
      :modes {:train {:targets [opt]
-                     :dev/summaries [acc]}
-             :test {:dev/summaries [acc]}}}))
+                     :dev/summaries [acc]
+                     :feed {:features (map first train-data)
+                            :labels (map second train-data)}
+                     :enter {:targets []}}
+             :test {:dev/summaries [acc]
+                    :feed {:features (map first test-data)
+                           :labels (map second test-data)}
+                    :enter {:targets []}}}}))
 
 (def block-order [:global :workflow :stage :interval :step])
 
@@ -120,32 +127,33 @@
         (dissoc :block))))
 
 (defn --wf-merge-mode-maps
-  [& ms]
+  [g & ms]
   {:targets (->> ms
                  (map :targets)
                  (apply concat)
-                 distinct
+                 distinct                 
                  vec)
    :fetch (->> ms
                (map :fetch)
                (apply concat)
                distinct
                vec)
-   :feed (or (->> ms
-                  (map :feed)
-                  (apply merge))
+   :feed (or (some->> ms
+                      (keep :feed)
+                      not-empty
+                      (apply merge))
              {})})
 
-;; TODO convert to ids/ops
 (defn --wf-compile-modes-run-req
   [{:keys [mode modes] :as state}]
-  (let [state' (if-not (:-compiled modes)
+  (let [g (-> state :global :gm :graph)
+        state' (if-not (:-compiled modes)
                  (let [mode-vals (vals modes)
                        mode-kws (->> mode-vals (mapcat keys) distinct)]
                    (->> (for [mkw mode-kws]
                           [mkw (->> mode-vals
                                     (map mkw)
-                                    (apply --wf-merge-mode-maps))])
+                                    (apply --wf-merge-mode-maps g))])
                         (into {})
                         (assoc-in state [:modes :-compiled])))
                  state)
@@ -156,11 +164,29 @@
 
 (defn --wf-clear-fetched
   [state]
-  ;; TODO clear all [:interval * :fetched] too!
-  (assoc-in state [:interval :gm :fetched-raw] nil))
-
+  (update (assoc-in state [:interval :gm :fetched-raw] nil)
+          :interval
+          (fn [m]
+            (ut/fmap #(dissoc % :fetched)
+                     m))))
 
 ;; merge-state could be a macro?!!?!?!??
+
+(defn --wf-merge-state-modes*
+  [g {:keys [targets feed fetch]}]
+  {:targets (mapv (partial sess/->op-node g)
+                  targets)
+   :fetch (mapv (partial sess/->op-node g)
+                  fetch)
+   :feed (into {}
+               (for [[k v] feed]
+                 [(sess/->op-node g k) v]))})
+
+(defn --wf-merge-state-modes
+  [g modes]
+  (ut/fmap (partial ut/fmap
+                    (partial --wf-merge-state-modes* g))
+           (dissoc modes :-compiled)))
 
 (defn --wf-merge-state [kw state returned-state]
   (let [{:keys [block-type]} state
@@ -184,11 +210,22 @@
                              {block-type {kw block}}))
         state'' (assoc state' :block (when block-type (block-type state')))]
     (if-not (= (:modes state) (:modes state''))
-      (assoc-in state'' [:modes :-compiled] nil)
+      (update state'' :modes
+              (partial --wf-merge-state-modes
+                       (-> state :global :gm :graph)))
       state'')))
 
-(defn --ws-run
-  [global-state modes-state])
+(defn --ws-run-all
+  [session {:keys [targets feed]}]
+  (gm/run-all session targets feed))
+
+(defn --ws-run-all-repeat
+  [session {:keys [targets feed]} iters]
+  (gm/run-all session
+              (->> targets
+                   (repeat iters)
+                   flatten)
+              feed))
 
 (defn --wf-require-span-completable
   [{:keys [block]} span]
@@ -240,16 +277,14 @@
   (gm/run-global-vars-init session)
   {:global {:varis-set true}})
 
-;; TODO
-(defn ->id-str [x] (name x))
-
 (defn --wf-deliver-fetched
   [{:keys [modes interval] :as state}]
   (if-let [fetched-raw (-> interval :gm :fetched-raw not-empty)]
     (->> (for [[pk pv] (dissoc modes :-compiled)
                [mk {:keys [fetch]}] pv
                f fetch]
-           [[pk :fetched mk f] (get-in fetched-raw [mk (->id-str f)])])
+           (let [f-id-str (:id f)]
+             [[pk :fetched mk f-id-str] (get-in fetched-raw [mk f-id-str])]))
          (reduce (fn [agg [path v]]
                    (assoc-in agg path v))
                  interval)
@@ -258,10 +293,16 @@
 
 (defn dev--plugin-interval-post
   [fetched step]
+  (clojure.pprint/pprint [fetched step])
   )
 
 (defn --ws-build [graph plans]
   {:global {:graph (gm/build-all->graph plans)}})
+
+(defn --wf-setup-modes
+  [modes]
+  {:modes (ut/fmap #(select-keys % [:targets :fetch :feed])
+                   modes)})
 
 (defn dev--plugin-build-post
   [state summaries]
@@ -285,8 +326,6 @@
       r)))
 
 
-(defn --ws-run-repeat
-  [session run-req iters])
 
 (defn --ws-create-session
   [graph session]
@@ -436,6 +475,8 @@
                    (let [state (--wf-merge-state :gm state
                                                  (--ws-build (-> state :global :gm :graph)
                                                              (:plans ws-cfg)))
+                         state (--wf-merge-state :gm state
+                                                 (--wf-setup-modes (:modes ws-cfg)))
                          state (--wf-merge-state :dev/plugin state
                                                  (dev--plugin-build-post ;; setup modes run reqs here??????
                                                   state
@@ -460,10 +501,9 @@
                    
                    :mode-train (when-not (= :train (:mode state))
                                  (let [state (assoc state :mode :train)
-                                       state (--wf-compile-modes-run-req state)
                                        state (--wf-merge-state :gm state
-                                                               (--ws-run (-> state :global)
-                                                                         (-> state :modes)))]
+                                                               (--ws-run-all (-> state :global :gm :session)
+                                                                             (-> ws-cfg :modes :train :enter)))]
                                    {:state state}))
                    :fetch-map
                    (let [state (--wf-compile-modes-run-req state)
@@ -472,10 +512,9 @@
                      {:state state})
                    :mode-test (when-not (= :test (:mode state))
                                 (let [state (assoc state :mode :test)
-                                      state (--wf-compile-modes-run-req state)
                                       state (--wf-merge-state :gm state
-                                                              (--ws-run (-> state :global :session)
-                                                                        (-> state :modes :-compiled :-current)))]
+                                                              (--ws-run-all (-> state :global :gm :session)
+                                                                            (-> ws-cfg :modes :test :enter)))]
                                   {:state state}))
                    :interval-post-async
                    (do (future (let [state (--wf-deliver-fetched state)
@@ -497,9 +536,9 @@
                        (let [state (--wf-push-light-block state :step {:gm {:span span}})
                              state (--wf-compile-modes-run-req state)
                              state (--wf-merge-state :gm state
-                                                     (--ws-run-repeat (-> state :global :gm :session)
-                                                                      (-> state :modes :-compiled :-current)
-                                                                      (--wf-steps state :block :span)))
+                                                     (--ws-run-all-repeat (-> state :global :gm :session)
+                                                                          (-> state :modes :-compiled :-current)
+                                                                          (--wf-steps state :block :span)))
                              state (--wf-pop-light-block state)]
                          {:state state
                           :push-pop {:block-type :step
@@ -529,7 +568,8 @@
                                                   state)]
         #_(Thread/sleep 100)
         (if (nil? current)
-          (clojure.pprint/pprint state)
+          #_(clojure.pprint/pprint state)
+          :cool
           (recur stack current todo state))))))
 
 
