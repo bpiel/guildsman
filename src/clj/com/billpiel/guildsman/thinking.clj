@@ -1,5 +1,7 @@
 (ns thinking
-  (:require [com.billpiel.guildsman.util :as ut]))
+  (:require [com.billpiel.guildsman.util :as ut]
+            [com.billpiel.guildsman.core :as gm]
+            [com.billpiel.guildsman.ops.basic :as o]))
 
 ;; init state?
 {:global {:gm {:pos {:step 0
@@ -28,9 +30,12 @@
  :-compiled {:pos {}
              :span {}}}
 
-;; merge-state should be a macro?!!?!?!??
 
-(def ws-cfg)
+
+(def ws-cfg
+  {:plans [(o/add :a1 1 2)]
+   :modes {:train {:dev/summaries [:a1]}
+           :test {:dev/summaries [:a1]}}})
 
 (def block-order [:global :workflow :stage :interval :step])
 
@@ -68,12 +73,22 @@
         (assoc :block-type block-type-entering)
         (dissoc :block))))
 
-(defn --wf-set-current-mode [state]
-  state)
+(defn --wf-compile-modes
+  [state]
+  )
+
+(defn --wf-set-current-mode
+  [{:keys [mode] :as state}]
+  (let [state' (--wf-compile-modes state)]
+    (assoc-in state' [:modes :-compiled :-current]
+              (-> state' :modes :-compiled mode))))
+
+;; merge-state should be a macro?!!?!?!??
 
 (defn --wf-merge-state [kw state returned-state]
   (let [{:keys [block-type]} state
         {block :block
+         global :global
          workflow :workflow
          stage :stage
          interval :interval
@@ -82,14 +97,18 @@
         returned-state
         state' (merge-with (partial merge-with merge)
                            state
-                           {:workflow {kw workflow}
+                           {:global {kw global}
+                            :workflow {kw workflow}
                             :stage {kw stage}
                             :interval {kw interval}
                             :modes {kw modes}
                             :step {kw step}}
                            (when block-type
-                             {block-type {kw block}}))]
-    (assoc state' :block (when block-type (block-type state')))))
+                             {block-type {kw block}}))
+        state'' (assoc state' :block (when block-type (block-type state')))]
+    (if-not (= (:modes state) (:modes state''))
+      (assoc-in state'' [:modes :-compiled] nil)
+      state'')))
 
 (defn --ws-run
   [global-state modes-state])
@@ -125,7 +144,9 @@
 (defn --ws-fetch-map
   [global-state modes-state])
 
-(defn --ws-init-vars-main [session])
+(defn --ws-init-vars-main [session]
+  (gm/run-global-vars-init session)
+  {:global {:varis-set true}})
 
 (defn --wf-compile-fetched [state]
   state)
@@ -133,10 +154,13 @@
 (defn dev--plugin-interval-post
   [fetched step])
 
-(defn --ws-build [graph plans])
+(defn --ws-build [graph plans]
+  {:global {:graph (gm/build-all->graph plans)}})
 
 (defn dev--plugin-build-post
-  [state summaries])
+  [state summaries]
+  {:modes {:train {:fetch (:train summaries)}
+           :test {:fetch (:test summaries)}}})
 
 (defn --wf-steps
   [state block-type q & [offset]]
@@ -161,7 +185,8 @@
   [session run-req iters])
 
 (defn --ws-create-session
-  [graph session] )
+  [graph session]
+  {:global {:session (gm/graph->session graph)}})
 
 ;; (min (- up-limit up-pos) new-span)
 
@@ -294,11 +319,11 @@
                    (let [state (--wf-merge-state :gm state
                                                  (--ws-build (-> state :global :gm :graph)
                                                              (:plans ws-cfg)))
-                         state (--wf-merge-state :gm state
+                         state (--wf-merge-state :dev/plugin state
                                                  (dev--plugin-build-post ;; setup modes run reqs here??????
                                                   state
-                                                  {:modes {:train (-> ws-cfg :modes :train :dev/summaries)
-                                                           :test (-> ws-cfg :modes :test :dev/summaries)}}))]
+                                                  {:train (-> ws-cfg :modes :train :dev/summaries)
+                                                   :test (-> ws-cfg :modes :test :dev/summaries)}))]
                      {:state state})
                    :create-session-1
                    {:state (--wf-merge-state :gm state
