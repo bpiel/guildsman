@@ -49,23 +49,24 @@
    :workflow :workflows
    :mode :modes})
 
-(defn --wf-merge-popped-state
-  [state-over state-resume]
-  (let [{:keys [block-type]}  state-over
-        bts (pluralize-block block-type)
-        span (when block-type
-               (-> state-over block-type :gm :span bts))
-        {block-type' :block-type} state-resume]
-    (if block-type'
-      (reduce (fn [agg item]
-                (update-in agg
-                           [item :gm :pos bts]
-                           (fnil + 0 0) span))
-              state-resume
-              (conj (--wf-higher-blocks block-type') block-type'))
-      state-resume)))
+(defn --wf-pop-state
+  [state]
+  (let [{block-type-exiting :block-type} state
+        block-type-entering (last (--wf-higher-blocks block-type-exiting))
+        bts (pluralize-block block-type-exiting)
+        span (when block-type-exiting
+               (-> state block-type-exiting :gm :span bts))]
+    (-> (reduce (fn [agg item]
+                  (update-in agg
+                             [item :gm :pos block-type-exiting]
+                             (fnil + 0 0) span))
+                state
+                (--wf-higher-blocks block-type-exiting))
+        (assoc :block-type block-type-entering)
+        (dissoc :block))))
 
-(defn --wf-set-current-mode [state])
+(defn --wf-set-current-mode [state]
+  state)
 
 (defn --wf-merge-state [kw state returned-state]
   (let [{:keys [block-type]} state
@@ -96,9 +97,9 @@
   [{:keys [block]} span]
   (if (->> span vals (filter number?) (some (complement pos?)))
     false
-    (let [remaining (-> block :gm :remaining)]
+    (let [limit (-> block :gm :limit)]
       (every? (fn [bt]
-                (if-let [r (bt remaining)]
+                (if-let [r (bt limit)]
                   (>= r (bt span 0))
                   true))
               (keys span)))))
@@ -108,7 +109,8 @@
 
 (defn --ws-init-vars-main [session])
 
-(defn --wf-compile-fetched [state])
+(defn --wf-compile-fetched [state]
+  state)
 
 (defn dev--plugin-interval-post
   [fetched step])
@@ -119,9 +121,23 @@
   [state summaries])
 
 (defn --wf-steps
-  [state block q & [offset]])
+  [state block-type q & [offset]]
+  (let [{:keys [pos limit span]} (-> state block-type :gm)
+        p-step (:step pos 0)
+        l-steps (:steps limit)
+        s-steps (:steps span)
+        r (case q
+            :remaining (when l-steps
+                         (- l-steps p-step))
+            :span s-steps
+            (throw (Exception. (str "--wf-steps: query not supported "
+                                    q))))]
+    (when (and r offset)
+      (+ r  offset)
+      r)))
 
-(defn --wf-compile-run-req [state])
+(defn --wf-compile-run-req [state]
+  state)
 
 (defn --ws-run-repeat
   [session run-req iters])
@@ -129,18 +145,18 @@
 (defn --ws-create-session
   [graph session] )
 
-;; (min (- up-remaining up-pos) new-span)
+;; (min (- up-limit up-pos) new-span)
 
-(defn --wf-loop-calc-remaining
+(defn --wf-loop-calc-limit
   [block-type span state]
   (if-let [one-up (last (--wf-higher-blocks block-type))]
     (let [lower (--wf-lower-blocks block-type)
-          {:keys [pos remaining]} (-> state one-up :gm)]
+          {:keys [pos limit]} (-> state one-up :gm)]
       (into {}
             (for [bt lower]
               (let [bts (pluralize-block bt)
-                    r (bts remaining)
-                    p (bts pos 0)
+                    r (bts limit)
+                    p (bt pos 0)
                     s (bts span)]
                 [bts (some->> [(when r (- r p))
                               s]
@@ -153,99 +169,95 @@
   [block-type span state]
   (assoc state
          :block-type block-type
-         block-type {:gm {:pos {:steps 0
-                                :intervals 0
-                                :stages 0}
+         block-type {:gm {:pos {:step 0
+                                :interval 0
+                                :stage 0}
                           :span span
-                          :remaining (--wf-loop-calc-remaining
+                          :limit (--wf-loop-calc-limit
                                       block-type span state)}}
          :block nil))
 
 (defn --wf-loop-push
-  [{:keys [block-type span] todo' :todo} stack done current todo state]
-  [(conj stack [done current todo state])
-   (list)
+  [{:keys [block-type span] todo' :todo} stack current todo state]
+  [(conj stack [current todo])
    nil
    todo'
    (--wf-loop-push-new-state block-type span state)])
 
 (defn --wf-loop-pop-push
-  [pop-push stack done current todo state]
+  [pop-push stack current todo state]
   (let [[head & tail] stack
-        [done' current' todo' state'] head
+        [current' todo'] head
         
-        [stack done current todo state]
-        [tail (conj done' current') current todo' (--wf-merge-popped-state state state')]]
-    (--wf-loop-push pop-push stack done current todo state)))
+        [stack state]
+        [tail (--wf-pop-state state)]]
+    (--wf-loop-push pop-push stack current' todo state)))
 
 (defn --wf-loop-push-pop
-  [push-pop stack done current todo state]
-  (let [[stack done current todo state]
-        (--wf-loop-push push-pop stack done current todo state)
+  [push-pop stack current todo state]
+  (let [[stack current todo state]
+        (--wf-loop-push push-pop stack current todo state)
         [head & tail] stack
-        [done' current' todo' state'] head]
-    [tail (conj done' current') nil todo' (--wf-merge-popped-state state state')]))
+        [current' todo'] head]
+    [tail nil todo' (--wf-pop-state state)]))
 
-(defn --wf-merge-result-state
+#_(defn --wf-merge-result-state
   [result state]
   (merge-with (partial merge-with merge)
               state
               (:state result)))
 
+(defn --wf-assoc-block-to-state
+  [{:keys [block-type] :as state}]
+  (if block-type
+    (assoc state :block (block-type state {}))
+    state))
+
 (defn --wf-loop
-  [result stack done current todo state]
-  (let [[stack done current todo state]
+  [result stack current todo state]
+  (let [state (:state result state)
+        [stack current todo state]
         (or (when result
-              (let [[stack done current todo state]
-                    (or (when-let [push (:push result)]
-                          (--wf-loop-push push stack done current todo state))
-                        [stack done current todo state])
-                    [stack done current todo state]
-                    (or (when-let [push-pop (:push-pop result)]
-                          (--wf-loop-push-pop push-pop stack done current todo state))
-                        [stack done current todo state])
-                    [stack done current todo state]
-                    (or (when-let [pop-push (:pop-push result)]
-                          (--wf-loop-pop-push pop-push stack done current todo state))
-                        [stack done current todo state])]
-                [stack done current todo
-                 (--wf-merge-result-state result state)]))
-            [stack done current todo state])]
-    (loop [[stack done current todo state]
-           [stack done nil todo state]]
+              (or (when-let [push (:push result)]
+                    (--wf-loop-push push stack current todo state))
+                  (when-let [push-pop (:push-pop result)]
+                    (--wf-loop-push-pop push-pop stack current todo state))
+                  (when-let [pop-push (:pop-push result)]
+                    (--wf-loop-pop-push pop-push stack current todo state))))
+            [stack current todo state])]
+    (loop [[stack current todo state]
+           [stack nil todo state]]
       #_      (println "--wf-loop")
-      #_      (clojure.pprint/pprint [stack done current todo state])
+      #_      (clojure.pprint/pprint [stack current todo state])
       (cond (or current
                 (every? empty? [stack current todo]))
-            [stack done current todo state]
+            [stack current todo (--wf-assoc-block-to-state state)]
 
             (not-empty todo)
             (let [[head & tail] todo]
-              (recur [stack done head tail state]))
+              (recur [stack head tail state]))
             
             (not-empty stack)
             (let [[head & tail] stack
-                  [done' current' todo' state'] head]
+                  [current' todo'] head]
               (recur [tail
-                      (conj done' current')
                       nil
                       todo'
-                      (--wf-merge-popped-state state state')]))
+                      (--wf-pop-state state)]))
             
             :else (throw
                    (Exception.
                     (str "--wf-loop: not sure what to do with this "
                          (with-out-str
-                           (clojure.pprint/pprint [stack done current todo state])))))))))
+                           (clojure.pprint/pprint [stack current todo state])))))))))
 
 (defn wf1
   [global-state]
   (loop [stack (list)
-         done (list)
          current nil
          todo (list :workflow)
          state {:global global-state
-                :block-type nil}] ;; scoped: global(atom?) workflow stage interval step (mode?)
+                :block-type :global}] ;; scoped: global(atom?) workflow stage interval step (mode?)
     #_(clojure.pprint/pprint [:current current
                               :state state
                               :todo todo
@@ -339,20 +351,20 @@
                        {:pop-push {:block-type :interval
                                    :todo [:step-1 :step-2 :interval-2-close]
                                    :span span}})))]
-      (let [[stack done current todo state] (--wf-loop result
-                                                       stack
-                                                       done
-                                                       current
-                                                       todo
-                                                       state)]
-        (Thread/sleep 100)
+      (let [[stack current todo state] (--wf-loop result
+                                                  stack
+                                                  current
+                                                  todo
+                                                  state)]
+        #_(Thread/sleep 100)
         (if (nil? current)
           (clojure.pprint/pprint state)
-          (recur stack done current todo state))))))
+          (recur stack current todo state))))))
 
 
 
-#_(wf1 {:gm {:pos {:steps 0
-                   :intervals 0
-                   :stages 0}}})
+#_(wf1 {:gm {:pos {:step 0
+                   :interval 0
+                   :stage 0}
+             :limit {:steps 300}}})
 
