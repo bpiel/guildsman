@@ -49,6 +49,9 @@
    :workflow :workflows
    :mode :modes})
 
+(def singularize-block
+  (clojure.set/map-invert pluralize-block))
+
 (defn --wf-pop-state
   [state]
   (let [{block-type-exiting :block-type} state
@@ -91,18 +94,33 @@
 (defn --ws-run
   [global-state modes-state])
 
-
-
 (defn --wf-require-span-completable
   [{:keys [block]} span]
   (if (->> span vals (filter number?) (some (complement pos?)))
     false
-    (let [limit (-> block :gm :limit)]
+    (let [limit (-> block :gm :limit)
+          pos (-> block :gm :pos)]
       (every? (fn [bt]
                 (if-let [r (bt limit)]
-                  (>= r (bt span 0))
+                  (>= (- r ((singularize-block bt) pos 0))
+                      (bt span 0))
                   true))
               (keys span)))))
+
+(defn --wf-require-span-repeatable
+  [{:keys [block-type] :as state} span]
+  (let [parent-block-type (last (--wf-higher-blocks block-type))
+        parent-block (parent-block-type state)]
+    (if (->> span vals (filter number?) (some (complement pos?)))
+      false
+      (let [limit (-> parent-block :gm :limit)
+            pos (-> parent-block :gm :pos)]
+        (every? (fn [bt]
+                  (if-let [r (bt limit)]
+                    (>= (- r ((singularize-block bt) pos 0))
+                        (bt span 0))
+                    true))
+                (keys span))))))
 
 (defn --ws-fetch-map
   [global-state modes-state])
@@ -347,7 +365,7 @@
                    :interval-2-close
                    (let [span {:interval 1
                                :steps 100}]
-                     (when (--wf-require-span-completable state span)
+                     (when (--wf-require-span-repeatable state span)
                        {:pop-push {:block-type :interval
                                    :todo [:step-1 :step-2 :interval-2-close]
                                    :span span}})))]
@@ -366,5 +384,5 @@
 #_(wf1 {:gm {:pos {:step 0
                    :interval 0
                    :stage 0}
-             :limit {:steps 300}}})
+             :limit {:steps 400}}})
 
