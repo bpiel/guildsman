@@ -1,7 +1,34 @@
 (ns thinking
   (:require [com.billpiel.guildsman.util :as ut]
             [com.billpiel.guildsman.core :as gm]
-            [com.billpiel.guildsman.ops.basic :as o]))
+            [com.billpiel.guildsman.ops.basic :as o]
+            [com.billpiel.guildsman.ops.composite :as c]))
+
+
+(def color-idx
+  (zipmap [:red :orange :yellow :green :blue :purple :black :white]
+          (range)))
+
+(def train-data
+  [[[1. -1. -1.] (color-idx :red)]
+   [[1. 0. -1.] (color-idx :orange)]
+   [[1. 1. -1.] (color-idx :yellow)]
+   [[-1. 1. -1.] (color-idx :green)]
+   [[-1. -1. 1.] (color-idx :blue)]
+   [[1. -1. 1.] (color-idx :purple)]
+   [[-1. -1. -1.] (color-idx :black)]
+   [[1. 1. 1.] (color-idx :white)]])
+
+(def test-data
+  [[[0.9 -1. -0.8] (color-idx :red)]
+   [[1. 0.2 -1.] (color-idx :orange)]
+   [[0.8 1. -1.] (color-idx :yellow)]
+   [[-1. 0.9 -1.] (color-idx :green)]
+   [[-0.8 -1. 1.] (color-idx :blue)]
+   [[1. -0.9 1.] (color-idx :purple)]
+   [[-1. -0.8 -1.] (color-idx :black)]
+   [[0.8 0.9 1.] (color-idx :white)]])
+
 
 ;; init state?
 {:global {:gm {:pos {:step 0
@@ -30,12 +57,31 @@
  :-compiled {:pos {}
              :span {}}}
 
-
-
 (def ws-cfg
-  {:plans [(o/add :a1 1 2)]
-   :modes {:train {:dev/summaries [:a1]}
-           :test {:dev/summaries [:a1]}}})
+  (gm/let+ [{:keys [features logits classes]}
+            (+>> (o/placeholder :features 
+                                gm/dt-float
+                                [-1 3]) ;;TODO feedable iterator macro
+                 (c/dense {:id :logits
+                           :units 8})
+                 (o/arg-max {:id :classes
+                             :output_type gm/dt-int}
+                            $ 0))
+            {:keys [labels opt]}
+            (+>> (o/placeholder :labels
+                                gm/dt-int
+                                [-1])
+                 (c/one-hot $ 8)
+                 (c/mean-squared-error logits)
+                 (c/grad-desc-opt :opt 0.3))
+            acc (c/accuracy :acc
+                            classes
+                            labels)]
+      
+    {:plans [acc opt]
+     :modes {:train {:targets [opt]
+                     :dev/summaries [acc]}
+             :test {:dev/summaries [acc]}}}))
 
 (def block-order [:global :workflow :stage :interval :step])
 
@@ -73,17 +119,48 @@
         (assoc :block-type block-type-entering)
         (dissoc :block))))
 
-(defn --wf-compile-modes
+(defn --wf-merge-mode-maps
+  [& ms]
+  {:targets (->> ms
+                 (map :targets)
+                 (apply concat)
+                 distinct
+                 vec)
+   :fetch (->> ms
+               (map :fetch)
+               (apply concat)
+               distinct
+               vec)
+   :feed (or (->> ms
+                  (map :feed)
+                  (apply merge))
+             {})})
+
+;; TODO convert to ids/ops
+(defn --wf-compile-modes-run-req
+  [{:keys [mode modes] :as state}]
+  (let [state' (if-not (:-compiled modes)
+                 (let [mode-vals (vals modes)
+                       mode-kws (->> mode-vals (mapcat keys) distinct)]
+                   (->> (for [mkw mode-kws]
+                          [mkw (->> mode-vals
+                                    (map mkw)
+                                    (apply --wf-merge-mode-maps))])
+                        (into {})
+                        (assoc-in state [:modes :-compiled])))
+                 state)
+        compiled (-> state' :modes :-compiled)]
+    (->> mode
+         compiled
+         (assoc-in state' [:modes :-compiled :-current]))))
+
+(defn --wf-clear-fetched
   [state]
-  )
+  ;; TODO clear all [:interval * :fetched] too!
+  (assoc-in state [:interval :gm :fetched-raw] nil))
 
-(defn --wf-set-current-mode
-  [{:keys [mode] :as state}]
-  (let [state' (--wf-compile-modes state)]
-    (assoc-in state' [:modes :-compiled :-current]
-              (-> state' :modes :-compiled mode))))
 
-;; merge-state should be a macro?!!?!?!??
+;; merge-state could be a macro?!!?!?!??
 
 (defn --wf-merge-state [kw state returned-state]
   (let [{:keys [block-type]} state
@@ -142,17 +219,46 @@
                 (keys span))))))
 
 (defn --ws-fetch-map
-  [global-state modes-state])
+  [state]
+  (let [{:keys [global mode modes interval]} state
+        _ (when-not mode
+            (throw (Exception. "Cannot fetch-map. Mode not set.")))
+        fetched-raw (some-> interval :gm :fetched-raw)
+        session (-> global :gm :session)
+        {:keys [fetch feed targets]} (-> modes :-compiled :-current)]
+    {:interval
+     {:fetched-raw
+      (merge-with merge
+                  fetched-raw 
+                  {mode
+                   (gm/fetch-map session
+                                 fetch
+                                 feed
+                                 targets)})}}))
 
 (defn --ws-init-vars-main [session]
   (gm/run-global-vars-init session)
   {:global {:varis-set true}})
 
-(defn --wf-compile-fetched [state]
-  state)
+;; TODO
+(defn ->id-str [x] (name x))
+
+(defn --wf-deliver-fetched
+  [{:keys [modes interval] :as state}]
+  (if-let [fetched-raw (-> interval :gm :fetched-raw not-empty)]
+    (->> (for [[pk pv] (dissoc modes :-compiled)
+               [mk {:keys [fetch]}] pv
+               f fetch]
+           [[pk :fetched mk f] (get-in fetched-raw [mk (->id-str f)])])
+         (reduce (fn [agg [path v]]
+                   (assoc-in agg path v))
+                 interval)
+         (assoc state :interval))
+    state))
 
 (defn dev--plugin-interval-post
-  [fetched step])
+  [fetched step]
+  )
 
 (defn --ws-build [graph plans]
   {:global {:graph (gm/build-all->graph plans)}})
@@ -174,12 +280,10 @@
             :span s-steps
             (throw (Exception. (str "--wf-steps: query not supported "
                                     q))))]
-    (when (and r offset)
+    (if (and r offset)
       (+ r  offset)
       r)))
 
-(defn --wf-compile-run-req [state]
-  state)
 
 (defn --ws-run-repeat
   [session run-req iters])
@@ -187,6 +291,22 @@
 (defn --ws-create-session
   [graph session]
   {:global {:session (gm/graph->session graph)}})
+
+
+(defn --wf-push-light-block
+  [state block-type init-block-state]
+  (assoc state
+         :block-type block-type
+         block-type init-block-state
+         :block init-block-state))
+
+(defn --wf-pop-light-block
+  [{:keys [block-type] :as state}]
+  (let [parent-block-type (last (--wf-higher-blocks block-type))]
+    (-> state
+        (dissoc block-type)
+        (assoc :block (parent-block-type state)
+               :block-type parent-block-type))))
 
 ;; (min (- up-limit up-pos) new-span)
 
@@ -244,12 +364,6 @@
         [current' todo'] head]
     [tail nil todo' (--wf-pop-state state)]))
 
-#_(defn --wf-merge-result-state
-  [result state]
-  (merge-with (partial merge-with merge)
-              state
-              (:state result)))
-
 (defn --wf-assoc-block-to-state
   [{:keys [block-type] :as state}]
   (if block-type
@@ -294,6 +408,9 @@
                          (with-out-str
                            (clojure.pprint/pprint [stack current todo state])))))))))
 
+
+
+
 (defn wf1
   [global-state]
   (loop [stack (list)
@@ -336,63 +453,74 @@
                    (let [span {}]
                      (when (--wf-require-span-completable state span)
                        {:push {:block-type :interval
-                               :todo [:mode-train :fetch-map :mode-test :fetch-map :interval-post-async]
+                               :todo [:clear-fetched :mode-train :fetch-map :mode-test :fetch-map :interval-post-async]
                                :span span}}))
+
+                   :clear-fetched {:state (--wf-clear-fetched state)}
+                   
                    :mode-train (when-not (= :train (:mode state))
                                  (let [state (assoc state :mode :train)
-                                       state (--wf-set-current-mode state)
+                                       state (--wf-compile-modes-run-req state)
                                        state (--wf-merge-state :gm state
                                                                (--ws-run (-> state :global)
                                                                          (-> state :modes)))]
                                    {:state state}))
-                   :fetch-map {:state (--wf-merge-state :gm state
-                                                        (--ws-fetch-map (-> state :global)
-                                                                        (-> state :modes)))}
+                   :fetch-map
+                   (let [state (--wf-compile-modes-run-req state)
+                         state (--wf-merge-state :gm state
+                                                 (--ws-fetch-map state))]
+                     {:state state})
                    :mode-test (when-not (= :test (:mode state))
                                 (let [state (assoc state :mode :test)
+                                      state (--wf-compile-modes-run-req state)
                                       state (--wf-merge-state :gm state
-                                                              (--ws-run (-> state :global)
-                                                                        (-> state :modes)))]
+                                                              (--ws-run (-> state :global :session)
+                                                                        (-> state :modes :-compiled :-current)))]
                                   {:state state}))
                    :interval-post-async
-                   (do (future (let [state (--wf-compile-fetched state)
+                   (do (future (let [state (--wf-deliver-fetched state)
                                      state (--wf-merge-state :dev/plugin state
                                                              (dev--plugin-interval-post
-                                                              (-> state :block :dev/plugin :fetched)
-                                                              (-> state :block :gm :step)))]))
+                                                              (-> state :interval :dev/plugin :fetched)
+                                                              (-> state :stage :gm :pos :step)))]))
                        nil)                     
                    :interval-2
                    (let [span {:interval 1
                                :steps 100}]
                      (when (--wf-require-span-completable state span)
                        {:push {:block-type :interval
-                               :todo [:step-1 :step-2 :interval-post-async :interval-2-close]
+                               :todo [:clear-fetched :step-1 :step-2 :mode-test :fetch-map :interval-post-async :interval-2-close]
                                :span span}}))
                    :step-1
                    (let [span {:steps (--wf-steps state :block :remaining -1)}]
                      (when (--wf-require-span-completable state span)
-                       (let [state (--wf-compile-run-req state)
+                       (let [state (--wf-push-light-block state :step {:gm {:span span}})
+                             state (--wf-compile-modes-run-req state)
                              state (--wf-merge-state :gm state
-                                                     (--ws-run-repeat (-> state :global :session)
+                                                     (--ws-run-repeat (-> state :global :gm :session)
                                                                       (-> state :modes :-compiled :-current)
-                                                                      (--wf-steps state :block :span)))]
+                                                                      (--wf-steps state :block :span)))
+                             state (--wf-pop-light-block state)]
                          {:state state
                           :push-pop {:block-type :step
                                      :span span}})))
                    :step-2
                    (let [span {:steps 1}]
                      (when (--wf-require-span-completable state span)
-                       {:state (--wf-merge-state :gm state
-                                                 (--ws-fetch-map (-> state :global)
-                                                                 (-> state :modes)))
-                        :push-pop {:block-type :step
-                                   :span span}}))
+                       (let [state (--wf-push-light-block state :step {:gm {:span span}})
+                             state (--wf-compile-modes-run-req state)
+                             state (--wf-merge-state :gm state
+                                                     (--ws-fetch-map state))
+                             state (--wf-pop-light-block state)]
+                         {:state state
+                          :push-pop {:block-type :step
+                                     :span span}})))
                    :interval-2-close
                    (let [span {:interval 1
                                :steps 100}]
                      (when (--wf-require-span-repeatable state span)
                        {:pop-push {:block-type :interval
-                                   :todo [:step-1 :step-2 :interval-2-close]
+                                   :todo [:clear-fetched :mode-train :step-1 :step-2 :mode-test :fetch-map :interval-post-async :interval-2-close]
                                    :span span}})))]
       (let [[stack current todo state] (--wf-loop result
                                                   stack
@@ -410,4 +538,3 @@
                    :interval 0
                    :stage 0}
              :limit {:steps 400}}})
-

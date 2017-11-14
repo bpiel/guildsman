@@ -42,11 +42,18 @@
                         (mcro/macro-plan->op-plan g)
                         (op-node/get-op-by-plan g))))
 
+(defn ->op-node-strict
+  [^Graph g x]
+  (if-let [r (->op-node g x)]
+    r
+    (throw (Exception. (format "No op-node found for: %s"
+                               x)))))
+
 (defn- ->handles-idx-pairs
   [plans ^Graph g]
   (or (some->> plans
                not-empty
-               (mapv (partial ->op-node g))
+               (mapv (partial ->op-node-strict g))
                (mapv (juxt :handle :output-idx)))
       []))
 
