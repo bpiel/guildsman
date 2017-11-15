@@ -34,17 +34,32 @@
      [:mode :test]
      [:fetch-map]]]])
 
-(def ws-cfg
-  {:plans [(o/add :a1 1 2)]
-   :modes {:train {:targets []
-                   :dev/summaries [:a1]
-                   :feed {}
-                   :enter {:targets []}}
-           :test {:dev/summaries [:a1]
-                  :feed {}
-                  :enter {:targets []}}}})
+(declare render-block)
+(declare mk-command-renderer)
 
-(defn render-block-contents [block-type ws-cfg contents]
+(defn render-command
+  [[cmd :as cmd-def] ws-cfg forms]
+  (case cmd
+    :block (render-block cmd-def ws-cfg forms)
+    :block-hook (render-block-hook (first cmd-def) (second cmd-def) ws-cfg forms)
+    ((mk-command-renderer cmd ws-cfg) cmd-def ws-cfg forms)))
+
+(defn render-block-contents-reducer
+  [ws-cfg {:keys [forms] :as agg} cmd-def]
+  (let [{:keys [id forms]} (render-command cmd-def ws-cfg forms)]
+    (-> agg
+        (update :ids #(if id
+                        (conj % id)
+                        %))
+        (update :forms merge forms))))
+
+(defn render-block-contents [block-type forms ws-cfg contents & [pre-hooks post-hooks]]
+  (reduce (partial render-block-contents-reducer ws-cfg)
+          {:ids []
+           :forms forms}
+          (concat (map (fn [h] [:block-hook block-type h]) pre-hooks)
+                  contents
+                  (map (fn [h] [:block-hook block-type h]) post-hooks)))  
   )
 
 (defn render-inline-block-contents [& _])
@@ -76,7 +91,7 @@
 
 
 (defn dev-plugin-setup-build-post
-  [ws-cfg]
+  [ws-cfg cmd-def]
   [`(dev-plugin-build-post ~'state
                            ~'{:train (-> ws-cfg :modes :train :dev/summaries)
                               :test (-> ws-cfg :modes :test :dev/summaries)})])
@@ -94,25 +109,26 @@
 (def dev-plugin
   {:meta {:kw :dev/plugin
           :desc "dev things"}
-   :build {:post dev-plugin-setup-build-post}
-   :interval {:post-async dev-plugin-setup-train-interval-post}})
+   :build {:post #'dev-plugin-setup-build-post}
+   :interval {:post-async #'dev-plugin-setup-train-interval-post}})
 
 (defn gm-plugin-build-main [graph plans]
   {:global {:graph (gm/build-all->graph plans)}})
 
 (defn gm-plugin-setup-build-main
-  [ws-cfg]
+  [ws-cfg cmd-def]
   [`(gm-plugin-build-main (-> ~'state :global :gm :graph)
                           (:plans ~'ws-cfg))
    `(--wf-setup-modes (:modes ~'ws-cfg))])
 
+;; TODO what's this?
 (defn gm-plugin-do-setup-mode-main
   [modes]
   {:modes (ut/fmap #(select-keys % [:targets :fetch :feed])
                    modes)})
 
 (defn gm-plugin-setup-create-session-main
-  [ws-cfg]
+  [ws-cfg cmd-def]
   [`(--ws-build (-> ~'state :global :gm :graph)
                 (:plans ~'ws-cfg))
    `(--wf-setup-modes (:modes ~'ws-cfg))])
@@ -122,8 +138,8 @@
   {:global {:varis-set true}})
 
 (defn gm-plugin-setup-init-varis-main
-  [ws-cfg]
-  [`(gm-plugin-init-varis-main (-> state :global :gm :session))])
+  [ws-cfg cmd-def]
+  [`(gm-plugin-init-varis-main (-> ~'state :global :gm :session))])
 
 (defn --wf-merge-mode-maps
   [g & ms]
@@ -192,27 +208,43 @@
               feed))
 
 (defn gm-plugin-setup-fetch-map-inline
-  [ws-cfg]
+  [ws-cfg cmd-def]
   [(vary-meta `(gm-plugin-compile-modes-run-req ~'state)
               assoc ::no-merge-state true)
    `(--ws-fetch-map ~'state)])
 
 (defn gm-plugin-setup-mode-inline
-  [ws-cfg mode]
+  [ws-cfg [_ mode]]
   [(vary-meta `(assoc ~'state :mode ~mode)
               assoc ::no-merge-state true)
    `(--ws-run-all (-> ~'state :global :gm :session)
                   (-> ~'ws-cfg :modes :test :enter))])
 
-(defn default-workspace-form
-  [hook-frms ws-cfg]
-  `(let [ya# :dayada]
-     1))
+
+(defn mk-default-form-bindings*
+  [[plugin-kw frms]]
+  (map (fn [frm]
+         (if (-> frm meta ::no-merge-state)
+           frm
+           `(--wf-merge-state ~plugin-kw ~'state
+                              ~frm)))
+       frms))
+
+(defn mk-default-form-bindings
+  [hook-frms]
+  (interleave (repeat 100 'state)
+              (mapcat mk-default-form-bindings*
+                      hook-frms)))
+
+(defn default-form-renderer
+  [hook-frms ws-cfg & _]
+  `(let [~@(mk-default-form-bindings hook-frms)]
+     {:state ~'state}))
 
 (defn gm-plugin-mode-form
-  [hook-frms ws-cfg mode]
-  `(when-not (= ~mode (:mode state))
-     ~(default-workspace-form hook-frms ws-cfg)))
+  [hook-frms ws-cfg [_ mode]]
+  `(when-not (= ~mode (:mode ~'state))
+     ~(default-form-renderer hook-frms ws-cfg)))
 
 (defn gm-plugin-interval-post-async-form
   [hook-frms ws-cfg]
@@ -227,15 +259,28 @@
                    :todo [~'$interval-block-ids]
                    :span ~'span}})))
 
+(defn apply-subs-to-child-forms
+  [ids forms subs-map]
+  (->> ids
+       (select-keys forms)
+       (clojure.walk/postwalk-replace subs-map)
+       (merge forms)))
+
 (defn gm-plugin-interval-block
-  [ws-cfg {:keys [span start?]} contents]
-  (let [{:keys [ids] :as children} (render-block-contents :interval ws-cfg contents)]
-    {:children (apply-subs-to-child-forms children {'$interval-block-ids ids})
-     :form `(let [~'span ~span]
-              (when ~start?
-                {:push {:block-type :interval
-                        :todo [~@ids]
-                        :span ~'span}}))}))
+  [ws-cfg {:keys [span start?]} forms contents]
+  (let [{:keys [ids forms]} (render-block-contents :interval
+                                                   forms
+                                                   ws-cfg
+                                                   contents
+                                                   [:pre]
+                                                   [:post-async])]
+    (add-to-forms (apply-subs-to-child-forms ids forms {'$interval-block-ids ids})
+                  :interval nil
+                  `(let [~'span ~span]
+                     (when ~start?
+                       {:push {:block-type :interval
+                               :todo [~@ids]
+                               :span ~'span}})))))
 
 (defn --wf-push-light-block
   [state block-type init-block-state]
@@ -254,9 +299,10 @@
 
 
 (defn gm-plugin-step-block
-  [ws-cfg {:keys [span start?]} contents]
-  (let [{:keys [hook-frms] :as children} (render-inline-block-contents :step  ws-cfg contents)]  
-    {:form `(let [~'span ~span]
+  [ws-cfg {:keys [span start?]} forms contents]
+  (let [{:keys [hook-frms forms]} (render-inline-block-contents :step forms ws-cfg contents)]  
+    {:forms forms
+     :form `(let [~'span ~span]
               (when ~start?
                 (let [~'state (--wf-push-light-block ~'state :step {:gm {:span ~'span}})
                       ~@(render-hook-lets hook-frms)
@@ -265,47 +311,151 @@
                    :push-pop {:block-type :step
                               :span ~'span}})))}))
 
+(defn get-new-form-id
+  [form cmd-type name-suffix forms]
+  (or (get forms form)
+      (let [taken (-> forms vals set)
+            base (str (name cmd-type)
+                      (when name-suffix
+                        (str "-" name-suffix)))]
+        (->> (range 100)
+             (map (fn [idx]
+                    (if (zero? idx)
+                      (keyword base)
+                      (keyword (str base "-" idx)))))
+             (remove taken)
+             first))))
+
+(defn add-to-forms
+  [forms cmd-type name-suffix form]
+  (let [new-id (get-new-form-id form cmd-type name-suffix forms)]
+    {:id new-id
+     :forms (assoc forms
+                   form new-id)}))
+
 (defn gm-plugin-workflow-block
-  [ws-cfg {:keys [span]} contents]
-  (let [{:keys [ids] :as children} (render-block-contents :interval ws-cfg contents)]
-    {:children children
-     :form `{:push {:block-type :workflow
-                    :todo [~@ids]
-                    :span ~span}}}))
+  [ws-cfg {:keys [span]} forms contents]
+  (let [{:keys [ids forms] :as children} (render-block-contents :workflow forms ws-cfg contents)]
+    (add-to-forms forms :workflow nil
+                  `{:push {:block-type :workflow
+                           :todo [~@ids]
+                           :span ~span}})))
 
 (defn gm-plugin-stage-block
-  [ws-cfg {:keys [span]} contents]
-  (let [{:keys [ids] :as children} (render-block-contents :interval ws-cfg contents)]
-    {:children children
-     :form `{:push {:block-type :stage
-                    :todo [~@ids]
-                    :span ~span}}}))
+  [ws-cfg {:keys [span]} forms contents]
+  (let [{:keys [ids forms]} (render-block-contents :stage forms ws-cfg contents)]
+    (add-to-forms forms :stage nil
+                  `{:push {:block-type :stage
+                           :todo [~@ids]
+                           :span ~span}})))
 
-(defn gm-plugin-setup-step-main
-  [ws-cfg]
-  [`(gm-plugin-compile-modes-run-req ~'state)
-   `(--ws-fetch-map ~'state)])
+
 
 (def gm-plugin
   {:meta {:kw :gm}
-   :build {:main gm-plugin-setup-build-main}
-   :create-session {:main gm-plugin-setup-create-session-main}
-   :init-varis {:main gm-plugin-setup-init-varis-main}
-   :fetch-map {:inline gm-plugin-setup-fetch-map-inline}
-   :mode {:form gm-plugin-mode-form
-          :main gm-plugin-setup-mode-inline}
-   :interval {:block gm-plugin-interval-block
-              :post-async {:form gm-plugin-interval-post-async-form}
-              :repeat? {:form gm-plugin-interval-repeat-form}}
-   :step {:block gm-plugin-step-block
-          :main gm-plugin-setup-step-main}
-   :workflow {:block gm-plugin-workflow-block}
-   :stage {:block gm-plugin-stage-block}})
+   :build {:main #'gm-plugin-setup-build-main}
+   :create-session {:main #'gm-plugin-setup-create-session-main}
+   :init-varis {:main #'gm-plugin-setup-init-varis-main}
+   :fetch-map {:inline #'gm-plugin-setup-fetch-map-inline}
+   :mode {:form #'gm-plugin-mode-form
+          :main #'gm-plugin-setup-mode-inline}
+   :interval {:block #'gm-plugin-interval-block
+              :post-async {:form #'gm-plugin-interval-post-async-form}
+              :repeat? {:form #'gm-plugin-interval-repeat-form}}
+   :step {:block #'gm-plugin-step-block}
+   :workflow {:block #'gm-plugin-workflow-block}
+   :stage {:block #'gm-plugin-stage-block}})
+
+(def ws-cfg
+  {:plugins [gm-plugin dev-plugin]
+   :plans [(o/add :a1 1 2)]
+   :modes {:train {:targets []
+                   :dev/summaries [:a1]
+                   :feed {}
+                   :enter {:targets []}}
+           :test {:dev/summaries [:a1]
+                  :feed {}
+                  :enter {:targets []}}}})
+
+
+
+(defn find-command-renderers*
+  [path plugins]
+  (when-let [plugin (first (filter #(get-in % path)
+                                   plugins))]
+    (fn [& args]
+      [(-> plugin :meta :kw)
+       (apply (get-in plugin path) args)])))
+
+(defn find-command-form-renderer
+  [cmd-type {:keys [plugins]}]
+  (or (some #(get-in % [cmd-type :form])
+            plugins)
+      default-form-renderer))
+
+
+
+(defn find-command-renderers
+  [cmd-type {:keys [plugins]}]
+  (if-let [inline (find-command-renderers* [cmd-type :inline]
+                                           plugins)]
+    [inline]
+    (->> [(find-command-renderers* [cmd-type :pre]
+                                   plugins)
+          (find-command-renderers* [cmd-type :main]
+                                   plugins)
+          (find-command-renderers* [cmd-type :post]
+                                   plugins)]
+         (remove nil?)
+         not-empty)))
+
+(defn compound-command-renderer
+  [frm-renderer hook-renderers cmd-def ws-cfg forms]
+  (add-to-forms forms
+                (first cmd-def)
+                nil
+                (frm-renderer
+                 (map #(% ws-cfg cmd-def) hook-renderers)
+                 ws-cfg
+                 cmd-def)))
+
+(defn mk-command-renderer
+  [cmd-type ws-cfg]
+  (if-let [hook-renderers (find-command-renderers cmd-type ws-cfg)]
+    (partial compound-command-renderer
+             (find-command-form-renderer cmd-type ws-cfg)
+             hook-renderers)
+    (constantly nil)))
+
+(defn find-block-renderer
+  [block-type {:keys [plugins]}]
+  (or (some #(get-in % [block-type :block])
+            plugins)
+      (throw (Exception. (format "Could not find block renderer for %s" block-type)))))
+
+(defn render-block
+  [[_ {block-type :type :as opts} & contents] ws-cfg forms]
+  ((find-block-renderer block-type ws-cfg) ws-cfg opts forms contents))
+
+(defn find-block-hook-renderer
+  [block-type hook-type {:keys [plugins]}]
+  (some #(get-in % [block-type hook-type])
+        plugins))
+
+(defn render-block-hook
+  [block-type hook-type ws-cfg forms]
+  (when-let [renderer (find-block-hook-renderer block-type hook-type ws-cfg)]
+    (renderer ws-cfg)))
 
 (defn render-workflow
-  [[block-type opts] {:keys [plugins] :as ws-cfg}]
+  [[cmd {block-type :type} :as block-def] ws-cfg]
+  (when-not (= cmd :block)
+    (throw (Exception. "top-level command must be `:block`.")))
   (when-not (= block-type :workflow)
     (throw (Exception. "top-level block must be `:workflow`.")))
-  (render-block :workflow ws-cfg))
+  (render-block block-def ws-cfg {}))
 
-(render-workflow wf-def ws-cfg)
+(clojure.pprint/pprint
+ (clojure.set/map-invert
+  (:forms   
+   (render-workflow wf-def ws-cfg))))
