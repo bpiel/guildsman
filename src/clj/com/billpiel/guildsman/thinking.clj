@@ -456,11 +456,7 @@
          current nil
          todo (list :workflow)
          state {:global global-state
-                :block-type :global}] ;; scoped: global(atom?) workflow stage interval step (mode?)
-    #_(clojure.pprint/pprint [:current current
-                              :state state
-                              :todo todo
-                              :stack stack])
+                :block-type :global}] 
     (let [result (case current
                    nil nil
                    :workflow {:push {:block-type :workflow
@@ -528,10 +524,10 @@
                                :steps 100}]
                      (when (--wf-require-span-completable state span)
                        {:push {:block-type :interval
-                               :todo [:clear-fetched :step-1 :step-2 :mode-test :fetch-map :interval-post-async :interval-2-close]
+                               :todo [:clear-fetched :step-1 :step-2 :mode-test :fetch-map :interval-post-async :interval-2-repeat?]
                                :span span}}))
                    :step-1
-                   (let [span {:steps (--wf-steps state :block :remaining -1)}]
+                   (let [span {:steps (--wf-steps state :interval :remaining -1)}]
                      (when (--wf-require-span-completable state span)
                        (let [state (--wf-push-light-block state :step {:gm {:span span}})
                              state (--wf-compile-modes-run-req state)
@@ -554,12 +550,12 @@
                          {:state state
                           :push-pop {:block-type :step
                                      :span span}})))
-                   :interval-2-close
+                   :interval-2-repeat?
                    (let [span {:interval 1
                                :steps 100}]
                      (when (--wf-require-span-repeatable state span)
                        {:pop-push {:block-type :interval
-                                   :todo [:clear-fetched :mode-train :step-1 :step-2 :mode-test :fetch-map :interval-post-async :interval-2-close]
+                                   :todo [:clear-fetched :mode-train :step-1 :step-2 :mode-test :fetch-map :interval-post-async :interval-2-repeat?]
                                    :span span}})))]
       (let [[stack current todo state] (--wf-loop result
                                                   stack
