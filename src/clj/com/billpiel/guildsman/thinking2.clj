@@ -5,6 +5,9 @@
             [com.billpiel.guildsman.ops.basic :as o]
             [com.billpiel.guildsman.ops.composite :as c]))
 
+;; TODO destroy/release resources ???????
+;; release-graph, release-session commands ??
+
 (def wf-def
   [:block {:type :workflow
            :span {:steps 10000}}
@@ -253,8 +256,8 @@
 
 (defn gm-plugin-interval-repeat-form
   [hook-frms ws-cfg {:keys [span start?]}]
-  `(let [span ~span]
-     (when ~start?
+  `(let [span ~span] ;; TODO (render-something span)
+     (when ~start? ;; TODO (render-hook-boolean)??? support hooks + args
        {:pop-push {:block-type :interval
                    :todo [~'$interval-block-ids]
                    :span ~'span}})))
@@ -276,8 +279,8 @@
                                                    [:post-async])]
     (add-to-forms (apply-subs-to-child-forms ids forms {'$interval-block-ids ids})
                   :interval nil
-                  `(let [~'span ~span]
-                     (when ~start?
+                  `(let [~'span ~span]  ;; TODO (render-something span)
+                     (when ~start? ;; TODO (render-hook-boolean)??? support hooks + args
                        {:push {:block-type :interval
                                :todo [~@ids]
                                :span ~'span}})))))
@@ -302,7 +305,7 @@
   [ws-cfg {:keys [span start?]} forms contents]
   (let [{:keys [hook-frms forms]} (render-inline-block-contents :step forms ws-cfg contents)]  
     {:forms forms
-     :form `(let [~'span ~span]
+     :form `(let [~'span ~span] ;; TODO (render-something span)
               (when ~start?
                 (let [~'state (--wf-push-light-block ~'state :step {:gm {:span ~'span}})
                       ~@(render-hook-lets hook-frms)
@@ -311,6 +314,7 @@
                    :push-pop {:block-type :step
                               :span ~'span}})))}))
 
+;; TODO support suffixes (ex :mode-train)
 (defn get-new-form-id
   [form cmd-type name-suffix forms]
   (or (get forms form)
@@ -360,8 +364,8 @@
    :mode {:form #'gm-plugin-mode-form
           :main #'gm-plugin-setup-mode-inline}
    :interval {:block #'gm-plugin-interval-block
-              :post-async {:form #'gm-plugin-interval-post-async-form}
-              :repeat? {:form #'gm-plugin-interval-repeat-form}}
+              :hook-forms {:post-async #'gm-plugin-interval-post-async-form
+                           :repeat? #'gm-plugin-interval-repeat-form}}
    :step {:block #'gm-plugin-step-block}
    :workflow {:block #'gm-plugin-workflow-block}
    :stage {:block #'gm-plugin-stage-block}})
@@ -442,6 +446,7 @@
   (some #(get-in % [block-type hook-type])
         plugins))
 
+;; TODO support multiple hooks from different plugins
 (defn render-block-hook
   [block-type hook-type ws-cfg forms]
   (when-let [renderer (find-block-hook-renderer block-type hook-type ws-cfg)]
