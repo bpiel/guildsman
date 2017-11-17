@@ -25,7 +25,9 @@
     [:block {:type :interval
              :span {:intervals 1
                     :steps 100}
-             :repeat? [:require-span-repeatable]}
+             :block-plugin
+             {:start? [[:require-span-completable]] ;; ??????????
+              :repeat? [[:require-span-repeatable]]}}
      [:block {:type :step
               :span {:steps [:steps :interval :remaining -1]}}
       [:mode :train]
@@ -38,7 +40,9 @@
      [:fetch-map]]]])
 
 (declare render-block)
+(declare render-block-hook)
 (declare mk-command-renderer)
+(declare add-to-forms)
 
 (defn render-command
   [[cmd :as cmd-def] ws-cfg forms]
@@ -64,6 +68,34 @@
                   contents
                   (map (fn [h] [:block-hook block-type h]) post-hooks)))  
   )
+
+
+;; TODO lookup hooks
+(defn render-boolean-block-hook
+  [ws-cfg block-type bool-op default & [prepend]]
+  (let [p (when prepend
+            (render-single-inline-src ws-cfg prepend ))]
+    `(~bool-op ~p)))
+
+
+(defn find-kw-src-pair-renderer
+  [path plugins]
+  (when-let [plugin (first (filter #(get-in % path)
+                                   plugins))]
+    (fn [& args]
+      [(-> plugin :meta :kw)
+       (apply (get-in plugin path) args)])))
+
+(defn find-kw-src-pair-renderers
+  [path plugins]
+  (when-let [plugins (not-empty (filter #(get-in % path)
+                                        plugins))]
+    (fn [& args]
+      (mapcat (fn [plugin]
+                [(-> plugin :meta :kw)
+                 (apply (get-in plugin path) args)])
+              plugins))))
+
 
 (defn render-inline-block-contents [& _])
 
@@ -269,9 +301,21 @@
        (clojure.walk/postwalk-replace subs-map)
        (merge forms)))
 
+(defn render-single-inline-src
+  [{:keys [plugins] :as ws-cfg} cmd-def]
+  (if (vector? cmd-def)
+    (let [[cmd-name & args] cmd-def]
+      (if-let [r-fn (find-kw-src-pair-renderer [cmd-name :inline] plugins)]
+        (apply r-fn ws-cfg args)
+        (throw (Exception. (format "render-single-inline-src: Couldn't find inline for: %s"
+                                   cmd-name)))))
+    cmd-def))
+
 (defn gm-plugin-interval-block
   [ws-cfg {:keys [span start?]} forms contents]
-  (let [{:keys [ids forms]} (render-block-contents :interval
+  (let [span-src (render-single-inline-src ws-cfg span)
+        start?-src (render-boolean-block-hook ws-cfg :interval :start? :and true start?)
+        {:keys [ids forms]} (render-block-contents :interval
                                                    forms
                                                    ws-cfg
                                                    contents
@@ -279,11 +323,56 @@
                                                    [:post-async])]
     (add-to-forms (apply-subs-to-child-forms ids forms {'$interval-block-ids ids})
                   :interval nil
-                  `(let [~'span ~span]  ;; TODO (render-something span)
-                     (when ~start? ;; TODO (render-hook-boolean)??? support hooks + args
+                  `(let [~'span ~span-src]  ;; TODO (render-something span)
+                     (when ~start?-src ;; TODO (render-hook-boolean)??? support hooks + args
                        {:push {:block-type :interval
                                :todo [~@ids]
                                :span ~'span}})))))
+
+
+(defn --wf-require-span-completable
+  [{:keys [block]} span]
+  (if (->> span vals (filter number?) (some (complement pos?)))
+    false
+    (let [limit (-> block :gm :limit)
+          pos (-> block :gm :pos)]
+      (every? (fn [bt]
+                (if-let [r (bt limit)]
+                  (>= (- r ((singularize-block bt) pos 0))
+                      (bt span 0))
+                  true))
+              (keys span)))))
+
+(defn --wf-require-span-repeatable
+  [{:keys [block-type] :as state} span]
+  (let [parent-block-type (last (--wf-higher-blocks block-type))
+        parent-block (parent-block-type state)]
+    (if (->> span vals (filter number?) (some (complement pos?)))
+      false
+      (let [limit (-> parent-block :gm :limit)
+            pos (-> parent-block :gm :pos)]
+        (every? (fn [bt]
+                  (if-let [r (bt limit)]
+                    (>= (- r ((singularize-block bt) pos 0))
+                        (bt span 0))
+                    true))
+                (keys span))))))
+
+(defn --wf-query-steps
+  [state block-type q & [offset]]
+  (let [{:keys [pos limit span]} (-> state block-type :gm)
+        p-step (:step pos 0)
+        l-steps (:steps limit)
+        s-steps (:steps span)
+        r (case q
+            :remaining (when l-steps
+                         (- l-steps p-step))
+            :span s-steps
+            (throw (Exception. (str "--wf-steps: query not supported "
+                                    q))))]
+    (if (and r offset)
+      (+ r  offset)
+      r)))
 
 (defn --wf-push-light-block
   [state block-type init-block-state]
@@ -368,7 +457,10 @@
                            :repeat? #'gm-plugin-interval-repeat-form}}
    :step {:block #'gm-plugin-step-block}
    :workflow {:block #'gm-plugin-workflow-block}
-   :stage {:block #'gm-plugin-stage-block}})
+   :stage {:block #'gm-plugin-stage-block}
+   :require-span-completable {:inline #'--wf-require-span-completable}
+   :require-span-repeatable {:inline #'--wf-require-span-repeatable}
+   :query-steps {:inline #'--wf-query-steps}})
 
 (def ws-cfg
   {:plugins [gm-plugin dev-plugin]
@@ -382,34 +474,23 @@
                   :enter {:targets []}}}})
 
 
-
-(defn find-command-renderers*
-  [path plugins]
-  (when-let [plugin (first (filter #(get-in % path)
-                                   plugins))]
-    (fn [& args]
-      [(-> plugin :meta :kw)
-       (apply (get-in plugin path) args)])))
-
 (defn find-command-form-renderer
   [cmd-type {:keys [plugins]}]
   (or (some #(get-in % [cmd-type :form])
             plugins)
       default-form-renderer))
 
-
-
 (defn find-command-renderers
   [cmd-type {:keys [plugins]}]
-  (if-let [inline (find-command-renderers* [cmd-type :inline]
-                                           plugins)]
+  (if-let [inline (find-kw-src-pair-renderer [cmd-type :inline]
+                                             plugins)]
     [inline]
-    (->> [(find-command-renderers* [cmd-type :pre]
-                                   plugins)
-          (find-command-renderers* [cmd-type :main]
-                                   plugins)
-          (find-command-renderers* [cmd-type :post]
-                                   plugins)]
+    (->> [(find-kw-src-pair-renderers [cmd-type :pre]
+                                      plugins)
+          (find-kw-src-pair-renderer [cmd-type :main]
+                                     plugins)
+          (find-kw-src-pair-renderers [cmd-type :post]
+                                      plugins)]
          (remove nil?)
          not-empty)))
 
@@ -441,10 +522,10 @@
   [[_ {block-type :type :as opts} & contents] ws-cfg forms]
   ((find-block-renderer block-type ws-cfg) ws-cfg opts forms contents))
 
-(defn find-block-hook-renderer
+(defn find-block-hook-renderers
   [block-type hook-type {:keys [plugins]}]
-  (some #(get-in % [block-type hook-type])
-        plugins))
+;; TODO support multiple hooks from different plugins
+  )
 
 ;; TODO support multiple hooks from different plugins
 (defn render-block-hook
@@ -459,6 +540,122 @@
   (when-not (= block-type :workflow)
     (throw (Exception. "top-level block must be `:workflow`.")))
   (render-block block-def ws-cfg {}))
+
+
+(def block-order [:global :workflow :stage :interval :step])
+
+(defn --wf-higher-blocks [block-type]
+  (take-while (complement #{block-type})
+              block-order))
+
+(defn --wf-lower-blocks [block-type]
+  (rest (drop-while (complement #{block-type})
+                    block-order)))
+
+(def pluralize-block
+  {:step :steps
+   :interval :intervals
+   :stage :stages
+   :workflow :workflows
+   :mode :modes})
+
+(def singularize-block
+  (clojure.set/map-invert pluralize-block))
+
+(defn --wf-pop-state
+  [state]
+  (let [{block-type-exiting :block-type} state
+        block-type-entering (last (--wf-higher-blocks block-type-exiting))
+        bts (pluralize-block block-type-exiting)
+        span (when block-type-exiting
+               (-> state block-type-exiting :gm :span bts))]
+    (-> (reduce (fn [agg item]
+                  (update-in agg
+                             [item :gm :pos block-type-exiting]
+                             (fnil + 0 0) span))
+                state
+                (--wf-higher-blocks block-type-exiting))
+        (assoc :block-type block-type-entering)
+        (dissoc :block))))
+
+
+(defn --wf-push-light-block
+  [state block-type init-block-state]
+  (assoc state
+         :block-type block-type
+         block-type init-block-state
+         :block init-block-state))
+
+(defn --wf-pop-light-block
+  [{:keys [block-type] :as state}]
+  (let [parent-block-type (last (--wf-higher-blocks block-type))]
+    (-> state
+        (dissoc block-type)
+        (assoc :block (parent-block-type state)
+               :block-type parent-block-type))))
+
+;; (min (- up-limit up-pos) new-span)
+
+(defn --wf-loop-calc-limit
+  [block-type span state]
+  (if-let [one-up (last (--wf-higher-blocks block-type))]
+    (let [lower (--wf-lower-blocks block-type)
+          {:keys [pos limit]} (-> state one-up :gm)]
+      (into {}
+            (for [bt lower]
+              (let [bts (pluralize-block bt)
+                    r (bts limit)
+                    p (bt pos 0)
+                    s (bts span)]
+                [bts (some->> [(when r (- r p))
+                              s]
+                             (remove nil?)
+                             not-empty
+                             (apply min))]))))
+    {}))
+
+
+(defn --wf-loop-push-new-state
+  [block-type span state]
+  (assoc state
+         :block-type block-type
+         block-type {:gm {:pos {:step 0
+                                :interval 0
+                                :stage 0}
+                          :span span
+                          :limit (--wf-loop-calc-limit
+                                      block-type span state)}}
+         :block nil))
+
+(defn --wf-loop-push
+  [{:keys [block-type span] todo' :todo} stack current todo state]
+  [(conj stack [current todo])
+   nil
+   todo'
+   (--wf-loop-push-new-state block-type span state)])
+
+(defn --wf-loop-pop-push
+  [pop-push stack current todo state]
+  (let [[head & tail] stack
+        [current' todo'] head
+        
+        [stack state]
+        [tail (--wf-pop-state state)]]
+    (--wf-loop-push pop-push stack current' todo state)))
+
+(defn --wf-loop-push-pop
+  [push-pop stack current todo state]
+  (let [[stack current todo state]
+        (--wf-loop-push push-pop stack current todo state)
+        [head & tail] stack
+        [current' todo'] head]
+    [tail nil todo' (--wf-pop-state state)]))
+
+(defn --wf-assoc-block-to-state
+  [{:keys [block-type] :as state}]
+  (if block-type
+    (assoc state :block (block-type state {}))
+    state))
 
 
 (defn --wf-loop
