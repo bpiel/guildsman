@@ -8,6 +8,43 @@
 ;; TODO destroy/release resources ???????
 ;; release-graph, release-session commands ??
 
+(comment
+  ;; cmd-hook
+  [ws-cfg cmd-def] => vec of forms
+  [ws-cfg cmd-def]
+  [ws-cfg cmd-def]
+  [ws-cfg [_ mode]]
+
+  ;; cmd form
+  [hook-frms ws-cfg [_ mode]] => form
+  [hook-frms ws-cfg & _] => form
+
+  ;; cmd inline
+  !! [{:keys [block]} span] => bool
+  !!  [{:keys [block-type] :as state} span] => bool
+  !! [state block-type q & [offset]] => number
+
+  
+  
+  ;; block
+  [ws-cfg {:keys [span] :as args} forms contents] => add-to-forms
+  !!    [ws-cfg {:keys [span start?]} forms contents] => {:forms :form}
+  
+  ;; block hook form
+  [hook-frms ws-cfg] => form
+  !!  [hook-frms ws-cfg {:keys [span start?]}] => form
+  
+  ;; block hook
+  [& _] => nil
+  [ws-cfg] => vec of forms
+
+
+
+  
+  (comment))
+
+
+
 (def wf-def
   [:block {:type :workflow
            :span {:steps 10000}}
@@ -25,9 +62,9 @@
     [:block {:type :interval
              :span {:intervals 1
                     :steps 100}
-             :block-plugin
-             {:start? [[:require-span-completable]] ;; ??????????
-              :repeat? [[:require-span-repeatable]]}}
+             :plugin {:interval
+                      {;:start? [[:require-span-completable]] ;; ??????????
+                       :repeat? [:require-span-repeatable]}}}
      [:block {:type :step
               :span {:steps [:steps :interval :remaining -1]}}
       [:mode :train]
@@ -45,11 +82,14 @@
 (declare add-to-forms)
 
 (defn render-command
-  [[cmd :as cmd-def] ws-cfg forms]
+  [[cmd cmd-arg1 :as cmd-def] ws-cfg forms]
   (case cmd
     :block (render-block cmd-def ws-cfg forms)
-    :block-hook (render-block-hook (first cmd-def) (second cmd-def) ws-cfg forms)
-    ((mk-command-renderer cmd ws-cfg) cmd-def ws-cfg forms)))
+    :block-hook (render-block-hook cmd cmd-arg1 ws-cfg forms)
+    (if-let [cmd-renderer (mk-command-renderer cmd ws-cfg)]
+      (cmd-renderer cmd-def ws-cfg forms)
+      (throw (Exception. (format "No renderer for %s"
+                                 (str cmd-def)))))))
 
 (defn render-block-contents-reducer
   [ws-cfg {:keys [forms] :as agg} cmd-def]
@@ -69,15 +109,6 @@
                   (map (fn [h] [:block-hook block-type h]) post-hooks)))  
   )
 
-
-;; TODO lookup hooks
-(defn render-boolean-block-hook
-  [ws-cfg block-type bool-op default & [prepend]]
-  (let [p (when prepend
-            (render-single-inline-src ws-cfg prepend ))]
-    `(~bool-op ~p)))
-
-
 (defn find-kw-src-pair-renderer
   [path plugins]
   (when-let [plugin (first (filter #(get-in % path)
@@ -95,6 +126,28 @@
                 [(-> plugin :meta :kw)
                  (apply (get-in plugin path) args)])
               plugins))))
+
+(defn render-single-inline-src
+  [{:keys [plugins] :as ws-cfg} cmd-def]
+  (if (vector? cmd-def)
+    (let [[cmd-name & args] cmd-def]
+      (if-let [r-fn (find-kw-src-pair-renderer [cmd-name :inline] plugins)]
+        (apply r-fn ws-cfg args)
+        (throw (Exception. (format "render-single-inline-src: Couldn't find inline for: %s"
+                                   cmd-name)))))
+    cmd-def))
+
+
+
+;; TODO lookup hooks
+(defn render-boolean-block-hook
+  [ws-cfg block-type bool-op default & [prepend]]
+  (let [p (when prepend
+            (render-single-inline-src ws-cfg prepend ))]
+    `(~bool-op ~p)))
+
+
+
 
 
 (defn render-inline-block-contents [& _])
@@ -301,20 +354,12 @@
        (clojure.walk/postwalk-replace subs-map)
        (merge forms)))
 
-(defn render-single-inline-src
-  [{:keys [plugins] :as ws-cfg} cmd-def]
-  (if (vector? cmd-def)
-    (let [[cmd-name & args] cmd-def]
-      (if-let [r-fn (find-kw-src-pair-renderer [cmd-name :inline] plugins)]
-        (apply r-fn ws-cfg args)
-        (throw (Exception. (format "render-single-inline-src: Couldn't find inline for: %s"
-                                   cmd-name)))))
-    cmd-def))
-
 (defn gm-plugin-interval-block
-  [ws-cfg {:keys [span start?]} forms contents]
+  [ws-cfg {:keys [span] :as args} forms contents]
   (let [span-src (render-single-inline-src ws-cfg span)
-        start?-src (render-boolean-block-hook ws-cfg :interval :start? :and true start?)
+        start?-src (render-single-inline-block-hook :interval :start? args)
+        ;; TODO pass in args too
+        ;; TODO named args
         {:keys [ids forms]} (render-block-contents :interval
                                                    forms
                                                    ws-cfg
@@ -389,7 +434,6 @@
         (assoc :block (parent-block-type state)
                :block-type parent-block-type))))
 
-
 (defn gm-plugin-step-block
   [ws-cfg {:keys [span start?]} forms contents]
   (let [{:keys [hook-frms forms]} (render-inline-block-contents :step forms ws-cfg contents)]  
@@ -442,7 +486,23 @@
                            :todo [~@ids]
                            :span ~span}})))
 
+(defn gm-plugin-interval-start?-form
+  [[hook-frm] ws-cfg]
+  (or hook-frm
+      true))
 
+(defn gm-plugin-interval-start?
+  [& _])
+
+(defn gm-plugin-setup-require-span-completable
+  [ws-cfg [_ span]]
+  )
+
+(defn gm-plugin-setup-require-span-repeatable
+  [ws-cfg [_ span]])
+
+(defn gm-plugin-setup-query-steps
+  [ws-cfg cmd-def])
 
 (def gm-plugin
   {:meta {:kw :gm}
@@ -454,13 +514,15 @@
           :main #'gm-plugin-setup-mode-inline}
    :interval {:block #'gm-plugin-interval-block
               :hook-forms {:post-async #'gm-plugin-interval-post-async-form
-                           :repeat? #'gm-plugin-interval-repeat-form}}
+                           :start? #'gm-plugin-interval-start?-form
+                           :repeat? #'gm-plugin-interval-repeat-form}
+              :start? #'gm-plugin-interval-start?}
    :step {:block #'gm-plugin-step-block}
    :workflow {:block #'gm-plugin-workflow-block}
    :stage {:block #'gm-plugin-stage-block}
-   :require-span-completable {:inline #'--wf-require-span-completable}
-   :require-span-repeatable {:inline #'--wf-require-span-repeatable}
-   :query-steps {:inline #'--wf-query-steps}})
+   :require-span-completable {:inline #'gm-plugin-setup-require-span-completable}
+   :require-span-repeatable {:inline #'gm-plugin-setup-require-span-repeatable}
+   :query-steps {:inline #'gm-plugin-setup-query-steps}})
 
 (def ws-cfg
   {:plugins [gm-plugin dev-plugin]
@@ -473,6 +535,11 @@
                   :feed {}
                   :enter {:targets []}}}})
 
+(defn find-hook-form-renderer
+  [block-type hook-type {:keys [plugins]}]
+  (or (some #(get-in % [block-type :hook-frms hook-type])
+            plugins)
+      default-form-renderer))
 
 (defn find-command-form-renderer
   [cmd-type {:keys [plugins]}]
@@ -524,14 +591,16 @@
 
 (defn find-block-hook-renderers
   [block-type hook-type {:keys [plugins]}]
-;; TODO support multiple hooks from different plugins
-  )
+  (find-kw-src-pair-renderers [block-type hook-type] plugins))
 
 ;; TODO support multiple hooks from different plugins
 (defn render-block-hook
   [block-type hook-type ws-cfg forms]
-  (when-let [renderer (find-block-hook-renderer block-type hook-type ws-cfg)]
-    (renderer ws-cfg)))
+  (if-let [hook-renderers (find-block-hook-renderers block-type hook-type ws-cfg)]
+    (partial compound-command-renderer
+             (find-hook-form-renderer block-type hook-type ws-cfg)
+             hook-renderers)
+    (constantly nil)))
 
 (defn render-workflow
   [[cmd {block-type :type} :as block-def] ws-cfg]
@@ -541,6 +610,9 @@
     (throw (Exception. "top-level block must be `:workflow`.")))
   (render-block block-def ws-cfg {}))
 
+(def render-single-inline-block-hook
+  [block-type hook-type args]
+  )
 
 (def block-order [:global :workflow :stage :interval :step])
 
