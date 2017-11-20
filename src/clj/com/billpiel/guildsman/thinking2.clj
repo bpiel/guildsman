@@ -9,6 +9,8 @@
 ;; release-graph, release-session commands ??
 
 (comment
+  ;; TODO cmd-hooks take args instead of cmd-def
+  
   ;; cmd-hook
   [ws-cfg cmd-def] => vec of forms
   [ws-cfg cmd-def]
@@ -82,10 +84,11 @@
 (declare add-to-forms)
 
 (defn render-command
-  [[cmd cmd-arg1 :as cmd-def] ws-cfg forms]
+  [[cmd :as cmd-def] ws-cfg forms]
   (case cmd
     :block (render-block cmd-def ws-cfg forms)
-    :block-hook (render-block-hook cmd cmd-arg1 ws-cfg forms)
+    :block-hook (let [[_ block-type hook-type] cmd-def]
+                  (render-block-hook block-type hook-type ws-cfg forms))
     (if-let [cmd-renderer (mk-command-renderer cmd ws-cfg)]
       (cmd-renderer cmd-def ws-cfg forms)
       (throw (Exception. (format "No renderer for %s"
@@ -106,8 +109,7 @@
            :forms forms}
           (concat (map (fn [h] [:block-hook block-type h]) pre-hooks)
                   contents
-                  (map (fn [h] [:block-hook block-type h]) post-hooks)))  
-  )
+                  (map (fn [h] [:block-hook block-type h]) post-hooks))))
 
 (defn find-kw-src-pair-renderer
   [path plugins]
@@ -357,7 +359,8 @@
 (defn gm-plugin-interval-block
   [ws-cfg {:keys [span] :as args} forms contents]
   (let [span-src (render-single-inline-src ws-cfg span)
-        start?-src (render-single-inline-block-hook :interval :start? args)
+        start?-src (render-command [:block-hook :interval :start?]
+                                   ws-cfg {})
         ;; TODO pass in args too
         ;; TODO named args
         {:keys [ids forms]} (render-block-contents :interval
@@ -365,10 +368,11 @@
                                                    ws-cfg
                                                    contents
                                                    [:pre]
-                                                   [:post-async])]
+                                                   [:post-async
+                                                    :repeat?])]
     (add-to-forms (apply-subs-to-child-forms ids forms {'$interval-block-ids ids})
                   :interval nil
-                  `(let [~'span ~span-src]  ;; TODO (render-something span)
+                  `(let [~'span ~span-src] ;; TODO (render-something span)
                      (when ~start?-src ;; TODO (render-hook-boolean)??? support hooks + args
                        {:push {:block-type :interval
                                :todo [~@ids]
@@ -492,17 +496,20 @@
       true))
 
 (defn gm-plugin-interval-start?
-  [& _])
+  [ws-cfg]
+  [`(--wf-require-span-completable ~'span)])
 
 (defn gm-plugin-setup-require-span-completable
-  [ws-cfg [_ span]]
-  )
+  [ws-cfg & [span]]
+  [`(--wf-require-span-completable ~(or span 'span))])
 
 (defn gm-plugin-setup-require-span-repeatable
-  [ws-cfg [_ span]])
+  [ws-cfg & [span]]
+  `(--wf-require-span-repeatable ~(or span 'span)))
 
 (defn gm-plugin-setup-query-steps
-  [ws-cfg cmd-def])
+  [ws-cfg block-type q & [offset]]
+  [`(--wf-query-steps ~'state ~block-type ~q ~offset)])
 
 (def gm-plugin
   {:meta {:kw :gm}
@@ -610,7 +617,7 @@
     (throw (Exception. "top-level block must be `:workflow`.")))
   (render-block block-def ws-cfg {}))
 
-(def render-single-inline-block-hook
+#_(defn render-single-inline-block-hook
   [block-type hook-type args]
   )
 
