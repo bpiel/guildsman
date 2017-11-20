@@ -80,23 +80,33 @@
 
 (declare render-block)
 (declare render-block-hook)
+(declare render-command)
 (declare mk-command-renderer)
 (declare add-to-forms)
 
-(defn render-command
+(defn render-element
   [[cmd :as cmd-def] ws-cfg forms]
   (case cmd
     :block (render-block cmd-def ws-cfg forms)
     :block-hook (let [[_ block-type hook-type] cmd-def]
                   (render-block-hook block-type hook-type ws-cfg forms))
-    (if-let [cmd-renderer (mk-command-renderer cmd ws-cfg)]
+    (render-command cmd-def ws-cfg forms)
+#_    (if-let [cmd-renderer (mk-command-renderer cmd ws-cfg)]
       (cmd-renderer cmd-def ws-cfg forms)
       (throw (Exception. (format "No renderer for %s"
                                  (str cmd-def)))))))
 
+(defn render-element-single-expr
+  [cmd-def ws-cfg]
+  (let [{:keys [forms]} (render-element cmd-def ws-cfg {})]
+    (some-> (render-element cmd-def ws-cfg {})
+            :forms
+            keys
+            first)))
+
 (defn render-block-contents-reducer
   [ws-cfg {:keys [forms] :as agg} cmd-def]
-  (let [{:keys [id forms]} (render-command cmd-def ws-cfg forms)]
+  (let [{:keys [id forms]} (render-element cmd-def ws-cfg forms)]
     (-> agg
         (update :ids #(if id
                         (conj % id)
@@ -119,25 +129,19 @@
       [(-> plugin :meta :kw)
        (apply (get-in plugin path) args)])))
 
-#_(defn find-kw-src-pair-renderers
-  [path plugins]
-  (when-let [plugins (not-empty (filter #(get-in % path)
-                                        plugins))]
-    (fn [& args]
-      (mapcat (fn [plugin]
-                [(-> plugin :meta :kw)
-                 (apply (get-in plugin path) args)])
-              plugins))))
-
 (defn find-kw-src-pair-renderers
   [path plugins]
   (when-let [plugins (not-empty (filter #(get-in % path)
                                         plugins))]
-    (for [plugin plugins]
-      (let [p (get-in plugin path)
-            kw (-> plugin :meta :kw)]
-        (fn [& args]
-          [kw (apply p args)])))))
+    (remove nil?
+            (flatten
+             (for [plugin plugins]
+               (let [p (get-in plugin path)
+                     kw (-> plugin :meta :kw)]
+                 (if (vector? p) ;; TODO wrong!
+                   (find-kw-src-pair-renderers p plugins)
+                   (fn [& args]
+                     [kw (apply p args)]))))))))
 
 (defn render-single-inline-src
   [{:keys [plugins] :as ws-cfg} cmd-def]
@@ -191,7 +195,7 @@
 
 
 (defn dev-plugin-setup-build-post
-  [ws-cfg cmd-def]
+  [ws-cfg & _]
   [`(dev-plugin-build-post ~'state
                            ~'{:train (-> ws-cfg :modes :train :dev/summaries)
                               :test (-> ws-cfg :modes :test :dev/summaries)})])
@@ -216,7 +220,7 @@
   {:global {:graph (gm/build-all->graph plans)}})
 
 (defn gm-plugin-setup-build-main
-  [ws-cfg cmd-def]
+  [ws-cfg & _]
   [`(gm-plugin-build-main (-> ~'state :global :gm :graph)
                           (:plans ~'ws-cfg))
    `(--wf-setup-modes (:modes ~'ws-cfg))])
@@ -233,12 +237,13 @@
                 (:plans ~'ws-cfg))
    `(--wf-setup-modes (:modes ~'ws-cfg))])
 
-(defn gm-plugin-init-varis-main [session]
+(defn gm-plugin-init-varis-main
+  [session]
   (gm/run-global-vars-init session)
   {:global {:varis-set true}})
 
 (defn gm-plugin-setup-init-varis-main
-  [ws-cfg cmd-def]
+  [ws-cfg & _]
   [`(gm-plugin-init-varis-main (-> ~'state :global :gm :session))])
 
 (defn --wf-merge-mode-maps
@@ -308,13 +313,13 @@
               feed))
 
 (defn gm-plugin-setup-fetch-map-inline
-  [ws-cfg cmd-def]
+  [ws-cfg & _]
   [(vary-meta `(gm-plugin-compile-modes-run-req ~'state)
               assoc ::no-merge-state true)
    `(--ws-fetch-map ~'state)])
 
 (defn gm-plugin-setup-mode-inline
-  [ws-cfg [_ mode]]
+  [ws-cfg mode]
   [(vary-meta `(assoc ~'state :mode ~mode)
               assoc ::no-merge-state true)
    `(--ws-run-all (-> ~'state :global :gm :session)
@@ -347,14 +352,14 @@
      ~(default-form-renderer hook-frms ws-cfg)))
 
 (defn gm-plugin-interval-post-async-form
-  [hook-frms ws-cfg]
-  `(do (future (let [~@(render-hook-lets hook-frms)]))
+  [hook-frms ws-cfg _]
+  `(do (future (let [~@(mk-default-form-bindings hook-frms)]))
        nil))
 
 (defn gm-plugin-interval-repeat-form
-  [hook-frms ws-cfg {:keys [span start?]}]
-  `(let [span ~span] ;; TODO (render-something span)
-     (when ~start? ;; TODO (render-hook-boolean)??? support hooks + args
+  [hook-frms ws-cfg _]
+  `(let [span (-> ~'state :block :span)] ;; TODO (render-something span)
+     (when ~hook-frms ;; TODO (render-hook-boolean)??? support hooks + args
        {:pop-push {:block-type :interval
                    :todo [~'$interval-block-ids]
                    :span ~'span}})))
@@ -366,16 +371,21 @@
        (clojure.walk/postwalk-replace subs-map)
        (merge forms)))
 
+(defn inject-plugin
+  [ws-cfg plugin]
+  (update ws-cfg
+          :plugins
+          (partial into [plugin])))
+
 (defn gm-plugin-interval-block
-  [ws-cfg {:keys [span] :as args} forms contents]
+  [ws-cfg {:keys [span plugin] :as args} forms contents]
   (let [span-src (render-single-inline-src ws-cfg span)
-        start?-src (render-command [:block-hook :interval :start?]
-                                   ws-cfg {})
-        ;; TODO pass in args too
-        ;; TODO named args
+        start?-src (render-element-single-expr [:block-hook :interval :start?]
+                                               ws-cfg)
         {:keys [ids forms]} (render-block-contents :interval
                                                    forms
-                                                   ws-cfg
+                                                   (inject-plugin ws-cfg
+                                                                  plugin)
                                                    contents
                                                    [:pre]
                                                    [:post-async
@@ -501,8 +511,8 @@
                            :span ~span}})))
 
 (defn gm-plugin-interval-start?-form
-  [[hook-frm] ws-cfg]
-  (or hook-frm
+  [hook-frms ws-cfg & _]
+  (or (some-> hook-frms first second first)
       true))
 
 (defn gm-plugin-interval-start?
@@ -554,7 +564,7 @@
 
 (defn find-hook-form-renderer
   [block-type hook-type {:keys [plugins]}]
-  (or (some #(get-in % [block-type :hook-frms hook-type])
+  (or (some #(get-in % [block-type :hook-forms hook-type])
             plugins)
       default-form-renderer))
 
@@ -588,13 +598,23 @@
                  ws-cfg
                  args)))
 
-(defn mk-command-renderer
+#_(defn mk-command-renderer
   [cmd-type ws-cfg]
   (if-let [hook-renderers (find-command-renderers cmd-type ws-cfg)]
     (partial compound-command-renderer
              (find-command-form-renderer cmd-type ws-cfg)
              hook-renderers)
     (constantly nil)))
+
+(defn render-command
+  [[cmd-type & args] ws-cfg forms]
+  (if-let [hook-renderers (find-command-renderers cmd-type ws-cfg)]
+    (compound-command-renderer (find-command-form-renderer cmd-type ws-cfg)
+                               hook-renderers
+                               cmd-type
+                               args
+                               forms)
+    forms))
 
 (defn find-block-renderer
   [block-type {:keys [plugins]}]
@@ -610,7 +630,6 @@
   [block-type hook-type {:keys [plugins]}]
   (find-kw-src-pair-renderers [block-type hook-type] plugins))
 
-;; TODO support multiple hooks from different plugins
 (defn render-block-hook
   [block-type hook-type ws-cfg forms]
   (if-let [hook-renderers (find-block-hook-renderers block-type hook-type ws-cfg)]
@@ -620,7 +639,8 @@
                                (keyword (str (name block-type)
                                              "-"
                                              (name hook-type)))
-                               [] ws-cfg forms )
+                               []
+                               forms)
     forms))
 
 (defn render-workflow
@@ -706,7 +726,6 @@
                              not-empty
                              (apply min))]))))
     {}))
-
 
 (defn --wf-loop-push-new-state
   [block-type span state]
@@ -814,5 +833,4 @@
  (clojure.set/map-invert
   (:forms   
    (render-workflow wf-def ws-cfg))))
-
 
