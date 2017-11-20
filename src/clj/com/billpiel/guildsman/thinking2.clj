@@ -119,7 +119,7 @@
       [(-> plugin :meta :kw)
        (apply (get-in plugin path) args)])))
 
-(defn find-kw-src-pair-renderers
+#_(defn find-kw-src-pair-renderers
   [path plugins]
   (when-let [plugins (not-empty (filter #(get-in % path)
                                         plugins))]
@@ -128,6 +128,16 @@
                 [(-> plugin :meta :kw)
                  (apply (get-in plugin path) args)])
               plugins))))
+
+(defn find-kw-src-pair-renderers
+  [path plugins]
+  (when-let [plugins (not-empty (filter #(get-in % path)
+                                        plugins))]
+    (for [plugin plugins]
+      (let [p (get-in plugin path)
+            kw (-> plugin :meta :kw)]
+        (fn [& args]
+          [kw (apply p args)])))))
 
 (defn render-single-inline-src
   [{:keys [plugins] :as ws-cfg} cmd-def]
@@ -559,24 +569,24 @@
   (if-let [inline (find-kw-src-pair-renderer [cmd-type :inline]
                                              plugins)]
     [inline]
-    (->> [(find-kw-src-pair-renderers [cmd-type :pre]
-                                      plugins)
-          (find-kw-src-pair-renderer [cmd-type :main]
-                                     plugins)
-          (find-kw-src-pair-renderers [cmd-type :post]
-                                      plugins)]
+    (->> (concat (find-kw-src-pair-renderers [cmd-type :pre]
+                                              plugins)
+                 [(find-kw-src-pair-renderer [cmd-type :main]
+                                              plugins)]
+                  (find-kw-src-pair-renderers [cmd-type :post]
+                                              plugins))
          (remove nil?)
          not-empty)))
 
 (defn compound-command-renderer
-  [frm-renderer hook-renderers cmd-def ws-cfg forms]
+  [frm-renderer hook-renderers cmd-type args forms]
   (add-to-forms forms
-                (first cmd-def)
+                cmd-type
                 nil
                 (frm-renderer
-                 (map #(% ws-cfg cmd-def) hook-renderers)
+                 (map #(apply % ws-cfg args) hook-renderers)
                  ws-cfg
-                 cmd-def)))
+                 args)))
 
 (defn mk-command-renderer
   [cmd-type ws-cfg]
@@ -604,10 +614,14 @@
 (defn render-block-hook
   [block-type hook-type ws-cfg forms]
   (if-let [hook-renderers (find-block-hook-renderers block-type hook-type ws-cfg)]
-    (partial compound-command-renderer
-             (find-hook-form-renderer block-type hook-type ws-cfg)
-             hook-renderers)
-    (constantly nil)))
+    (compound-command-renderer (find-hook-form-renderer block-type hook-type ws-cfg)
+                               hook-renderers
+                               ;; TODO clean up
+                               (keyword (str (name block-type)
+                                             "-"
+                                             (name hook-type)))
+                               [] ws-cfg forms )
+    forms))
 
 (defn render-workflow
   [[cmd {block-type :type} :as block-def] ws-cfg]
