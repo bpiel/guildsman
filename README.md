@@ -1,6 +1,6 @@
 # Guildsman
 
-**NOTE** : This project is in pre-release status. My current goal is to release a *friendly* (docs, examples, tests) alpha sometime in Nov 2017.
+**NOTE** : This project is in pre-release status. My current goal is to release a *friendly* (docs, examples, tests) alpha sometime in Dec 2017.
 
 ## Resources
 
