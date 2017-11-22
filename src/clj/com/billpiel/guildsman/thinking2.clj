@@ -640,7 +640,7 @@
    :init-varis {:main #'gm-plugin-setup-init-varis-main}
    :fetch-map {:inline #'gm-plugin-setup-fetch-map-inline}
    :mode {:form #'gm-plugin-mode-form
-          :main #'gm-plugin-setup-mode-inline}
+          :inline #'gm-plugin-setup-mode-inline}
    :interval {:block #'gm-plugin-interval-block
               :hook-forms {:post-async #'gm-plugin-interval-post-async-form
                            :start? #'gm-plugin-interval-start?-form
