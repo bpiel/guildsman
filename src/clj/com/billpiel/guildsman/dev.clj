@@ -612,7 +612,7 @@
 
 (defn plugin-setup-dev-dummy-override [ws-name ws-def])
 
-(def plugin
+#_(def plugin
   {:meta {:ns (str *ns*)
           :desc "dev things"}
    :init {:post plugin-setup-init-post}
@@ -620,3 +620,6 @@
    :train-interval {:post plugin-setup-train-interval-post}
    :release {:pre plugin-setup-release-pre}
    ::dummy {:override plugin-setup-dev-dummy-override}})
+
+(def plugin
+  {})

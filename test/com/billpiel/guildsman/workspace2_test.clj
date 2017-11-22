@@ -6,13 +6,13 @@
             [com.billpiel.guildsman.data-type :as dt]
             [com.billpiel.guildsman.dev :as dev]))
 
-(def ws-cfg
-  (gm/let+ [p1 (o/placeholder :p1 gm/dt-float [1])
+(g/def-workspace ws1
+  (g/let+ [p1 (o/placeholder :p1 g/dt-float [1])
             {:keys [v a1 tr]}
-            (+>> (c/vari :v {:dtype gm/dt-float :shape [1]} [0.])
+            (+>> (c/vari :v {:dtype g/dt-float :shape [1]} [0.])
                  (o/add :a1 p1)
                  (o/assign :tr v))]
-    {:plugins [dev-plugin gm-plugin]
+    {:plugins [dev/plugin g/gm-plugin]
      :plans [tr]
      :modes {:train {:targets [tr]
                      :dev/summaries [v a1]
@@ -21,4 +21,5 @@
              :test {:dev/summaries [v a1]
                     :feed {p1 [2.]}
                     :enter {:targets []}}}
-     :workflows {:train-test {:driver }}}))
+     :workflows {:train-test {:driver g/default-train-test-wf}}}))
+

@@ -279,6 +279,19 @@ provided an existing Graph defrecord and feed map."
          (. mm# clojure.core/addMethod ~'cmd ~'f))
        ~'ws)))
 
+(defn ws-cfg->fn-map
+  [{:keys [workflows] :as ws-cfg}]
+  (into {}
+        (for [[k v] workflows]
+          (let [ws-cfg' (-> ws-cfg
+                            (merge v)
+                            (dissoc :workflows :driver))]
+            [k ((:driver v) ws-cfg')]))))
+
+(defn mk-workspace
+  [ws-name ws-cfg]
+  )
+
 ;; PLUGIN ============================
 
 (defn --ws-run-all
@@ -497,6 +510,8 @@ provided an existing Graph defrecord and feed map."
    :require-span-repeatable {:inline #'gm-plugin-setup-require-span-repeatable}
    :query-steps {:inline #'gm-plugin-setup-query-steps}})
 
+(defn default-train-test-wf
+  [ws-cfg])
 
 ;; END PLUGIN ========================
 
@@ -511,6 +526,19 @@ provided an existing Graph defrecord and feed map."
 
 
 
+#_(defmacro def-workspace
+  [ws-name & body]
+  `(let [~'ws-def (do ~@body)
+         src-map# (--mk-ws-src-map '~ws-name
+                                 ~'ws-def)
+         src# (--mk-ws-source '~ws-name src-map#)]
+     (def ~ws-name ((eval src#) ~'ws-def))
+     (alter-meta! (var ~ws-name)
+                  assoc
+                  :source-map src-map#)
+     ((~ws-name :multi) :init)
+     (var ~ws-name)))
+
 ;; TODO interrupt-training
 (defmacro def-workspace
   [ws-name & body]
@@ -524,4 +552,3 @@ provided an existing Graph defrecord and feed map."
                   :source-map src-map#)
      ((~ws-name :multi) :init)
      (var ~ws-name)))
-
