@@ -70,7 +70,7 @@
                       {;:start? [[:require-span-completable]] ;; ??????????
                        :repeat? [:require-span-repeatable]}}}
      [:block {:type :step
-              :span {:steps [:steps :interval :remaining -1]}}
+              :span {:steps [:query-steps :interval :remaining -1]}}
       [:mode :train]
       [:run-repeat]]
      [:block {:type :step
@@ -85,6 +85,16 @@
 (declare render-command)
 (declare mk-command-renderer)
 (declare add-to-forms)
+
+(defn de-ns-clj-core
+  [sym]
+  (cond (not (symbol? sym)) sym
+        (= "clojure.core" (namespace sym)) (symbol (name sym))
+        :else sym))
+
+(defn de-ns-clj-core-walk
+  [root]
+  (clojure.walk/prewalk de-ns-clj-core root))
 
 (defn render-element
   [[cmd :as cmd-def] ws-cfg forms]
@@ -153,13 +163,17 @@
   (if (vector? cmd-def)
     (let [[cmd-name & args] cmd-def]
       (if-let [r-fn (find-kw-src-pair-renderer [cmd-name :inline] plugins)]
-        (apply r-fn ws-cfg args)
+        (some-> r-fn
+                (apply ws-cfg args)
+                second first)
         (throw (Exception. (format "render-single-inline-src: Couldn't find inline for: %s"
                                    cmd-name)))))
     cmd-def))
 
 (defn render-map-single-inline-src
-  [])
+  [m ws-cfg]
+  (ut/fmap (partial render-single-inline-src ws-cfg)
+           m))
 
 (defn render-element-inline
   [{:keys [plugins] :as ws-cfg} [cmd-name & args]]
@@ -195,6 +209,20 @@
 
 (def singularize-block
   (clojure.set/map-invert pluralize-block))
+
+(defn --wf-deliver-fetched
+  [{:keys [modes interval] :as state}]
+  (if-let [fetched-raw (-> interval :gm :fetched-raw not-empty)]
+    (->> (for [[pk pv] (dissoc modes :-compiled)
+               [mk {:keys [fetch]}] pv
+               f fetch]
+           (let [f-id-str (:id f)]
+             [[pk :fetched mk f-id-str] (get-in fetched-raw [mk f-id-str])]))
+         (reduce (fn [agg [path v]]
+                   (assoc-in agg path v))
+                 interval)
+         (assoc state :interval))
+    state))
 
 (defn dev-plugin-build-post
   [state summaries]
@@ -233,7 +261,7 @@
    `(--wf-setup-modes (:modes ~'ws-cfg))])
 
 ;; TODO what's this?
-(defn gm-plugin-do-setup-mode-main
+#_(defn gm-plugin-do-setup-mode-main
   [modes]
   {:modes (ut/fmap #(select-keys % [:targets :fetch :feed])
                    modes)})
@@ -411,6 +439,11 @@
   `(do (future (let [~@(mk-default-form-bindings hook-frms)]))
        nil))
 
+(defn gm-plugin-interval-post-async
+  [ws-cfg]
+  [(vary-meta `(--wf-deliver-fetched ~'state)
+              assoc ::no-merge-state true)])
+
 #_(defn apply-subs-to-child-forms
   [ids forms subs-map]
   (->> ids
@@ -430,7 +463,7 @@
 
 (defn gm-plugin-interval-block
   [ws-cfg {:keys [span plugin] :as args} forms contents]
-  (let [span-src (render-single-inline-src ws-cfg span)
+  (let [span-src (render-map-single-inline-src span ws-cfg)
         start?-src (render-element-single-expr [:block-hook :interval :start?]
                                                ws-cfg)
         {:keys [ids forms]} (render-block-contents :interval
@@ -516,7 +549,7 @@
 
 (defn gm-plugin-step-block
   [ws-cfg {:keys [span]} forms contents]
-  (let [span-src (render-single-inline-src ws-cfg span)
+  (let [span-src (render-map-single-inline-src span ws-cfg)
         start?-src (render-element-single-expr [:block-hook :interval :start?]
                                                ws-cfg)
         hook-frms (render-inline-block-contents :step ws-cfg contents)]
@@ -577,7 +610,7 @@
 
 (defn gm-plugin-interval-repeat?-form
   [hook-frms ws-cfg _]
-  `(let [~'span (-> ~'state :block :span)] 
+  `(let [~'span (-> ~'state :block :gm :span)] 
      (when ~(or (some-> hook-frms first second first)
                 false)
        {:pop-push {:block-type :interval
@@ -612,7 +645,8 @@
               :hook-forms {:post-async #'gm-plugin-interval-post-async-form
                            :start? #'gm-plugin-interval-start?-form
                            :repeat? #'gm-plugin-interval-repeat?-form}
-              :start? #'gm-plugin-interval-start?}
+              :start? #'gm-plugin-interval-start?
+              :post-async #'gm-plugin-interval-post-async}
    :step {:block #'gm-plugin-step-block}
    :workflow {:block #'gm-plugin-workflow-block}
    :stage {:block #'gm-plugin-stage-block}
@@ -909,8 +943,11 @@
              (recur ~'stack ~'current ~'todo ~'state)))))))
 
 (clojure.pprint/with-pprint-dispatch clojure.pprint/code-dispatch
-  (clojure.pprint/pprint
-   (render-wf-fn-src wf-def ws-cfg)))
+  (binding [clojure.pprint/*print-miser-width* 60
+            clojure.pprint/*print-right-margin* 79]
+    (clojure.pprint/pprint
+     (de-ns-clj-core-walk
+      (render-wf-fn-src wf-def ws-cfg)))))
 
 
 (def wfff (eval (render-wf-fn-src wf-def ws-cfg)))
