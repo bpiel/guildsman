@@ -67,16 +67,14 @@
              :span {:intervals 1
                     :steps 100}
              :plugin {:interval
-                      {;:start? [[:require-span-completable]] ;; ??????????
+                      { ;:start? [[:require-span-completable]] ;; ??????????
                        :repeat? [:require-span-repeatable]}}}
      [:block {:type :step
-              :span {:steps [:query-steps :interval :remaining -1]}}
+              :span {:steps [:query-steps :interval :remaining]}}
       [:mode :train]
       [:run-repeat]]
-     [:block {:type :step
-              :span {:steps 1}}
-      [:mode :train]
-      [:fetch-map]]
+     [:mode :train]
+     [:fetch-map]
      [:mode :test]
      [:fetch-map]]]])
 
@@ -260,11 +258,6 @@
                           (:plans ~'ws-cfg))
    `(--wf-setup-modes (:modes ~'ws-cfg))])
 
-;; TODO what's this?
-#_(defn gm-plugin-do-setup-mode-main
-  [modes]
-  {:modes (ut/fmap #(select-keys % [:targets :fetch :feed])
-                   modes)})
 
 (defn gm-plugin-create-session-main
   [graph session]
@@ -302,6 +295,7 @@
                       (apply merge))
              {})})
 
+;; TODO make more efficient??
 (defn gm-plugin-compile-modes-run-req
   [{:keys [mode modes] :as state}]
   (let [g (-> state :global :gm :graph)
@@ -327,7 +321,7 @@
             (throw (Exception. "Cannot fetch-map. Mode not set.")))
         fetched-raw (some-> interval :gm :fetched-raw)
         session (-> global :gm :session)
-        {:keys [fetch feed targets]} (-> modes :-compiled :-current)]
+        {:keys [fetch feed]} (-> modes :-compiled :-current)]
     {:interval
      {:fetched-raw
       (merge-with merge
@@ -336,7 +330,7 @@
                    (gm/fetch-map session
                                  fetch
                                  feed
-                                 targets)})}}))
+                                 [])})}}))
 
 
 (defn --wf-merge-state-modes*
@@ -395,6 +389,14 @@
                    flatten)
               feed))
 
+(defn gm-plugin-setup-run-repeat-inline
+  [ws-cfg & _]
+  [(vary-meta `(gm-plugin-compile-modes-run-req ~'state)
+              assoc ::no-merge-state true)
+   `(--ws-run-all-repeat ~'(-> state :global :gm :session)
+                         ~'(-> state :modes :-compiled :-current)
+                         (--wf-query-steps ~'state :block :span))])
+
 (defn gm-plugin-setup-fetch-map-inline
   [ws-cfg & _]
   [(vary-meta `(gm-plugin-compile-modes-run-req ~'state)
@@ -405,6 +407,7 @@
   [ws-cfg mode]
   [(vary-meta `(assoc ~'state :mode ~mode)
               assoc ::no-merge-state true)
+   ;; TODO only include if there's anything to run
    `(--ws-run-all (-> ~'state :global :gm :session)
                   (-> ~'ws-cfg :modes :test :enter))])
 
@@ -436,20 +439,9 @@
 
 (defn gm-plugin-interval-post-async-form
   [hook-frms ws-cfg _]
-  `(do (future (let [~@(mk-default-form-bindings hook-frms)]))
+  `(do (future (let [~'state (--wf-deliver-fetched ~'state)
+                     ~@(mk-default-form-bindings hook-frms)]))
        nil))
-
-(defn gm-plugin-interval-post-async
-  [ws-cfg]
-  [(vary-meta `(--wf-deliver-fetched ~'state)
-              assoc ::no-merge-state true)])
-
-#_(defn apply-subs-to-child-forms
-  [ids forms subs-map]
-  (->> ids
-       (select-keys forms)
-       (clojure.walk/postwalk-replace subs-map)
-       (merge forms)))
 
 (defn apply-subs-to-child-forms
   [forms subs-map]
@@ -526,7 +518,7 @@
             :remaining (when l-steps
                          (- l-steps p-step))
             :span s-steps
-            (throw (Exception. (str "--wf-steps: query not supported "
+            (throw (Exception. (str "--wf-query-steps: query not supported "
                                     q))))]
     (if (and r offset)
       (+ r  offset)
@@ -638,6 +630,7 @@
    :build {:main #'gm-plugin-setup-build-main}
    :create-session {:main #'gm-plugin-setup-create-session-main}
    :init-varis {:main #'gm-plugin-setup-init-varis-main}
+   :run-repeat {:inline #'gm-plugin-setup-run-repeat-inline}
    :fetch-map {:inline #'gm-plugin-setup-fetch-map-inline}
    :mode {:form #'gm-plugin-mode-form
           :inline #'gm-plugin-setup-mode-inline}
@@ -645,8 +638,7 @@
               :hook-forms {:post-async #'gm-plugin-interval-post-async-form
                            :start? #'gm-plugin-interval-start?-form
                            :repeat? #'gm-plugin-interval-repeat?-form}
-              :start? #'gm-plugin-interval-start?
-              :post-async #'gm-plugin-interval-post-async}
+              :start? #'gm-plugin-interval-start?}
    :step {:block #'gm-plugin-step-block}
    :workflow {:block #'gm-plugin-workflow-block}
    :stage {:block #'gm-plugin-stage-block}
@@ -654,7 +646,7 @@
    :require-span-repeatable {:inline #'gm-plugin-setup-require-span-repeatable}
    :query-steps {:inline #'gm-plugin-setup-query-steps}})
 
-(def ws-cfg
+#_(def ws-cfg
   {:plugins [gm-plugin dev-plugin]
    :plans [(o/add :a1 1 2)]
    :modes {:train {:targets []
@@ -664,6 +656,22 @@
            :test {:dev/summaries [:a1]
                   :feed {}
                   :enter {:targets []}}}})
+
+(def ws-cfg
+  (gm/let+ [p1 (o/placeholder :p1 gm/dt-float [1])
+            {:keys [v a1 tr]}
+            (+>> (c/vari :v {:dtype gm/dt-float :shape [1]} [0.])
+                 (o/add :a1 p1)
+                 (o/assign :tr v))]
+    {:plugins [dev-plugin gm-plugin]
+     :plans [tr]
+     :modes {:train {:targets [tr]
+                     :dev/summaries [v a1]
+                     :feed {p1 [1.]}
+                     :enter {:targets []}}
+             :test {:dev/summaries [v a1]
+                    :feed {p1 [2.]}
+                    :enter {:targets []}}}}))
 
 (defn find-hook-form-renderer
   [block-type hook-type {:keys [plugins]}]
