@@ -279,6 +279,19 @@ provided an existing Graph defrecord and feed map."
          (. mm# clojure.core/addMethod ~'cmd ~'f))
        ~'ws)))
 
+(defn wf-fn-map->ws
+  [ws-name wf-fn-map]
+  (let [multi (clojure.lang.MultiFn. (str ws-name "-multi")
+                                     (fn [cmd & _] cmd)
+                                     :default #'clojure.core/global-hierarchy)
+        ws {:wf-in (volatile! {})
+            :wf-out (volatile! {})
+            :multi multi}]
+    (doseq [[wf f] wf-fn-map]
+      ;; TODO wrap in interruptor/safety
+      (. multi clojure.core/addMethod wf f))
+    ws))
+
 (defn ws-cfg->fn-map
   [{:keys [workflows] :as ws-cfg}]
   (into {}
@@ -290,7 +303,9 @@ provided an existing Graph defrecord and feed map."
 
 (defn mk-workspace
   [ws-name ws-cfg]
-  )
+  (let [wf-fn-map (ws-cfg->fn-map ws-cfg)]
+    [(wf-fn-map->ws ws-name wf-fn-map)
+     (ut/fmap meta wf-fn-map)]))
 
 ;; PLUGIN ============================
 
@@ -510,8 +525,39 @@ provided an existing Graph defrecord and feed map."
    :require-span-repeatable {:inline #'gm-plugin-setup-require-span-repeatable}
    :query-steps {:inline #'gm-plugin-setup-query-steps}})
 
+(defn- mk-default-train-test-wf-def
+  [{:keys [duration interval] :as ws-cfg}]
+  [:block {:type :workflow
+           :span {:steps (second duration)}}
+   [:block {:type :stage
+            :span {:stages 1}}
+    [:build]
+    [:create-session]
+    [:init-varis]
+    [:block {:type :interval
+             :span {}}
+     [:mode :train]
+     [:fetch-map]
+     [:mode :test]
+     [:fetch-map]]
+    [:block {:type :interval
+             :span {:intervals 1
+                    :steps (second interval)}
+             :plugin {:interval
+                      {:repeat? [:require-span-repeatable]}}}
+     [:block {:type :step
+              :span {:steps [:query-steps :interval :remaining]}}
+      [:mode :train]
+      [:run-repeat]]
+     [:mode :train]
+     [:fetch-map]
+     [:mode :test]
+     [:fetch-map]]]])
+
 (defn default-train-test-wf
-  [ws-cfg])
+  [ws-cfg]
+  (eval (ws2/render-wf-fn-src (mk-default-train-test-wf-def ws-cfg)
+                              ws-cfg)))
 
 ;; END PLUGIN ========================
 
@@ -542,13 +588,11 @@ provided an existing Graph defrecord and feed map."
 ;; TODO interrupt-training
 (defmacro def-workspace
   [ws-name & body]
-  `(let [~'ws-def (do ~@body)
-         src-map# (--mk-ws-src-map '~ws-name
-                                 ~'ws-def)
-         src# (--mk-ws-source '~ws-name src-map#)]
-     (def ~ws-name ((eval src#) ~'ws-def))
+  `(let [ws-def# (do ~@body)
+         [ws# meta#] (mk-workspace '~ws-name ws-def#)]
+     (def ~ws-name ws#)
      (alter-meta! (var ~ws-name)
                   assoc
-                  :source-map src-map#)
+                  :wf-meta meta#)
      ((~ws-name :multi) :init)
      (var ~ws-name)))

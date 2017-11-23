@@ -16,7 +16,6 @@
   [root]
   (clojure.walk/prewalk de-ns-clj-core root))
 
-
 (defn --wf-merge-mode-maps
   [g & ms]
   {:targets (->> ms
@@ -35,7 +34,48 @@
                       (apply merge))
              {})})
 
+(defn --wf-merge-state-modes*
+  [g {:keys [targets feed fetch]}]
+  {:targets (mapv (partial sess/->op-node g)
+                  targets)
+   :fetch (mapv (partial sess/->op-node g)
+                  fetch)
+   :feed (into {}
+               (for [[k v] feed]
+                 [(sess/->op-node g k) v]))})
 
+(defn --wf-merge-state-modes
+  [g modes]
+  (ut/fmap (partial ut/fmap
+                    (partial --wf-merge-state-modes* g))
+           (dissoc modes :-compiled)))
+
+(defn --wf-merge-state [kw state returned-state]
+  (let [{:keys [block-type]} state
+        {block :block
+         global :global
+         workflow :workflow
+         stage :stage
+         interval :interval
+         modes :modes
+         step :step}
+        returned-state
+        state' (merge-with (partial merge-with merge)
+                           state
+                           {:global {kw global}
+                            :workflow {kw workflow}
+                            :stage {kw stage}
+                            :interval {kw interval}
+                            :modes {kw modes}
+                            :step {kw step}}
+                           (when block-type
+                             {block-type {kw block}}))
+        state'' (assoc state' :block (when block-type (block-type state')))]
+    (if-not (= (:modes state) (:modes state''))
+      (update state'' :modes
+              (partial --wf-merge-state-modes
+                       (-> state :global :gm :graph)))
+      state'')))
 
 (defn mk-default-form-bindings*
   [[plugin-kw frms]]
@@ -195,38 +235,6 @@
     (assoc state :block (block-type state {}))
     state))
 
-(defn --wf-loop-pop-push
-  [pop-push stack current todo state]
-  (let [[head & tail] stack
-        [current' todo'] head
-        
-        [stack state]
-        [tail (--wf-pop-state state)]]
-    (--wf-loop-push pop-push stack current' todo state)))
-
-(defn --wf-pop-state
-  [state]
-  (let [{block-type-exiting :block-type} state
-        block-type-entering (last (--wf-higher-blocks block-type-exiting))
-        bts (pluralize-block block-type-exiting)
-        span (when block-type-exiting
-               (-> state block-type-exiting :gm :span bts))]
-    (-> (reduce (fn [agg item]
-                  (update-in agg
-                             [item :gm :pos block-type-exiting]
-                             (fnil + 0 0) span))
-                state
-                (--wf-higher-blocks block-type-exiting))
-        (assoc :block-type block-type-entering)
-        (dissoc :block))))
-
-(defn --wf-loop-push-pop
-  [push-pop stack current todo state]
-  (let [[stack current todo state]
-        (--wf-loop-push push-pop stack current todo state)
-        [head & tail] stack
-        [current' todo'] head]
-    [tail nil todo' (--wf-pop-state state)]))
 
 (def block-order [:global :workflow :stage :interval :step])
 
@@ -266,6 +274,22 @@
                              (apply min))]))))
     {}))
 
+(defn --wf-pop-state
+  [state]
+  (let [{block-type-exiting :block-type} state
+        block-type-entering (last (--wf-higher-blocks block-type-exiting))
+        bts (pluralize-block block-type-exiting)
+        span (when block-type-exiting
+               (-> state block-type-exiting :gm :span bts))]
+    (-> (reduce (fn [agg item]
+                  (update-in agg
+                             [item :gm :pos block-type-exiting]
+                             (fnil + 0 0) span))
+                state
+                (--wf-higher-blocks block-type-exiting))
+        (assoc :block-type block-type-entering)
+        (dissoc :block))))
+
 (defn --wf-loop-push-new-state
   [block-type span state]
   (assoc state
@@ -284,6 +308,23 @@
    nil
    todo'
    (--wf-loop-push-new-state block-type span state)])
+
+(defn --wf-loop-pop-push
+  [pop-push stack current todo state]
+  (let [[head & tail] stack
+        [current' todo'] head
+        
+        [stack state]
+        [tail (--wf-pop-state state)]]
+    (--wf-loop-push pop-push stack current' todo state)))
+
+(defn --wf-loop-push-pop
+  [push-pop stack current todo state]
+  (let [[stack current todo state]
+        (--wf-loop-push push-pop stack current todo state)
+        [head & tail] stack
+        [current' todo'] head]
+    [tail nil todo' (--wf-pop-state state)]))
 
 (defn --wf-loop
   [result stack current todo state]
@@ -321,6 +362,90 @@
                          (with-out-str
                            (clojure.pprint/pprint [stack current todo state])))))))))
 
+
+(defn find-hook-form-renderer
+  [block-type hook-type {:keys [plugins]}]
+  (or (some #(get-in % [block-type :hook-forms hook-type])
+            plugins)
+      default-form-renderer))
+
+(defn find-command-form-renderer
+  [cmd-type {:keys [plugins]}]
+  (or (some #(get-in % [cmd-type :form])
+            plugins)
+      default-form-renderer))
+
+(defn find-command-renderers
+  [cmd-type {:keys [plugins]}]
+  (if-let [inline (find-kw-src-pair-renderer [cmd-type :inline]
+                                             plugins)]
+    [inline]
+    (->> (concat (find-kw-src-pair-renderers [cmd-type :pre]
+                                              plugins)
+                 [(find-kw-src-pair-renderer [cmd-type :main]
+                                              plugins)]
+                  (find-kw-src-pair-renderers [cmd-type :post]
+                                              plugins))
+         (remove nil?)
+         not-empty)))
+
+(defn compound-command-renderer
+  [frm-renderer hook-renderers cmd-type args ws-cfg forms]
+  (add-to-forms forms
+                cmd-type
+                nil
+                (frm-renderer
+                 (map #(apply % ws-cfg args) hook-renderers)
+                 ws-cfg
+                 args)))
+
+#_(defn mk-command-renderer
+  [cmd-type ws-cfg]
+  (if-let [hook-renderers (find-command-renderers cmd-type ws-cfg)]
+    (partial compound-command-renderer
+             (find-command-form-renderer cmd-type ws-cfg)
+             hook-renderers)
+    (constantly nil)))
+
+(defn render-command
+  [[cmd-type & args] ws-cfg forms]
+  (if-let [hook-renderers (find-command-renderers cmd-type ws-cfg)]
+    (compound-command-renderer (find-command-form-renderer cmd-type ws-cfg)
+                               hook-renderers
+                               cmd-type
+                               args
+                               ws-cfg
+                               forms)
+    forms))
+
+(defn find-block-renderer
+  [block-type {:keys [plugins]}]
+  (or (some #(get-in % [block-type :block])
+            plugins)
+      (throw (Exception. (format "Could not find block renderer for %s" block-type)))))
+
+(defn render-block
+  [[_ {block-type :type :as opts} & contents] ws-cfg forms]
+  ((find-block-renderer block-type ws-cfg) ws-cfg opts forms contents))
+
+(defn find-block-hook-renderers
+  [block-type hook-type {:keys [plugins]}]
+  (find-kw-src-pair-renderers [block-type hook-type] plugins))
+
+(defn render-block-hook
+  [block-type hook-type ws-cfg forms]
+  (if-let [hook-renderers (find-block-hook-renderers block-type hook-type ws-cfg)]
+    (compound-command-renderer (find-hook-form-renderer block-type hook-type ws-cfg)
+                               hook-renderers
+                               ;; TODO clean up
+                               (keyword (str (name block-type)
+                                             "-"
+                                             (name hook-type)))
+                               []
+                               ws-cfg
+                               forms)
+    forms))
+
 (defn render-workflow
   [[cmd {block-type :type} :as block-def] ws-cfg]
   (when-not (= cmd :block)
@@ -335,30 +460,47 @@
           (clojure.set/map-invert
            forms-map)))
 
+(defn now [] (System/currentTimeMillis))
+
+(defn set-init-wf-state!
+  [wf-out]
+  (let [{:keys [global]} @wf-out]
+    (vreset! wf-out
+             {:global global
+              :block-type :global
+              :heartbeat (now)
+              :status :running})))
+
+(defn set-wf-state!
+  [wf-out state]
+  (vreset! wf-out
+           (assoc state
+                  :heartbeat (now))))
+
 (defn render-wf-fn-src
   [wf-def ws-cfg]
-  `(fn [~'global-state]
-     (loop [~'stack (list)
-            ~'current nil
-            ~'todo (list :workflow)
-            ~'state {:global ~'global-state
-                     :block-type :global}]
-       (clojure.pprint/pprint ~'current)
-       (let [~'result (case ~'current
-                        nil nil
-                        ~@(render-loop-cases
-                           (:forms   
-                            (render-workflow wf-def ws-cfg)))
-                        )]
-         (let [[~'stack ~'current ~'todo ~'state] (--wf-loop ~'result
-                                                             ~'stack
-                                                             ~'current
-                                                             ~'todo
-                                                             ~'state)]
-           (Thread/sleep 100)
-           (if (nil? ~'current)
-             :cool
-             (recur ~'stack ~'current ~'todo ~'state)))))))
+  `(fn [~'{:keys [wf-in wf-out] :as ws}]
+     (let [~'init (set-init-wf-state! ~'wf-out)]
+       (loop [~'stack (list)
+              ~'current nil
+              ~'todo (list :workflow)
+              ~'state ~'init]
+         (clojure.pprint/pprint ~'current)
+         (let [~'result (case ~'current
+                          nil nil
+                          ~@(render-loop-cases
+                             (:forms   
+                              (render-workflow wf-def ws-cfg))))]
+           (let [[~'stack ~'current ~'todo ~'state] (--wf-loop ~'result
+                                                               ~'stack
+                                                               ~'current
+                                                               ~'todo
+                                                               ~'state)]
+             #_(Thread/sleep 100)
+             (set-wf-state! wf-out state)
+             (if (nil? ~'current)
+               :cool
+               (recur ~'stack ~'current ~'todo ~'state))))))))
 
 (defn --wf-setup-modes
   [modes]
