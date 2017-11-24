@@ -260,8 +260,12 @@ provided an existing Graph defrecord and feed map."
    (fetch session plan feed)))
 
 ;; TODO
-(defn ws-status [{:keys [multi] :as ws}]
-  (multi :status))
+(defn ws-status [{:keys [wf-out] :as ws}]
+@wf-out)
+
+(defn ws-train-test
+  [{:keys [multi] :as ws}]
+  (multi :train-test ws))
 
 (def last-ex (atom nil))
 #_ (clojure.pprint/pprint last-ex)
@@ -278,6 +282,10 @@ provided an existing Graph defrecord and feed map."
        (doseq [[~'cmd ~'f] ~src-map]
          (. mm# clojure.core/addMethod ~'cmd ~'f))
        ~'ws)))
+
+(defn default-init-wf
+  [ws-cfg]
+  (constantly :DEFAULT-INIT-WF-NOT-IMPLEMENTED))
 
 (defn wf-fn-map->ws
   [ws-name wf-fn-map]
@@ -303,7 +311,12 @@ provided an existing Graph defrecord and feed map."
 
 (defn mk-workspace
   [ws-name ws-cfg]
-  (let [wf-fn-map (ws-cfg->fn-map ws-cfg)]
+  (let [ws-cfg' (if (nil? (some->> ws-cfg :workflows :init :driver))
+                  (assoc-in ws-cfg
+                            [:workflows :init :driver]
+                            default-init-wf)
+                  ws-cfg) 
+        wf-fn-map (ws-cfg->fn-map ws-cfg')]
     [(wf-fn-map->ws ws-name wf-fn-map)
      (ut/fmap meta wf-fn-map)]))
 
@@ -388,7 +401,7 @@ provided an existing Graph defrecord and feed map."
 (defn gm-plugin-setup-run-repeat-inline
   [ws-cfg & _]
   [(vary-meta `(gm-plugin-compile-modes-run-req ~'state)
-              assoc ::no-merge-state true)
+              assoc ::ws2/no-merge-state true)
    `(--ws-run-all-repeat ~'(-> state :global :gm :session)
                          ~'(-> state :modes :-compiled :-current)
                          (ws2/--wf-query-steps ~'state :block :span))])
@@ -396,13 +409,13 @@ provided an existing Graph defrecord and feed map."
 (defn gm-plugin-setup-fetch-map-inline
   [ws-cfg & _]
   [(vary-meta `(gm-plugin-compile-modes-run-req ~'state)
-              assoc ::no-merge-state true)
+              assoc ::ws2/no-merge-state true)
    `(--ws-fetch-map ~'state)])
 
 (defn gm-plugin-setup-mode-inline
   [ws-cfg mode]
   [(vary-meta `(assoc ~'state :mode ~mode)
-              assoc ::no-merge-state true)
+              assoc ::ws2/no-merge-state true)
    ;; TODO only include if there's anything to run
    `(--ws-run-all (-> ~'state :global :gm :session)
                   (-> ~'ws-cfg :modes :test :enter))])
@@ -525,6 +538,10 @@ provided an existing Graph defrecord and feed map."
    :require-span-repeatable {:inline #'gm-plugin-setup-require-span-repeatable}
    :query-steps {:inline #'gm-plugin-setup-query-steps}})
 
+
+;; END PLUGIN ========================
+
+
 (defn- mk-default-train-test-wf-def
   [{:keys [duration interval] :as ws-cfg}]
   [:block {:type :workflow
@@ -556,11 +573,11 @@ provided an existing Graph defrecord and feed map."
 
 (defn default-train-test-wf
   [ws-cfg]
-  (eval (ws2/render-wf-fn-src (mk-default-train-test-wf-def ws-cfg)
-                              ws-cfg)))
-
-;; END PLUGIN ========================
-
+  (vary-meta ((eval (ws2/render-wf-fn-src (mk-default-train-test-wf-def ws-cfg)
+                                          ws-cfg))
+              ws-cfg)
+             assoc
+             :doc "A default implementation of a train-test workflow....TODO"))
 
 (defmacro ws-show-cmd-source
   [ws cmd]
@@ -570,6 +587,13 @@ provided an existing Graph defrecord and feed map."
        :source-map
        ~cmd))
 
+(defmacro ws-show-workflow-meta
+  [ws cmd]
+  `(-> ~ws
+       var
+       meta
+       :wf-meta
+       ~cmd))
 
 
 #_(defmacro def-workspace

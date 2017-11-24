@@ -479,28 +479,29 @@
 
 (defn render-wf-fn-src
   [wf-def ws-cfg]
-  `(fn [~'{:keys [wf-in wf-out] :as ws}]
-     (let [~'init (set-init-wf-state! ~'wf-out)]
-       (loop [~'stack (list)
-              ~'current nil
-              ~'todo (list :workflow)
-              ~'state ~'init]
-         (clojure.pprint/pprint ~'current)
-         (let [~'result (case ~'current
-                          nil nil
-                          ~@(render-loop-cases
-                             (:forms   
-                              (render-workflow wf-def ws-cfg))))]
-           (let [[~'stack ~'current ~'todo ~'state] (--wf-loop ~'result
-                                                               ~'stack
-                                                               ~'current
-                                                               ~'todo
-                                                               ~'state)]
-             #_(Thread/sleep 100)
-             (set-wf-state! wf-out state)
-             (if (nil? ~'current)
-               :cool
-               (recur ~'stack ~'current ~'todo ~'state))))))))
+  `(fn [~'ws-cfg]
+     (fn [~'_ ~'{:keys [wf-in wf-out] :as ws}]
+       (let [~'init (set-init-wf-state! ~'wf-out)]
+         (loop [~'stack (list)
+                ~'current nil
+                ~'todo (list :workflow)
+                ~'state ~'init]
+           (clojure.pprint/pprint ~'current)
+           (let [~'result (case ~'current
+                            nil nil
+                            ~@(render-loop-cases
+                               (:forms   
+                                (render-workflow wf-def ws-cfg))))]
+             (let [[~'stack ~'current ~'todo ~'state] (--wf-loop ~'result
+                                                                 ~'stack
+                                                                 ~'current
+                                                                 ~'todo
+                                                                 ~'state)]
+               #_(Thread/sleep 100)
+               (set-wf-state! ~'wf-out ~'state)
+               (if (nil? ~'current)
+                 :cool
+                 (recur ~'stack ~'current ~'todo ~'state)))))))))
 
 (defn --wf-setup-modes
   [modes]
