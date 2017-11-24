@@ -1,5 +1,6 @@
 (ns com.billpiel.guildsman.webapp.server
-  (:require [compojure.core :as c]
+  (:require [clojure.core.async :as a]
+            [compojure.core :as c]
             [compojure.handler :as ch]
             [compojure.route :as cr]
             [aleph.http :as ah]
@@ -19,23 +20,32 @@
                  :right [:div]
                  :selected nil}))
 
-(def selected-node (atom nil))
+(def view-update-delay-ms 500)
 
-(def selected-node-receiver (atom nil))
+(defonce view-chan (a/chan (a/sliding-buffer 1)))
 
-(defn selected-node-watcher
-  [k r old-val new-val]
-  (when-let [f @selected-node-receiver]
-    (f new-val old-val)))
+(defn view-chan-handler
+  [view])
 
-(defn init-selected-node
+(defonce view-chan-thread-state (volatile! nil))
+(defonce view-chan-thread-ex (volatile! nil))
+
+(defn view-chan-thread
   []
-  (def selected-node (atom nil))
-  (add-watch selected-node
-             ::selected-node-watcher
-             #'selected-node-watcher))
-
-(init-selected-node)
+  (vreset! view-chan-thread-state :starting)
+  (vreset! view-chan-thread-ex nil)
+  (a/thread
+    (vreset! view-chan-thread-state :running)
+    (try
+      (loop []
+        (when-let [v (a/<!! view-chan)]
+          (view-chan-handler (v))
+          (Thread/sleep view-update-delay-ms) ;; TODO ok? bad?
+          (recur)))
+      (vreset! view-chan-thread-state :done)
+      (catch Exception e
+        (vreset! view-chan-thread-state :exception)
+        (vreset! view-chan-thread-ex e)))))
 
 (defn read-transit-string
   [s]

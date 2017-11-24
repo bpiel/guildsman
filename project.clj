@@ -12,7 +12,8 @@
 
   :plugins [[lein-cljsbuild "1.1.5"]]
    
-  :dependencies [[org.clojure/clojure "1.9.0-alpha16"]
+  :dependencies [[org.clojure/clojure "1.9.0-RC1"]
+                 [org.clojure/core.async "0.3.465"]
                  [org.clojars.ghaskins/protobuf "3.3.1-1"]
 
                  ;; web app

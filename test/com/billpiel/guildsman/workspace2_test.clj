@@ -42,11 +42,12 @@
                      :enter {:targets []}}
              :test {:dev/summaries [v a1]
                     :feed {p1 [2.]}
-                                         :fetch [a1]
+                    :fetch [a1]
                     :enter {:targets []}}}
      :workflows {:train-test {:driver g/default-train-test-wf}}}))))
 
 #_(clojure.pprint/pprint 
- (g/ws-status ws1))
+   (g/ws-status ws1))
 
 #_(g/ws-train-test ws1)
+

@@ -21,6 +21,8 @@
 (def dev-nses (atom #{}))
 (def SummaryP (pr/protodef Summary))
 
+;; TODO pubsub to receive selected node from webserver??????
+
 (defn set-selected-node-watcher
   [f]
   (reset! wsvr/selected-node-receiver f))
@@ -621,5 +623,55 @@
    :release {:pre plugin-setup-release-pre}
    ::dummy {:override plugin-setup-dev-dummy-override}})
 
+;; PLUGIN =====================================
+
+;; TODO init
+
+(defn plugin-setup-init-post [ws-name ws-def]
+  [`(plugin-init-post '~ws-name)])
+
+(defn plugin-init-post
+  [ws-name]
+  (let [ns-sym (mk-ns-sym ws-name)
+        _ (release-dev-ns ns-sym) ;; TODO necessary?
+        ws-ns (create-ns ns-sym)
+        log (atom {})]
+    (swap! dev-nses conj ns-sym)
+    (intern ws-ns '$log log)
+    {:global {:ws-ns ws-ns
+              :log log}}))
+
+
+;; TODO support arbitrary modes
+;; TODO build summary ops
+(defn plugin-build-post
+  [state summaries]
+  {:modes {:train {:fetch (:train summaries)}
+           :test {:fetch (:test summaries)}}})
+
+;; TODO support arbitrary modes
+(defn plugin-setup-build-post
+  [ws-cfg & _]
+  [`(plugin-build-post ~'state
+                       ~'{:train (-> ws-cfg :modes :train ::summaries)
+                          :test (-> ws-cfg :modes :test ::summaries)})])
+
+(defn plugin-interval-post
+  [fetched step]
+  (clojure.pprint/pprint [fetched step]))
+
+(defn plugin-setup-interval-post
+  [ws-cfg]
+  [`(plugin-interval-post
+     ~'(-> state :interval ::plugin :fetched)
+     ~'(-> state :stage :gm :pos :step))])
+
 (def plugin
-  {})
+  {:meta {:kw ::plugin
+          :desc "dev things"}
+   :init {:post  #'plugin-setup-init-post}
+   :build {:post #'plugin-setup-build-post}
+   :interval {:post-async #'plugin-setup-interval-post}})
+
+
+;; END PLUGIN =================================
