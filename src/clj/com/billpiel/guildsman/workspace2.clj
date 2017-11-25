@@ -1,6 +1,5 @@
 (ns com.billpiel.guildsman.workspace2
   (:require [com.billpiel.guildsman.util :as ut]
-            [com.billpiel.guildsman.core :as gm]
             [com.billpiel.guildsman.session :as sess]
             [com.billpiel.guildsman.ops.basic :as o]
             [com.billpiel.guildsman.ops.composite :as c]))

@@ -1,5 +1,6 @@
 (ns com.billpiel.guildsman.dev
-  (:require [com.billpiel.guildsman.core :as g]
+  (:require [clojure.core.async :as a]
+            [com.billpiel.guildsman.core :as g]
             [com.billpiel.guildsman.scope :as sc]
             [com.billpiel.guildsman.shape :as sh]
             [com.billpiel.guildsman.ops.basic :as o]
@@ -20,12 +21,6 @@
 
 (def dev-nses (atom #{}))
 (def SummaryP (pr/protodef Summary))
-
-;; TODO pubsub to receive selected node from webserver??????
-
-(defn set-selected-node-watcher
-  [f]
-  (reset! wsvr/selected-node-receiver f))
 
 (defn enable-op-meta-assoc
   [& [debug-mode?]]
@@ -315,7 +310,16 @@
                          :last-ts last-ts
                          :fut fut}))))
 
-(defn w-update*
+(defn web-view-updater
+  [^Graph g dev-ns log current-view selected-node-id]
+  (let [charts (w-mk-summaries selected-node-id log)
+        sel-op (find-selected-op dev-ns selected-node-id)]
+    {:graph (w-mk-cyto (w-mk-graph-def2 g))
+     :charts (if (nil? charts) [] charts)
+     :selected selected-node-id
+     :form (some->> sel-op meta :form (mapv str))}))
+
+#_(defn w-update*
   [^Graph g dev-ns log selected old-selected]
   (let [charts (w-mk-summaries selected log)
         sel-op (find-selected-op dev-ns selected)]
@@ -325,11 +329,9 @@
                      :selected selected
                      :form (some->> sel-op meta :form (mapv str))}))))
 
-(defn w-update
-  [^Graph g dev-ns log selected]
-  (w-update* g dev-ns log selected nil)
-  (-> (partial w-update* g dev-ns log)
-      set-selected-node-watcher))
+(defn send-web-view-updater
+  [^Graph g dev-ns log]
+  (a/offer! (partial web-view-updater g dev-ns log)))
 
 #_(defmethod g/call-plugin [::dev :init]
   [_ {:keys [state ws-def]} {:keys [graph] :as session}]
@@ -657,12 +659,17 @@
                           :test (-> ws-cfg :modes :test ::summaries)})])
 
 (defn plugin-interval-post
-  [fetched step]
+  [ws-ns log fetched step]
+  
+  ;; TODO write to log
+  ;; TODO send-web-view-updater
   (clojure.pprint/pprint [fetched step]))
 
 (defn plugin-setup-interval-post
   [ws-cfg]
   [`(plugin-interval-post
+     ~'(-> state :global ::plugin :ws-ns)
+     ~'(-> state :global ::plugin :log)
      ~'(-> state :interval ::plugin :fetched)
      ~'(-> state :stage :gm :pos :step))])
 
