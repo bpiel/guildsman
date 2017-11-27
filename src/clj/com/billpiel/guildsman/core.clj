@@ -1,5 +1,6 @@
 (ns com.billpiel.guildsman.core
-  (:require [com.billpiel.guildsman.graph :as gr]
+  (:require [clojure.core.async :as a]
+            [com.billpiel.guildsman.graph :as gr]
             [com.billpiel.guildsman.builder :as bdr]
             [com.billpiel.guildsman.session :as sess]
             [com.billpiel.guildsman.tensor-mgr :as tm]
@@ -259,29 +260,53 @@ provided an existing Graph defrecord and feed map."
    (build->graph (:graph session) plan)
    (fetch session plan feed)))
 
-;; TODO
-(defn ws-status [{:keys [wf-out] :as ws}]
-@wf-out)
+(defn ws-status [{:keys [wf-in wf-out] :as ws}]
+  (let [i @wf-in
+        o @wf-out
+        sgo (-> o :stage :gm)
+        wgo (-> o :workflow :gm)
+        {:keys [heartbeat]} o]
+    {:status (:status o)
+     :heartbeat heartbeat
+     :heartbeat-ago-s (quot (- (System/currentTimeMillis)
+                               heartbeat)
+                            1000)
+     :step (-> sgo :pos :step)
+     :interval (-> sgo :pos :interval)
+     :stage (-> wgo :pos :stage)
+     :interrupt? (:interrupt? i)
+     :ex (:ex o)}))
+
+(defn ws-interrupt
+  [{:keys [wf-out wf-in wf-chan]} & [timeout-ms]]
+  (if-not (= (:status @wf-out) :running)
+    true
+    (do (vswap! wf-in assoc :interrupt? true)
+        (let [wf-chan' @wf-chan
+              [r ch] (a/alts!! [wf-chan'
+                                (a/timeout (or timeout-ms 1000))])]
+          (clojure.pprint/pprint r)
+          (or (= ch wf-chan')
+              (not (= (:status @wf-out) :running)))))))
+
+(defn ws-do-wf
+  [ws wf & [wait-ms]]
+  (let [{:keys [wf-in wf-chan multi]} ws]
+    (when (= (:statue wf-in) :running)
+      (throw (Exception. "A workflow is already running. Interrupt it first.")))
+    (vswap! wf-in assoc
+            :interrupt? false)
+    (let [ch (multi wf ws)]
+      (vreset! wf-chan ch))
+    (Thread/sleep (or wait-ms 100)) ;; TODO use alts!!!
+    (ws-status ws)))
 
 (defn ws-train-test
-  [{:keys [multi] :as ws}]
-  (multi :train-test ws))
+  [ws]
+  (ws-do-wf ws :train-test))
 
 (def last-ex (atom nil))
 #_ (clojure.pprint/pprint last-ex)
-
-#_(defn --mk-ws-source
-  [ws-name src-map]
-  `(fn [~'ws-def]
-     (let [mm# (clojure.lang.MultiFn. (str '~ws-name "-multi")
-                                      ~'(fn [cmd & _] cmd)
-                                      :default #'clojure.core/global-hierarchy)
-           ~'ws {:state (atom {})
-                 :interrupt-training (volatile! false)
-                 :multi mm#}]
-       (doseq [[~'cmd ~'f] ~src-map]
-         (. mm# clojure.core/addMethod ~'cmd ~'f))
-       ~'ws)))
 
 (defn default-init-wf
   [ws-cfg]
@@ -300,9 +325,9 @@ provided an existing Graph defrecord and feed map."
                                      :default #'clojure.core/global-hierarchy)
         ws {:wf-in (volatile! {})
             :wf-out (volatile! {})
+            :wf-chan (volatile! nil)
             :multi multi}]
     (doseq [[wf f] wf-fn-map]
-      ;; TODO wrap in interruptor/safety
       (. multi clojure.core/addMethod wf f))
     ws))
 
@@ -607,32 +632,27 @@ provided an existing Graph defrecord and feed map."
        :wf-meta
        ~cmd))
 
-
-#_(defmacro def-workspace
-  [ws-name & body]
-  `(let [~'ws-def (do ~@body)
-         src-map# (--mk-ws-src-map '~ws-name
-                                 ~'ws-def)
-         src# (--mk-ws-source '~ws-name src-map#)]
-     (def ~ws-name ((eval src#) ~'ws-def))
-     (alter-meta! (var ~ws-name)
-                  assoc
-                  :source-map src-map#)
-     ((~ws-name :multi) :init)
-     (var ~ws-name)))
-
 (defn ws-train-test-wf
   [ws]
   ((ws :multi) :train-test))
 
-;; TODO interrupt-training
 (defmacro def-workspace
   [ws-name & body]
-  `(let [ws-def# (do ~@body)
-         [ws# meta#] (mk-workspace '~ws-name ws-def#)]
-     (def ~ws-name ws#)
-     (alter-meta! (var ~ws-name)
-                  assoc
-                  :wf-meta meta#)
-     ((~ws-name :multi) :init ~ws-name) ;; TODO arg is weird??
-     (var ~ws-name)))
+  `(do
+     (when-let [~'existing (ns-resolve *ns* '~ws-name)]
+       (println "FOUND EXISTING")
+       (println (some-> ~'existing deref :wf-out deref :status (= :running)))
+       (when (and (some-> ~'existing deref :wf-out deref :status (= :running))
+                  (not (ws-interrupt (deref ~'existing))))
+         (throw (Exception. "Could not interrupt running workflow.")))
+       ;;TODO release graph&session
+       )
+     (let [ws-def# (do ~@body)
+           [ws# meta#] (mk-workspace '~ws-name ws-def#)]
+       (def ~ws-name ws#)
+       (alter-meta! (var ~ws-name)
+                    assoc
+                    :wf-meta meta#)
+       ((~ws-name :multi) :init ~ws-name) ;; TODO arg is weird??
+       (var ~ws-name))))
+

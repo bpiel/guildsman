@@ -14,8 +14,8 @@
                 (o/assign :tr v))]
     {:plugins [dev/plugin g/gm-plugin]
      :plans [tr]
-     :duration [:steps 100]
-     :interval [:steps 10]
+     :duration [:steps 100000]
+     :interval [:steps 10000]
      :modes {:train {:targets [tr]
                      ::dev/summaries [v a1]
                      :feed {p1 [1.]}
@@ -33,6 +33,7 @@
    (g/ws-status ws1))
 
 #_(g/ws-train-test ws1)
+
 
 
 #_(clojure.pprint/pprint  $.ws1/$log)

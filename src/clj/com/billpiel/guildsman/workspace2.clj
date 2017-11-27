@@ -1,5 +1,6 @@
 (ns com.billpiel.guildsman.workspace2
-  (:require [com.billpiel.guildsman.util :as ut]
+  (:require [clojure.core.async :as a]
+            [com.billpiel.guildsman.util :as ut]
             [com.billpiel.guildsman.session :as sess]
             [com.billpiel.guildsman.ops.basic :as o]
             [com.billpiel.guildsman.ops.composite :as c]))
@@ -468,7 +469,25 @@
              {:global global
               :block-type :global
               :heartbeat (now)
-              :status :running})))
+              :status :running
+              :ex nil})))
+
+(defn set-interrupted-wf-state!
+  [wf-out]
+  (vswap! wf-out assoc
+          :status :interrupted))
+
+(defn set-done-wf-state!
+  [wf-out]
+  (vswap! wf-out assoc
+          :status :done))
+
+(defn set-ex-wf-state!
+  [wf-out ex]
+  (vswap! wf-out assoc
+          :status :exception
+          :ex ex))
+
 
 (defn set-wf-state!
   [wf-out state]
@@ -479,28 +498,41 @@
 (defn render-wf-fn-src
   [wf-def ws-cfg]
   `(fn [~'ws-cfg]
-     (fn [~'_ ~'{:keys [wf-in wf-out] :as ws}]
-       (let [~'init (set-init-wf-state! ~'wf-out)]
-         (loop [~'stack (list)
-                ~'current nil
-                ~'todo (list :workflow)
-                ~'state ~'init]
-#_           (clojure.pprint/pprint ~'current)
-           (let [~'result (case ~'current
-                            nil nil
-                            ~@(render-loop-cases
-                               (:forms   
-                                (render-workflow wf-def ws-cfg))))]
-             (let [[~'stack ~'current ~'todo ~'state] (--wf-loop ~'result
-                                                                 ~'stack
-                                                                 ~'current
-                                                                 ~'todo
-                                                                 ~'state)]
-               #_(Thread/sleep 100)
-               (set-wf-state! ~'wf-out ~'state)
-               (if (nil? ~'current)
-                 :cool
-                 (recur ~'stack ~'current ~'todo ~'state)))))))))
+     (fn [~'_ ~'{:keys [wf-in wf-out] :as ws}] ;; TODO get ws earlier/above???
+       (a/thread
+         (let [~'init (set-init-wf-state! ~'wf-out)]
+           (try
+             (loop [~'stack (list)
+                    ~'current nil
+                    ~'todo (list :workflow)
+                    ~'state ~'init]
+               #_           (clojure.pprint/pprint ~'current)
+               (let [~'result (case ~'current
+                                nil nil
+                                ~@(render-loop-cases
+                                   (:forms   
+                                    (render-workflow wf-def ws-cfg))))]
+                 (let [[~'stack ~'current ~'todo ~'state] (--wf-loop ~'result
+                                                                     ~'stack
+                                                                     ~'current
+                                                                     ~'todo
+                                                                     ~'state)]
+                   #_(Thread/sleep 100)
+                   (set-wf-state! ~'wf-out ~'state)
+                   (cond (-> ~'wf-in deref :interrupt?)
+                         (do (set-interrupted-wf-state! ~'wf-out)
+                             false)
+
+                         (nil? ~'current)
+                         (do (set-done-wf-state! ~'wf-out)
+                             true)
+
+                         :else (recur ~'stack ~'current ~'todo ~'state)))))
+             (catch Exception ~'e
+               (set-ex-wf-state! ~'wf-out ~'e)
+               false)))))))
+
+
 
 (defn --wf-setup-modes
   [modes]

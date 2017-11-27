@@ -462,7 +462,7 @@
          {:step step
           :fetched (fetched->log-entry g fetched)})
   (send-web-view-updater g ws-ns @log-atom)
-  (clojure.pprint/pprint [fetched step]))
+  #_(clojure.pprint/pprint [fetched step]))
 
 (defn plugin-setup-interval-post
   [ws-cfg]
