@@ -17,15 +17,16 @@
      :duration [:steps 100]
      :interval [:steps 10]
      :modes {:train {:targets [tr]
-                     :dev/summaries [v a1]
+                     ::dev/summaries [v a1]
                      :feed {p1 [1.]}
                      :fetch [a1]
                      :enter {:targets []}}
-             :test {:dev/summaries [v a1]
+             :test {::dev/summaries [v a1]
                     :feed {p1 [2.]}
                     :fetch [a1]
                     :enter {:targets []}}}
      :workflows {:train-test {:driver g/default-train-test-wf}}}))
+
 
 
 #_(clojure.pprint/pprint 
@@ -33,3 +34,5 @@
 
 #_(g/ws-train-test ws1)
 
+
+#_(clojure.pprint/pprint  $.ws1/$log)

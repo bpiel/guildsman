@@ -285,7 +285,13 @@ provided an existing Graph defrecord and feed map."
 
 (defn default-init-wf
   [ws-cfg]
-  (constantly :DEFAULT-INIT-WF-NOT-IMPLEMENTED))
+  (vary-meta ((eval (ws2/render-wf-fn-src
+                     [:block {:type :workflow}
+                      [:init]]
+                                          ws-cfg))
+              ws-cfg)
+             assoc
+             :doc "A default implementation of a train-test workflow....TODO"))
 
 (defn wf-fn-map->ws
   [ws-name wf-fn-map]
@@ -316,7 +322,8 @@ provided an existing Graph defrecord and feed map."
                             [:workflows :init :driver]
                             default-init-wf)
                   ws-cfg) 
-        wf-fn-map (ws-cfg->fn-map ws-cfg')]
+        wf-fn-map (ws-cfg->fn-map (assoc ws-cfg'
+                                         :ws-name ws-name))]
     [(wf-fn-map->ws ws-name wf-fn-map)
      (ut/fmap meta wf-fn-map)]))
 
@@ -351,6 +358,10 @@ provided an existing Graph defrecord and feed map."
                                  fetch
                                  feed
                                  [])})}}))
+
+(defn gm-plugin-setup-init-main
+  [ws-cfg & _]
+  [])
 
 (defn gm-plugin-build-main [graph plans]
   {:global {:graph (build-all->graph plans)}})
@@ -519,6 +530,7 @@ provided an existing Graph defrecord and feed map."
 
 (def gm-plugin
   {:meta {:kw :gm}
+   :init {:main #'gm-plugin-setup-init-main}
    :build {:main #'gm-plugin-setup-build-main}
    :create-session {:main #'gm-plugin-setup-create-session-main}
    :init-varis {:main #'gm-plugin-setup-init-varis-main}
@@ -609,6 +621,10 @@ provided an existing Graph defrecord and feed map."
      ((~ws-name :multi) :init)
      (var ~ws-name)))
 
+(defn ws-train-test-wf
+  [ws]
+  ((ws :multi) :train-test))
+
 ;; TODO interrupt-training
 (defmacro def-workspace
   [ws-name & body]
@@ -618,5 +634,5 @@ provided an existing Graph defrecord and feed map."
      (alter-meta! (var ~ws-name)
                   assoc
                   :wf-meta meta#)
-     ((~ws-name :multi) :init)
+     ((~ws-name :multi) :init ~ws-name) ;; TODO arg is weird??
      (var ~ws-name)))

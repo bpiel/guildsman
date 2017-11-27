@@ -254,7 +254,8 @@
 
 (defn send-web-view-updater
   [^Graph g dev-ns log]
-  (a/offer! (partial web-view-updater g dev-ns log)))
+  (a/offer! wsvr/view-chan
+            (partial web-view-updater g dev-ns log)))
 
 (defn op->summary-id [op & [suffix]]
   (ut/$- ->> op
@@ -413,7 +414,7 @@
 (defn- fetched->log-entry
   [^Graph g fetched]
   (ut/$- -> fetched
-         (ut/fmap fetched->log-entry*
+         (ut/fmap (partial ut/fmap fetched->log-entry*)
                   $)))
 
 ;; END SUMMARIES ==============================
@@ -431,7 +432,7 @@
     {:global {:ws-ns ws-ns
               :log log}}))
 
-(defn plugin-setup-init-post [ws-name ws-def]
+(defn plugin-setup-init-post [{:keys [ws-name]} & _]
   [`(plugin-init-post '~ws-name)])
 
 ;; TODO build summary ops
@@ -451,7 +452,7 @@
   [ws-cfg & _]
   [`(plugin-build-post ~'(-> state :global :gm :graph)
                        ~'(-> state :global ::plugin :ws-ns)
-                       ~'(->> ws-cfg :modes (mapv ::summaries)))])
+                       (->> ~'ws-cfg :modes (ut/fmap ::summaries)))])
 
 (defn plugin-interval-post
   [^Graph g ws-ns log-atom fetched step]
@@ -465,7 +466,7 @@
 (defn plugin-setup-interval-post
   [ws-cfg]
   [`(plugin-interval-post
-     ~'(-> state :global :gm :global) 
+     ~'(-> state :global :gm :graph) 
      ~'(-> state :global ::plugin :ws-ns) ;; TODO hard code ns instead of lookup??
      ~'(-> state :global ::plugin :log)
      ~'(-> state :interval ::plugin :fetched)
@@ -480,42 +481,3 @@
 
 
 ;; END PLUGIN =================================
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
