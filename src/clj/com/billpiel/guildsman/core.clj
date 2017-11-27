@@ -285,9 +285,9 @@ provided an existing Graph defrecord and feed map."
         (let [wf-chan' @wf-chan
               [r ch] (a/alts!! [wf-chan'
                                 (a/timeout (or timeout-ms 1000))])]
-          (clojure.pprint/pprint r)
           (or (= ch wf-chan')
               (not (= (:status @wf-out) :running)))))))
+
 
 (defn ws-do-wf
   [ws wf & [wait-ms]]
@@ -300,6 +300,10 @@ provided an existing Graph defrecord and feed map."
       (vreset! wf-chan ch))
     (Thread/sleep (or wait-ms 100)) ;; TODO use alts!!!
     (ws-status ws)))
+
+(defn ws-close
+  [ws]
+  (ws-do-wf ws :close))
 
 (defn ws-train-test
   [ws]
@@ -316,7 +320,18 @@ provided an existing Graph defrecord and feed map."
                                           ws-cfg))
               ws-cfg)
              assoc
-             :doc "A default implementation of a train-test workflow....TODO"))
+             :doc "A default implementation of a init workflow....TODO"))
+
+(defn default-close-wf
+  [ws-cfg]
+  (vary-meta ((eval (ws2/render-wf-fn-src
+                     [:block {:type :workflow}
+                      [:close-session]
+                      [:close-graph]]
+                                          ws-cfg))
+              ws-cfg)
+             assoc
+             :doc "A default implementation of a close workflow....TODO"))
 
 (defn wf-fn-map->ws
   [ws-name wf-fn-map]
@@ -340,13 +355,17 @@ provided an existing Graph defrecord and feed map."
                             (dissoc :workflows :driver))]
             [k ((:driver v) ws-cfg')]))))
 
+(defn- assoc-in-if-nil
+  [ws-cfg path default-wf]
+  (if (nil? (get-in ws-cfg path))
+    (assoc-in ws-cfg path default-wf)
+    ws-cfg))
+
 (defn mk-workspace
   [ws-name ws-cfg]
-  (let [ws-cfg' (if (nil? (some->> ws-cfg :workflows :init :driver))
-                  (assoc-in ws-cfg
-                            [:workflows :init :driver]
-                            default-init-wf)
-                  ws-cfg) 
+  (let [ws-cfg' (-> ws-cfg
+                    (assoc-in-if-nil [:workflows :init :driver] default-init-wf)
+                    (assoc-in-if-nil [:workflows :close :driver] default-close-wf))
         wf-fn-map (ws-cfg->fn-map (assoc ws-cfg'
                                          :ws-name ws-name))]
     [(wf-fn-map->ws ws-name wf-fn-map)
@@ -553,6 +572,29 @@ provided an existing Graph defrecord and feed map."
   [ws-cfg block-type q & [offset]]
   [`(ws2/--wf-query-steps ~'state ~block-type ~q ~offset)])
 
+;; TODO verify session is closed
+(defn gm-plugin-close-graph
+  [graph session]
+  (when graph
+    (close graph))
+  {:global {:graph nil}})
+
+(defn gm-plugin-setup-close-graph
+  [ws-cfg & _]
+  [`(gm-plugin-close-graph ~'(-> state :global :gm :graph)
+                           ~'(-> state :global :gm :session))])
+
+(defn gm-plugin-close-session
+  [session]
+  (when session
+    (close session))
+  {:global {:session nil}})
+
+
+(defn gm-plugin-setup-close-session
+  [ws-cfg & _]
+  [`(gm-plugin-close-session ~'(-> state :global :gm :session))])
+
 (def gm-plugin
   {:meta {:kw :gm}
    :init {:main #'gm-plugin-setup-init-main}
@@ -573,7 +615,9 @@ provided an existing Graph defrecord and feed map."
    :stage {:block #'gm-plugin-stage-block}
    :require-span-completable {:inline #'gm-plugin-setup-require-span-completable}
    :require-span-repeatable {:inline #'gm-plugin-setup-require-span-repeatable}
-   :query-steps {:inline #'gm-plugin-setup-query-steps}})
+   :query-steps {:inline #'gm-plugin-setup-query-steps}
+   :close-graph {:main #'gm-plugin-setup-close-graph}
+   :close-session {:main #'gm-plugin-setup-close-session}})
 
 
 ;; END PLUGIN ========================
@@ -632,21 +676,15 @@ provided an existing Graph defrecord and feed map."
        :wf-meta
        ~cmd))
 
-(defn ws-train-test-wf
-  [ws]
-  ((ws :multi) :train-test))
 
 (defmacro def-workspace
   [ws-name & body]
   `(do
      (when-let [~'existing (ns-resolve *ns* '~ws-name)]
-       (println "FOUND EXISTING")
-       (println (some-> ~'existing deref :wf-out deref :status (= :running)))
        (when (and (some-> ~'existing deref :wf-out deref :status (= :running))
                   (not (ws-interrupt (deref ~'existing))))
          (throw (Exception. "Could not interrupt running workflow.")))
-       ;;TODO release graph&session
-       )
+       (ws-do-wf (deref ~'existing) :close))
      (let [ws-def# (do ~@body)
            [ws# meta#] (mk-workspace '~ws-name ws-def#)]
        (def ~ws-name ws#)
