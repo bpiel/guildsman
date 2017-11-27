@@ -183,7 +183,7 @@
 ;; SUMMARIES ==========================================
 
 (defn mk-summary-data**
-  [id {:keys [train test step]}]
+  [id {:keys [train test]} step]
   (let [train' (get train id)
         test' (get test id)]
     (if (sequential? train')
@@ -194,14 +194,15 @@
        :test test'})))
 
 (defn mk-summary-data*
-  [re agg entry]
-  (merge-with into
-              agg
-              (into {}
-                    (for [[k _] (:train entry)]
-                      (when (and (string? k)
-                                 (re-find re k))
-                        [k [(mk-summary-data** k entry)]])))))
+  [re agg [_ entry]]
+  (let [{:keys [step fetched]} entry]
+    (merge-with into
+                agg
+                (into {}
+                      (for [[k _] (:train fetched)]
+                        (when (and (string? k)
+                                   (re-find re k))
+                          [k [(mk-summary-data** k fetched step)]]))))))
 
 (defn mk-summary-data
   [selected log]
