@@ -1,5 +1,6 @@
 (ns com.billpiel.guildsman.webapp.server
-  (:require [compojure.core :as c]
+  (:require [clojure.core.async :as a]
+            [compojure.core :as c]
             [compojure.handler :as ch]
             [compojure.route :as cr]
             [aleph.http :as ah]
@@ -15,35 +16,25 @@
 (defonce server (atom nil))
 (defonce ws-conn (atom nil))
 
+(defn diff-views
+  [v1 v2]
+  v2
+  #_(merge-with (fn [a b]
+                (when-not (= a b)
+                  (or b [:div "empty"])))
+              v1 v2))
+
 (def view (atom {:graph nil
                  :right [:div]
                  :selected nil}))
 
-(def selected-node (atom nil))
+(def selected-node (volatile! nil))
 
-(def selected-node-receiver (atom nil))
+(def last-view-fn (volatile! nil))
 
-(defn selected-node-watcher
-  [k r old-val new-val]
-  (when-let [f @selected-node-receiver]
-    (f new-val old-val)))
+(def view-update-delay-ms 500)
 
-(defn init-selected-node
-  []
-  (def selected-node (atom nil))
-  (add-watch selected-node
-             ::selected-node-watcher
-             #'selected-node-watcher))
-
-(init-selected-node)
-
-(defn read-transit-string
-  [s]
-  (-> s
-      .getBytes
-      (ByteArrayInputStream.)
-      (t/reader :json)
-      t/read))
+(defonce view-chan (a/chan (a/sliding-buffer 1)))
 
 (defn ->transit
   [v]
@@ -62,18 +53,55 @@
   [data & [ws]]
   (when-let [ws' (or ws @ws-conn)]
     (ms/try-put! ws'
-                 (String. (->transit data))
+                 (String. (->transit data)) ;; TODO this can't be a byte array or something???
                  200)))
 
-(defn diff-views
-  [v1 v2]
-  v2
-  #_(merge-with (fn [a b]
-                (when-not (= a b)
-                  (or b [:div "empty"])))
-              v1 v2))
-
 (defn update-view
+  [& [view-fn]]
+  (let [f (or view-fn @last-view-fn)
+        v-old @view]
+    (->> (swap! view f @selected-node)
+         (diff-views v-old)
+         respond-transit)))
+
+(defonce view-chan-thread-state (volatile! nil))
+(defonce view-chan-thread-ex (volatile! nil))
+
+(defn view-chan-thread
+  []
+  (vreset! view-chan-thread-state :starting)
+  (vreset! view-chan-thread-ex nil)
+  (a/thread
+    (vreset! view-chan-thread-state :running)
+    (try
+      (loop []
+        (when-let [f (a/<!! view-chan)]
+          (vreset! last-view-fn f)
+          (update-view f)
+          (Thread/sleep view-update-delay-ms) ;; TODO ok? bad?
+          (recur)))
+      (vreset! view-chan-thread-state :done)
+      (catch Exception e
+        (vreset! view-chan-thread-state :exception)
+        (vreset! view-chan-thread-ex e)))))
+
+(defn start-view-chan-thread
+  []
+  (if (#{:starting :running} @view-chan-thread-state)
+    (log/info "View-chan thread already running.")
+    (do (view-chan-thread)
+        (log/info "View-chan thread started."))))
+
+(defn read-transit-string
+  [s]
+  (-> s
+      .getBytes
+      (ByteArrayInputStream.)
+      (t/reader :json)
+      t/read))
+
+
+#_(defn update-view
   [new-view]
   (let [view' @view]
     (reset! view new-view)
@@ -87,7 +115,8 @@
 #_  (println data)
   (let [data' (read-transit-string data)]
     (when-let [{:keys [select]} data']
-      (reset! selected-node select))))
+      (vreset! selected-node select)
+      (update-view))))
 
 (defn ws-handler
   [req]
@@ -131,6 +160,7 @@
                   (ah/start-server #'routes {:port 5080}))
           (log/info "started http server on port 5080"))
       (log/info "server already running"))
+    (start-view-chan-thread)
     (catch Exception e
       (log/error e "EXCEPTION while trying to start http server"))))
 

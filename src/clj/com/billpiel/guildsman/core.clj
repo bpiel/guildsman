@@ -1,10 +1,11 @@
 (ns com.billpiel.guildsman.core
-  (:require [com.billpiel.guildsman.graph :as gr]
+  (:require [clojure.core.async :as a]
+            [com.billpiel.guildsman.graph :as gr]
             [com.billpiel.guildsman.builder :as bdr]
             [com.billpiel.guildsman.session :as sess]
             [com.billpiel.guildsman.tensor-mgr :as tm]
             [com.billpiel.guildsman.op-node :as opn]
-            [com.billpiel.guildsman.workspace :as ws1]
+            [com.billpiel.guildsman.workspace2 :as ws2]
             [com.billpiel.guildsman.util :as ut]
             com.billpiel.guildsman.gradients
             com.billpiel.guildsman.grad-desc-opt
@@ -259,297 +260,405 @@ provided an existing Graph defrecord and feed map."
    (build->graph (:graph session) plan)
    (fetch session plan feed)))
 
-(defn ws-status [{:keys [multi] :as ws}]
-  (multi :status))
+(defn ws-status [{:keys [wf-in wf-out] :as ws}]
+  (let [i @wf-in
+        o @wf-out
+        sgo (-> o :stage :gm)
+        wgo (-> o :workflow :gm)
+        {:keys [heartbeat]} o]
+    {:status (:status o)
+     :heartbeat heartbeat
+     :heartbeat-ago-s (quot (- (System/currentTimeMillis)
+                               heartbeat)
+                            1000)
+     :step (-> sgo :pos :step)
+     :interval (-> sgo :pos :interval)
+     :stage (-> wgo :pos :stage)
+     :interrupt? (:interrupt? i)
+     :ex (:ex o)}))
 
-(defn ws-build [{:keys [multi] :as ws}]
-  (multi :build))
+(defn ws-interrupt
+  [{:keys [wf-out wf-in wf-chan]} & [timeout-ms]]
+  (if-not (= (:status @wf-out) :running)
+    true
+    (do (vswap! wf-in assoc :interrupt? true)
+        (let [wf-chan' @wf-chan
+              [r ch] (a/alts!! [wf-chan'
+                                (a/timeout (or timeout-ms 1000))])]
+          (or (= ch wf-chan')
+              (not (= (:status @wf-out) :running)))))))
 
-(defn ws-init-vars [{:keys [multi] :as ws}]
-  (multi :init-vars))
 
-(defn ws-restore-vars [{:keys [multi] :as ws} & [alt-var-source]]
-  (multi :restore-vars))
+(defn ws-do-wf
+  [ws wf & [wait-ms]]
+  (let [{:keys [wf-in wf-chan multi]} ws]
+    (when (= (:statue wf-in) :running)
+      (throw (Exception. "A workflow is already running. Interrupt it first.")))
+    (vswap! wf-in assoc
+            :interrupt? false)
+    (let [ch (multi wf ws)]
+      (vreset! wf-chan ch))
+    (Thread/sleep (or wait-ms 100)) ;; TODO use alts!!!
+    (ws-status ws)))
 
-(defn ws-train [{:keys [multi] :as ws}]
-  (multi :train))
+(defn ws-close
+  [ws]
+  (ws-do-wf ws :close))
 
-(defn ws-train-test [{:keys [multi] :as ws}]
-  (multi :train-test))
-
+(defn ws-train-test
+  [ws]
+  (ws-do-wf ws :train-test))
 
 (def last-ex (atom nil))
 #_ (clojure.pprint/pprint last-ex)
 
-(defn --ws-status-setup-main [ws-name ws-def]
-  `(--ws-status-main ~'state
-                   ~'(-> ws :interrupt-training deref)))
+(defn default-init-wf
+  [ws-cfg]
+  (vary-meta ((eval (ws2/render-wf-fn-src
+                     [:block {:type :workflow}
+                      [:init]]
+                                          ws-cfg))
+              ws-cfg)
+             assoc
+             :doc "A default implementation of a init workflow....TODO"))
 
-(defn --ws-status-main [state interrupt-training]
-  {:return (assoc (select-keys state [:step
-                                      :training?
-                                      :last-ex
-                                      :train-fetched
-                                      :test-fetched])
-                  :interrupt-training interrupt-training)})
+(defn default-close-wf
+  [ws-cfg]
+  (vary-meta ((eval (ws2/render-wf-fn-src
+                     [:block {:type :workflow}
+                      [:close-session]
+                      [:close-graph]]
+                                          ws-cfg))
+              ws-cfg)
+             assoc
+             :doc "A default implementation of a close workflow....TODO"))
 
+(defn wf-fn-map->ws
+  [ws-name wf-fn-map]
+  (let [multi (clojure.lang.MultiFn. (str ws-name "-multi")
+                                     (fn [cmd & _] cmd)
+                                     :default #'clojure.core/global-hierarchy)
+        ws {:wf-in (volatile! {})
+            :wf-out (volatile! {})
+            :wf-chan (volatile! nil)
+            :multi multi}]
+    (doseq [[wf f] wf-fn-map]
+      (. multi clojure.core/addMethod wf f))
+    ws))
 
+(defn ws-cfg->fn-map
+  [{:keys [workflows] :as ws-cfg}]
+  (into {}
+        (for [[k v] workflows]
+          (let [ws-cfg' (-> ws-cfg
+                            (merge v)
+                            (dissoc :workflows :driver))]
+            [k ((:driver v) ws-cfg')]))))
 
-(defn --mk-ws-source
-  [ws-name src-map]
-  `(fn [~'ws-def]
-     (let [mm# (clojure.lang.MultiFn. (str '~ws-name "-multi")
-                                      ~'(fn [cmd & _] cmd)
-                                      :default #'clojure.core/global-hierarchy)
-           ~'ws {:state (atom {})
-                 :interrupt-training (volatile! false)
-                 :multi mm#}]
-       (doseq [[~'cmd ~'f] ~src-map]
-         (. mm# clojure.core/addMethod ~'cmd ~'f))
-       ~'ws)))
+(defn- assoc-in-if-nil
+  [ws-cfg path default-wf]
+  (if (nil? (get-in ws-cfg path))
+    (assoc-in ws-cfg path default-wf)
+    ws-cfg))
 
-(defn --ws-init-setup-main [ws-name ws-def]
-  `(--ws-init-main))
+(defn mk-workspace
+  [ws-name ws-cfg]
+  (let [ws-cfg' (-> ws-cfg
+                    (assoc-in-if-nil [:workflows :init :driver] default-init-wf)
+                    (assoc-in-if-nil [:workflows :close :driver] default-close-wf))
+        wf-fn-map (ws-cfg->fn-map (assoc ws-cfg'
+                                         :ws-name ws-name))]
+    [(wf-fn-map->ws ws-name wf-fn-map)
+     (ut/fmap meta wf-fn-map)]))
 
-;; TODO move ws-*-main fns to ws ns??
-(defn --ws-init-main
-  []
-  {:INIT-MAIN-NOT-IMPLEMENTED 1})
+;; PLUGIN ============================
 
-(defn --ws-build-setup-main [ws-name ws-def]
-  `(--ws-build-main ~'(ws-def :plans)))
+(defn --ws-run-all
+  [session {:keys [targets feed]}]
+  (run-all session targets feed))
 
-(defn --ws-build-main
-  [plans]
-  ;; TODO don't run if graph exists
-  {:graph (build-all->graph plans)
-   :return :BUILD-DONE})
+(defn --ws-run-all-repeat
+  [session {:keys [targets feed]} iters]
+  (run-all session
+              (->> targets
+                   (repeat iters)
+                   flatten)
+              feed))
 
+(defn --ws-fetch-map
+  [state]
+  (let [{:keys [global mode modes interval]} state
+        _ (when-not mode
+            (throw (Exception. "Cannot fetch-map. Mode not set.")))
+        fetched-raw (some-> interval :gm :fetched-raw)
+        session (-> global :gm :session)
+        {:keys [fetch feed]} (-> modes :-compiled :-current)]
+    {:interval
+     {:fetched-raw
+      (merge-with merge
+                  fetched-raw 
+                  {mode
+                   (fetch-map session
+                                 fetch
+                                 feed
+                                 [])})}}))
 
+(defn gm-plugin-setup-init-main
+  [ws-cfg & _]
+  [])
 
-;; TODO take state instead of ws??
-(defn --ws-create-session-setup-main [ws-name ws-def]
-  `(--ws-create-session-main ~'(:graph state)
-                           ~'(:session state)))
+(defn gm-plugin-build-main [graph plans]
+  {:global {:graph (build-all->graph plans)}})
 
-(defn --ws-create-session-main [graph session]
-  (if-not session
-    {:session (graph->session graph)
-     :return true}
-    {:return false}))
+(defn gm-plugin-setup-build-main
+  [ws-cfg & _]
+  [`(gm-plugin-build-main (-> ~'state :global :gm :graph)
+                          (:plans ~'ws-cfg))
+   `(ws2/--wf-setup-modes (:modes ~'ws-cfg))])
 
-(defn --ws-init-vars-setup-main [ws-name ws-def] `(--ws-init-vars-main ~'(:session state)))
+(defn gm-plugin-create-session-main
+  [graph session]
+  {:global {:session (graph->session graph)}})
 
-(defn --ws-init-vars-main [session]
+(defn gm-plugin-setup-create-session-main
+  [ws-cfg & _]
+  [`(gm-plugin-create-session-main (-> ~'state :global :gm :graph)
+                                   (-> ~'state :global :gm :session))])
+
+(defn gm-plugin-init-varis-main
+  [session]
   (run-global-vars-init session)
-  {:return true
-   :vars-set true})
+  {:global {:varis-set true}})
+
+(defn gm-plugin-setup-init-varis-main
+  [ws-cfg & _]
+  [`(gm-plugin-init-varis-main (-> ~'state :global :gm :session))])
+
+;; TODO make more efficient??
+(defn gm-plugin-compile-modes-run-req
+  [{:keys [mode modes] :as state}]
+  (let [g (-> state :global :gm :graph)
+        state' (if-not (:-compiled modes)
+                 (let [mode-vals (vals modes)
+                       mode-kws (->> mode-vals (mapcat keys) distinct)]
+                   (->> (for [mkw mode-kws]
+                          [mkw (->> mode-vals
+                                    (map mkw)
+                                    (apply ws2/--wf-merge-mode-maps g))])
+                        (into {})
+                        (assoc-in state [:modes :-compiled])))
+                 state)
+        compiled (-> state' :modes :-compiled)]
+    (->> mode
+         compiled
+         (assoc-in state' [:modes :-compiled :-current]))))
+
+(defn gm-plugin-setup-run-repeat-inline
+  [ws-cfg & _]
+  [(vary-meta `(gm-plugin-compile-modes-run-req ~'state)
+              assoc ::ws2/no-merge-state true)
+   `(--ws-run-all-repeat ~'(-> state :global :gm :session)
+                         ~'(-> state :modes :-compiled :-current)
+                         (ws2/--wf-query-steps ~'state :block :span))])
+
+(defn gm-plugin-setup-fetch-map-inline
+  [ws-cfg & _]
+  [(vary-meta `(gm-plugin-compile-modes-run-req ~'state)
+              assoc ::ws2/no-merge-state true)
+   `(--ws-fetch-map ~'state)])
+
+(defn gm-plugin-setup-mode-inline
+  [ws-cfg mode]
+  [(vary-meta `(assoc ~'state :mode ~mode)
+              assoc ::ws2/no-merge-state true)
+   ;; TODO only include if there's anything to run
+   `(--ws-run-all (-> ~'state :global :gm :session)
+                  (-> ~'ws-cfg :modes :test :enter))])
 
 
+(defn gm-plugin-mode-form
+  [hook-frms ws-cfg [mode]]
+  `(when-not (= ~mode (:mode ~'state))
+     ~(ws2/default-form-renderer hook-frms ws-cfg)))
 
-(defn --ws-restore-vars-setup-main [ws-name ws-def] `(--ws-restore-vars-main ~'state))
-(defn --ws-restore-vars-main [state] {:return :NOT-IMPLEMENTED})
-(defn --ws-save-vars-setup-main [ws-name ws-def] `(--ws-save-vars-main ~'state))
-(defn --ws-save-vars-main [state] {:return :NOT-IMPLEMENTED})
-(defn --ws-train-setup-main [ws-name ws-def] `(--ws-train-main ~'state))
-(defn --ws-train-main [state] {:return :NOT-IMPLEMENTED})
-(defn --ws-train-interval-setup-main [ws-name ws-def] `(--ws-train-interval-main ~'state))
-(defn --ws-train-interval-main [ws & args] {:NOT-IMPLEMENTED 1})
-(defn --ws-test-setup-main [ws-name ws-def] `(--ws-test-main ~'state))
-(defn --ws-test-main [ws & args] {:NOT-IMPLEMENTED 1})
-
-(defn --ws-train-test-setup-main [ws-name ws-def]
-  `(--ws-train-main ~'state
-                  ~'(:train ws-def)
-                  ~'(:test ws-def)))
+(defn gm-plugin-interval-post-async-form
+  [hook-frms ws-cfg _]
+  `(do (future (let [~'state (ws2/--wf-deliver-fetched ~'state)
+                     ~@(ws2/mk-default-form-bindings hook-frms)]))
+       nil))
 
 
+(defn gm-plugin-interval-block
+  [ws-cfg {:keys [span plugin] :as args} forms contents]
+  (let [span-src (ws2/render-map-single-inline-src span ws-cfg)
+        start?-src (ws2/render-element-single-expr [:block-hook :interval :start?]
+                                               ws-cfg)
+        {:keys [ids forms]} (ws2/render-block-contents :interval
+                                                   forms
+                                                   (ws2/inject-plugin ws-cfg
+                                                                  plugin)
+                                                   contents
+                                                   [:pre]
+                                                   [:post-async
+                                                    :repeat?])]
+    (ws2/add-to-forms (ws2/apply-subs-to-child-forms forms {'$interval-block-ids ids})
+                  :interval nil
+                  `(let [~'span ~span-src] 
+                     (when ~start?-src 
+                       {:push {:block-type :interval
+                               :todo [~@ids]
+                               :span ~'span}})))))
+
+(defn gm-plugin-step-block
+  [ws-cfg {:keys [span]} forms contents]
+  (let [span-src (ws2/render-map-single-inline-src span ws-cfg)
+        start?-src (ws2/render-element-single-expr [:block-hook :interval :start?]
+                                               ws-cfg)
+        hook-frms (ws2/render-inline-block-contents :step ws-cfg contents)]
+    (ws2/add-to-forms forms
+                  :step nil
+                  `(let [~'span ~span-src]
+                     (when ~start?-src
+                       (let [~'state (ws2/--wf-push-light-block ~'state :step {:gm {:span ~'span}})
+                             ~@(ws2/mk-default-form-bindings hook-frms)
+                             ~'state (ws2/--wf-pop-light-block ~'state)]
+                         {:state ~'state
+                          :push-pop {:block-type :step
+                                     :span ~'span}}))))))
+
+(defn gm-plugin-workflow-block
+  [ws-cfg {:keys [span]} forms contents]
+  (let [{:keys [ids forms] :as children} (ws2/render-block-contents :workflow forms ws-cfg contents)]
+    (ws2/add-to-forms forms :workflow nil
+                  `{:push {:block-type :workflow
+                           :todo [~@ids]
+                           :span ~span}})))
+
+(defn gm-plugin-stage-block
+  [ws-cfg {:keys [span]} forms contents]
+  (let [{:keys [ids forms]} (ws2/render-block-contents :stage forms ws-cfg contents)]
+    (ws2/add-to-forms forms :stage nil
+                  `{:push {:block-type :stage
+                           :todo [~@ids]
+                           :span ~span}})))
+
+(defn gm-plugin-interval-start?-form
+  [hook-frms ws-cfg & _]
+  (or (some-> hook-frms first second first)
+      true))
+
+(defn gm-plugin-interval-repeat?-form
+  [hook-frms ws-cfg _]
+  `(let [~'span (-> ~'state :block :gm :span)] 
+     (when ~(or (some-> hook-frms first second first)
+                false)
+       {:pop-push {:block-type :interval
+                   :todo ~'$interval-block-ids
+                   :span ~'span}})))
+
+(defn gm-plugin-interval-start?
+  [ws-cfg]
+  [`(ws2/--wf-require-span-completable ~'state ~'span)])
+
+(defn gm-plugin-setup-require-span-completable
+  [ws-cfg & [span]]
+  [`(ws2/--wf-require-span-completable ~'state ~(or span 'span))])
+
+(defn gm-plugin-setup-require-span-repeatable
+  [ws-cfg & [span]]
+  [`(ws2/--wf-require-span-repeatable ~'state ~(or span 'span))])
+
+(defn gm-plugin-setup-query-steps
+  [ws-cfg block-type q & [offset]]
+  [`(ws2/--wf-query-steps ~'state ~block-type ~q ~offset)])
+
+;; TODO verify session is closed
+(defn gm-plugin-close-graph
+  [graph session]
+  (when graph
+    (close graph))
+  {:global {:graph nil}})
+
+(defn gm-plugin-setup-close-graph
+  [ws-cfg & _]
+  [`(gm-plugin-close-graph ~'(-> state :global :gm :graph)
+                           ~'(-> state :global :gm :session))])
+
+(defn gm-plugin-close-session
+  [session]
+  (when session
+    (close session))
+  {:global {:session nil}})
 
 
+(defn gm-plugin-setup-close-session
+  [ws-cfg & _]
+  [`(gm-plugin-close-session ~'(-> state :global :gm :session))])
+
+(def gm-plugin
+  {:meta {:kw :gm}
+   :init {:main #'gm-plugin-setup-init-main}
+   :build {:main #'gm-plugin-setup-build-main}
+   :create-session {:main #'gm-plugin-setup-create-session-main}
+   :init-varis {:main #'gm-plugin-setup-init-varis-main}
+   :run-repeat {:inline #'gm-plugin-setup-run-repeat-inline}
+   :fetch-map {:inline #'gm-plugin-setup-fetch-map-inline}
+   :mode {:form #'gm-plugin-mode-form
+          :inline #'gm-plugin-setup-mode-inline}
+   :interval {:block #'gm-plugin-interval-block
+              :hook-forms {:post-async #'gm-plugin-interval-post-async-form
+                           :start? #'gm-plugin-interval-start?-form
+                           :repeat? #'gm-plugin-interval-repeat?-form}
+              :start? #'gm-plugin-interval-start?}
+   :step {:block #'gm-plugin-step-block}
+   :workflow {:block #'gm-plugin-workflow-block}
+   :stage {:block #'gm-plugin-stage-block}
+   :require-span-completable {:inline #'gm-plugin-setup-require-span-completable}
+   :require-span-repeatable {:inline #'gm-plugin-setup-require-span-repeatable}
+   :query-steps {:inline #'gm-plugin-setup-query-steps}
+   :close-graph {:main #'gm-plugin-setup-close-graph}
+   :close-session {:main #'gm-plugin-setup-close-session}})
 
 
+;; END PLUGIN ========================
 
 
-(defn find-qual-kws
-  [m kw]
-  (let [kw-name (name kw)]
-    (->> m
-         seq
-         (filter #(-> %
-                      first
-                      name
-                      (= kw-name)))
-         (into {}))))
+(defn- mk-default-train-test-wf-def
+  [{:keys [duration interval] :as ws-cfg}]
+  [:block {:type :workflow
+           :span {:steps (second duration)}}
+   [:block {:type :stage
+            :span {:stages 1}}
+    [:build]
+    [:create-session]
+    [:init-varis]
+    [:block {:type :interval
+             :span {}}
+     [:mode :train]
+     [:fetch-map]
+     [:mode :test]
+     [:fetch-map]]
+    [:block {:type :interval
+             :span {:intervals 1
+                    :steps (second interval)}
+             :plugin {:interval
+                      {:repeat? [:require-span-repeatable]}}}
+     [:block {:type :step
+              :span {:steps [:query-steps :interval :remaining]}}
+      [:mode :train]
+      [:run-repeat]]
+     [:mode :train]
+     [:fetch-map]
+     [:mode :test]
+     [:fetch-map]]]])
 
-(defn --mk-ws-src-train-test
-  [ws-name ws-def plugins]
-  (let [hook-fns {:train-interval-post (ws1/mk-hook-fn-form ws-name
-                                                        ws-def
-                                                        plugins
-                                                        [:train-interval :post])
-                  :train-test-post (ws1/mk-hook-fn-form ws-name
-                                                    ws-def
-                                                    plugins
-                                                    [:train-test :post])}]
-    `(fn [~'& ~'_]
-       ~'((:multi ws) :ensure-vars-set)
-       (--ws-train-test-handler ~'(:state ws)
-                              ~'(:interrupt-training ws)
-                              ~'(:train ws-def)
-                              ~'(:test ws-def)
-                              ~hook-fns))))
-
-(defn- extract-distinct-vals
-  [m kw]
-  (->> (find-qual-kws m kw)
-       vals
-       (apply concat)
-       distinct))
-
-
-(defn- get-run-req-specs
-  [^Graph g state t-def fetch-kw feed-kw]
-  (let [{:keys [feed fetch]} t-def
-        orig-fetch-nodes (map (partial sess/->op-node g)
-                              fetch)
-        orig-fetch-ids (map :id orig-fetch-nodes)
-        all-fetch-nodes (->> (extract-distinct-vals state fetch-kw)
-                             (map (partial sess/->op-node g))
-                             (into orig-fetch-nodes)
-                             distinct
-                             not-empty)
-        all-feeds (->> (find-qual-kws state feed-kw)
-                       (apply merge {} feed))]
-    (merge t-def
-           {:fetch all-fetch-nodes
-            :orig-fetch-ids orig-fetch-ids
-            :feed all-feeds})))
-
-(defn --ws-train-test-handler
-  [state-atom interrupt-training train-def test-def hook-fns]
-  (let [state @state-atom
-        {tr-int-post :train-interval-post
-         tr-te-post :train-test-post} hook-fns
-        {:keys [graph session]} state
-        
-        {:keys [duration interval]
-         train-targets :targets
-         train-feed :feed
-         train-fetch :fetch
-         orig-train-fetch :orig-fetch-ids}
-        (get-run-req-specs graph
-                           state
-                           train-def
-                           :train-fetch
-                           :train-feed)
-        {test-targets :targets
-         test-feed :feed
-         test-fetch :fetch
-         orig-test-fetch :orig-fetch-ids}
-        (get-run-req-specs graph
-                           state
-                           test-def
-                           :test-fetch
-                           :test-feed)
-        [_ dur-steps] duration ;; TODO support other units?
-        [_ int-steps] interval ;; TODO support other units?
-        run-steps (if train-fetch
-                    (dec int-steps)
-                    int-steps)
-        train-targets' (repeat run-steps
-                               (first train-targets))]
-    (when (> (count train-targets) 1)
-      (throw (Exception. "Only one training target supported.")))
-    (future
-      (try (loop [step 0]
-             (swap! state-atom assoc :step step)
-             (let [[run-steps' step' train-targets'] (case step
-                                                       0 [0 1]
-                                                       1 [(max 0 (dec run-steps))
-                                                          (max int-steps 2)
-                                                          (repeat (max 0 (dec run-steps))
-                                                                  (first train-targets))]
-                                                       [run-steps
-                                                        (+ step int-steps)
-                                                        train-targets])]
-               (if (and (false? @interrupt-training)
-                        (< step dur-steps))
-                 (do (when (> run-steps' 0)
-                       (run-all session
-                                train-targets
-                                train-feed))
-                     ;; TODO are fetched tensors immutable???
-                     (let [train-fetched (when train-fetch
-                                           (fetch-map session
-                                                      train-fetch
-                                                      train-feed
-                                                      train-targets'))
-                           test-fetched (when test-fetch
-                                          ;; TODO support test targets
-                                          (fetch-map session
-                                                     test-fetch
-                                                     test-feed))]
-                       (swap! state-atom assoc
-                              :train-fetched (select-keys train-fetched orig-train-fetch)
-                              :test-fetched (select-keys test-fetched orig-test-fetch))
-                       (when tr-int-post
-                         (future (tr-int-post (assoc state
-                                                     :step step
-                                                     :train-fetched train-fetched
-                                                     :test-fetched test-fetched))))
-                       (recur step')))
-                 (do (when tr-te-post
-                       (swap! state-atom tr-te-post))
-                     (swap! state-atom
-                            assoc :training? false)))))
-           (catch Exception e
-             (reset! last-ex e)
-             (swap! state-atom assoc :last-ex e))))
-    (swap! state-atom merge
-           {:training? true
-            :return true})
-    true))
-
-
-(defn --ws-predict-setup-main [ws-name ws-def] `(--ws-predict-main ~'state))
-(defn --ws-predict-main [state] {:return :NOT-IMPLEMENTED})
-(defn --ws-close-session-setup-main [ws-name ws-def] `(--ws-close-session-main ~'state))
-(defn --ws-close-session-main [state] {:return :NOT-IMPLEMENTED})
-(defn --ws-close-setup-main [ws-name ws-def] `(--ws-close-main ~'state))
-(defn --ws-close-main [state] {:return :NOT-IMPLEMENTED})
-(defn --ws-interrupt-training-setup-main [ws-name ws-def] `(--ws-train-interval-main ~'state))
-(defn --ws-interrupt-training-main [state] {:return :NOT-IMPLEMENTED})
-
-(defn --ws-ensure-vars-set-setup-main []
-  `(fn [~'cmd ~'& ~'_]
-     (--ws-ensure-vars-set-main ~'ws)))
-(defn --ws-ensure-vars-set-main
-  [ws]
-  (when-not (-> ws :state deref :vars-set)
-    (ws-init-vars ws)
-    (ws-restore-vars ws))
-  (swap! (:state ws)
-         assoc :vars-set true))
-
-(defn --mk-ws-src-map
-  [ws-name {:keys [plugins] :as ws-def}]
-  (ws1/mk-ws-src-map* ws-name ws-def
-                  [:init --ws-init-setup-main]
-                  [:status --ws-status-setup-main]
-                  [:build --ws-build-setup-main]
-                  [:create-session --ws-create-session-setup-main [[:build]]]
-                  [:ensure-vars-set (--ws-ensure-vars-set-setup-main)] 
-                  [:init-vars --ws-init-vars-setup-main [[:create-session]]]
-                  [:restore-vars --ws-restore-vars-setup-main [[:create-session]]]
-                  [:save-vars --ws-save-vars-setup-main [[:create-session]]]
-                  [:train --ws-train-setup-main [[:ensure-vars-set]]]
-                  [:train-interval --ws-train-interval-setup-main ]
-                  [:interrupt-training --ws-interrupt-training-setup-main]
-                  [:test --ws-test-setup-main]
-                  [:train-test (--mk-ws-src-train-test ws-name ws-def plugins)]
-                  [:predict --ws-predict-setup-main [[:ensure-vars-set]]]
-                  [:close-session --ws-close-session-setup-main]
-                  [:close --ws-close-setup-main]))
+(defn default-train-test-wf
+  [ws-cfg]
+  (vary-meta ((eval (ws2/render-wf-fn-src (mk-default-train-test-wf-def ws-cfg)
+                                          ws-cfg))
+              ws-cfg)
+             assoc
+             :doc "A default implementation of a train-test workflow....TODO"))
 
 (defmacro ws-show-cmd-source
   [ws cmd]
@@ -559,16 +668,29 @@ provided an existing Graph defrecord and feed map."
        :source-map
        ~cmd))
 
-;; TODO interrupt-training
+(defmacro ws-show-workflow-meta
+  [ws cmd]
+  `(-> ~ws
+       var
+       meta
+       :wf-meta
+       ~cmd))
+
+
 (defmacro def-workspace
   [ws-name & body]
-  `(let [~'ws-def (do ~@body)
-         src-map# (--mk-ws-src-map '~ws-name
-                                 ~'ws-def)
-         src# (--mk-ws-source '~ws-name src-map#)]
-     (def ~ws-name ((eval src#) ~'ws-def))
-     (alter-meta! (var ~ws-name)
-                  assoc
-                  :source-map src-map#)
-     ((~ws-name :multi) :init)
-     (var ~ws-name)))
+  `(do
+     (when-let [~'existing (ns-resolve *ns* '~ws-name)]
+       (when (and (some-> ~'existing deref :wf-out deref :status (= :running))
+                  (not (ws-interrupt (deref ~'existing))))
+         (throw (Exception. "Could not interrupt running workflow.")))
+       (ws-do-wf (deref ~'existing) :close))
+     (let [ws-def# (do ~@body)
+           [ws# meta#] (mk-workspace '~ws-name ws-def#)]
+       (def ~ws-name ws#)
+       (alter-meta! (var ~ws-name)
+                    assoc
+                    :wf-meta meta#)
+       ((~ws-name :multi) :init ~ws-name) ;; TODO arg is weird??
+       (var ~ws-name))))
+
