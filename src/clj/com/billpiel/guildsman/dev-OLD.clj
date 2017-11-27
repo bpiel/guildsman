@@ -18,6 +18,7 @@
            [com.billpiel.guildsman.session Session]
            [org.tensorflow.framework Summary]))
 
+
 (def dev-nses (atom #{}))
 (def SummaryP (pr/protodef Summary))
 
@@ -55,6 +56,25 @@
     (swap! dev-nses disj ns-sym)
     (println "removed ns " ns-sym)))
 
+#_(defmethod g/call-plugin [::dev :release]
+  [_ {:keys [ws-name]}]
+  (release-dev-ns (mk-ns-sym ws-name)))
+
+#_(defmethod g/call-plugin [::dev :new]
+  [_ {:keys [state ws-name]}]
+  (let [ns-sym (mk-ns-sym ws-name)
+        _ (release-dev-ns ns-sym)
+        dev-ns (create-ns ns-sym)]
+    (swap! dev-nses conj ns-sym)
+    (swap! state assoc-in [::dev :ns]
+           dev-ns)
+    (intern dev-ns '$log (atom []))
+    (intern dev-ns 'sel (atom nil))
+    (println "created ns "ns-sym)))
+
+
+
+
 (defn- unmap-interns [ns']
   (dorun (map (partial ns-unmap ns')
               (keys (ns-interns ns')))))
@@ -70,11 +90,26 @@
 (defn plan [^Op op-node] (-> op-node meta :plan))
 (defn stack [^Op op-node] (-> op-node meta :stack))
 
+;; TODO can be fn (now)
+(defmacro fetch
+  [op & feed]
+  `(g/fetch (deref (ns-resolve (-> (var ~op) meta :ns)
+                                (quote ~'$session)))
+             ~op
+             (or ~feed {})))
+
 (defn get-ns [op] (-> op meta :ns))
 (defn get-log [op] @(ns-resolve (get-ns op)
                                 '$log))
 
-;; CYTO ===============================================
+(defn logged-fetches
+  [{:keys [id] :as op}]
+  (map #(-> % :fetch (get id))
+       @(get-log op)))
+
+(defn- w-mk-node-def
+  [opnode]
+  {:data {:id (:id opnode)}})
 
 (defn mk-id-seq
   [id-parts]
@@ -94,13 +129,12 @@
 (defn filter-cyto-edges
   [edges]
   (filter (fn [{:keys [data]}]
-            (let [{:keys [source target]} data]
-              (and (= (nil? (re-find #"gradient" source))
-                      (nil? (re-find #"gradient" target)))
-                   (= (nil? (re-find #"summaries" source))
-                      (nil? (re-find #"summaries" target)))
-                   (= (nil? (re-find #"Const" source))
-                      (nil? (re-find #"Const" target))))))
+            (and (= (nil? (re-find #"gradient" (:source data)))
+                    (nil? (re-find #"gradient" (:target data))))
+                 (= (nil? (re-find #"summaries" (:source data)))
+                    (nil? (re-find #"summaries" (:target data))))
+                 (= (nil? (re-find #"Const" (:source data)))
+                    (nil? (re-find #"Const" (:target data))))))
           edges))
 
 (defn filter-cyto-nodes
@@ -115,12 +149,14 @@
       (update :edges filter-cyto-edges)
       (update :nodes filter-cyto-nodes)))
 
-(defn mk-node-defs
+
+(defn w-mk-node-defs
   [{:keys [id]}]
   (mk-id-seq (clojure.string/split (drop-output-idx id)
                                    #"/")))
 
-(defn- mk-edge-defs
+
+(defn- w-mk-edge-defs
   [opnode]
   (let [id-src (drop-output-idx (:id opnode))]
     (map (fn [id-target]
@@ -128,13 +164,68 @@
           (:inputs opnode))))
 
 
-(defn mk-graph-def
+(defn- w-mk-graph-def
   [^Graph g]
   (let [nodes (-> g :state deref :id->node vals)]
-    {:nodes (distinct (mapcat mk-node-defs nodes))
-     :edges (mapcat mk-edge-defs nodes)}))
+    {:nodes (distinct (mapcat w-mk-node-defs nodes))
+     :edges (mapcat w-mk-edge-defs nodes)}))
 
-(defn mk-cyto
+(defn w-mk-graph-def2
+  [^Graph g]
+  (w-mk-graph-def g))
+
+(defn w-mk-summary-data**
+  [id {:keys [train test step]}]
+  (let [train' (get train id)
+        test' (get test id)]
+    (if (sequential? train')
+      {:step step
+       :bins train'}
+      {:x step
+       :train train'
+       :test test'})))
+
+(defn w-mk-summary-data*
+  [re agg entry]
+  (merge-with into
+              agg
+              (into {}
+                    (for [[k _] (:train entry)]
+                      (when (and (string? k)
+                                 (re-find re k))
+                        [k [(w-mk-summary-data** k entry)]])))))
+
+(defn w-mk-summary-data
+  [selected log]
+  (reduce (partial w-mk-summary-data* (->> selected
+                                           (format "summaries/%s($|/.*)?")
+                                           re-pattern))
+          {}
+          log))
+
+(defn ->chart-map
+  [d]
+  {:config {}
+   :data {:type "area"
+          :x "x"
+          :columns [(into [:x] (map :x d))
+                    (into [:train] (map :train d))
+                    (into [:test] (map :test d))]}})
+
+(defn- w-mk-summaries
+  [selected log]
+  (when-let [data (some-> (w-mk-summary-data selected log)
+                          not-empty)]
+    (vec
+     (for [[id d] data]
+       (if (-> d first :bins)
+         [:histos id
+          {:mode "offset"
+           :timeProperty "step"
+           :data d}]
+         [:chart id (->chart-map d)])))))
+
+(defn w-mk-cyto
   [elements]
   {:layout {:name "preset"}
    :style [{:selector "node"
@@ -178,61 +269,6 @@
             :style {:background-color "lightblue"}}]      
    :elements (filter-cyto elements)})
 
-;; END CYTO ==========================================
-
-;; SUMMARIES ==========================================
-
-(defn mk-summary-data**
-  [id {:keys [train test step]}]
-  (let [train' (get train id)
-        test' (get test id)]
-    (if (sequential? train')
-      {:step step
-       :bins train'}
-      {:x step
-       :train train'
-       :test test'})))
-
-(defn mk-summary-data*
-  [re agg entry]
-  (merge-with into
-              agg
-              (into {}
-                    (for [[k _] (:train entry)]
-                      (when (and (string? k)
-                                 (re-find re k))
-                        [k [(mk-summary-data** k entry)]])))))
-
-(defn mk-summary-data
-  [selected log]
-  (reduce (partial mk-summary-data* (->> selected
-                                           (format "summaries/%s($|/.*)?")
-                                           re-pattern))
-          {}
-          log))
-
-(defn ->chart-map
-  [d]
-  {:config {}
-   :data {:type "area"
-          :x "x"
-          :columns [(into [:x] (map :x d))
-                    (into [:train] (map :train d))
-                    (into [:test] (map :test d))]}})
-
-(defn- mk-summaries
-  [selected log]
-  (when-let [data (some-> (mk-summary-data selected log)
-                          not-empty)]
-    (vec
-     (for [[id d] data]
-       (if (-> d first :bins)
-         [:histos id
-          {:mode "offset"
-           :timeProperty "step"
-           :data d}]
-         [:chart id (->chart-map d)])))))
-
 (defn find-selected-op
   [dev-ns selected]
   (try
@@ -243,18 +279,65 @@
     (catch Exception e
       nil)))
 
+(def spacer-atom (atom {:last-f nil
+                        :last-ts 0
+                        :fut nil}))
+
+(defn spacer*
+  [space]
+  (Thread/sleep space)
+  ((:last-f @spacer-atom))
+  (reset! spacer-atom
+          {:last-f nil
+           :last-ts (System/currentTimeMillis)
+           :fut nil}))
+
+(defn spacer
+  [f]
+  (let [space 500
+        {:keys [last-f last-ts fut]} @spacer-atom
+        ts (System/currentTimeMillis)]
+    (cond (> (- ts last-ts) space) (do (reset! spacer-atom
+                                               {:last-f nil
+                                                :last-ts ts
+                                                :fut nil})
+                                       (f))
+          (nil? fut) (reset! spacer-atom {:last-f f
+                                          :last-ts last-ts
+                                          :fut (future (spacer* space))})
+          :else (reset! spacer-atom
+                        {:last-f f
+                         :last-ts last-ts
+                         :fut fut}))))
+
 (defn web-view-updater
   [^Graph g dev-ns log current-view selected-node-id]
-  (let [charts (mk-summaries selected-node-id log)
+  (let [charts (w-mk-summaries selected-node-id log)
         sel-op (find-selected-op dev-ns selected-node-id)]
-    {:graph (mk-cyto (mk-graph-def g))
+    {:graph (w-mk-cyto (w-mk-graph-def2 g))
      :charts (if (nil? charts) [] charts)
      :selected selected-node-id
      :form (some->> sel-op meta :form (mapv str))}))
 
+#_(defn w-update*
+  [^Graph g dev-ns log selected old-selected]
+  (let [charts (w-mk-summaries selected log)
+        sel-op (find-selected-op dev-ns selected)]
+        (spacer #(wsvr/update-view
+                    {:graph (w-mk-cyto (w-mk-graph-def2 g))
+                     :charts (if (nil? charts) [] charts)
+                     :selected selected
+                     :form (some->> sel-op meta :form (mapv str))}))))
+
 (defn send-web-view-updater
   [^Graph g dev-ns log]
   (a/offer! (partial web-view-updater g dev-ns log)))
+
+#_(defmethod g/call-plugin [::dev :init]
+  [_ {:keys [state ws-def]} {:keys [graph] :as session}]
+  (let [dev-ns (-> @state ::dev :ns)]
+    (intern dev-ns 'graph graph)
+    (intern dev-ns 'session session)))
 
 (defn op->summary-id [op & [suffix]]
   (ut/$- ->> op
@@ -264,18 +347,18 @@
 
 (defn find-ops-to-summarize
   [^Graph g target]
-  (->> (ut/$- some-> target
-              :id
-              name
-              (str "/.*")
-              re-pattern
-              (opn/find-ops g $)
-              (filter #(-> % :op #{:VariableV2})
-                      $))
-       (into [(->> target
-                   (mcro/macro-plan->op-plan g)
-                   (opn/find-op g))])
-       distinct))
+  (distinct
+   (into [(->> target
+               (mcro/macro-plan->op-plan g)
+               (opn/find-op g))]
+         (ut/$- some-> target
+                :id
+                name
+                (str "/.*")
+                re-pattern
+                (opn/find-ops g $)
+                (filter #(-> % :op #{:VariableV2})
+                        $)))))
 
 (defn agd->delta-ratio-smry
   [^Graph g smry-id {[v-id alpha-id delta-id] :inputs}]
@@ -344,6 +427,27 @@
     (g/build-all->graph g added)
     added))
 
+#_(defmethod g/call-plugin [::dev :post-build]
+  [_ {:keys [state ws-def]}]
+  (let [dev-ns (-> @state ::dev :ns)
+        {:keys [summaries]} (:train ws-def)
+        graph (-> @state :session :graph)]
+    (mk-nodes-in-ns graph dev-ns)
+    (if-let [smries (->> summaries
+                         (add-summaries graph )
+                         not-empty
+                         (map :id))]
+      (do (swap! state
+                 update-in [::dev :summaries]
+                 (fnil into #{})
+                 (set smries))))
+    (w-update graph dev-ns [] nil)))
+
+#_(defmethod g/call-plugin [::dev :train-fetch]
+  [_ {:keys [state]}]
+  (def tf-state1 @state)
+  (some-> @state ::dev :summaries))
+
 (defn pb-load-summary [ba] (pr/protobuf-load SummaryP ba))
 
 (defn hist-bytes->histo-bins
@@ -408,15 +512,119 @@
   (let [smry (pb-load-summary ba)]
     (if-let [value (-> smry :value first :simple-value )]
       value
-      (hist-bytes->histo-bins2 smry))))
+      (hist-bytes->histo-bins2 smry)
+      )))
 
 (defn- fetched->log-entry
-  [^Graph g fetched]
+  [^Graph g summarized fetched]
   (ut/$- -> fetched
+         (select-keys summarized)
          (ut/fmap fetched->log-entry*
                   $)))
 
-;; END SUMMARIES ==============================
+#_(defmethod g/call-plugin [::dev :log-step]
+  [_ {:keys [state ws-def]} {:keys [test train]} step]
+  (let [state' @state
+        dev-state (::dev state')
+        {dev-ns :ns summaries :summaries} dev-state
+        graph  (-> state' :session :graph)
+        log-atom @(ns-resolve dev-ns '$log)]
+    (swap! log-atom conj
+           {:test (when test
+                    (fetched->log-entry graph
+                                        summaries
+                                        test))
+            :train (when train
+                     (fetched->log-entry graph
+                                         summaries
+                                         train)) 
+            :step step})
+    (w-update graph dev-ns @log-atom @wsvr/selected-node)))
+
+#_(defmethod g/call-plugin [::dev :write-tb]
+  [_ {:keys [state ws-def]}]
+  (let [dev-ns (-> @state ::dev :ns)
+        {:keys [tb-out]} ws-def
+        graph (-> @state :session :graph)]
+    (tfr/write-graphdef-to-events-file graph tb-out)))
+
+
+#_(defn w-push
+  [data]
+  (wsvr/respond-transit data))
+
+(defn w-graph []
+  (w-push
+   (assoc (w-mk-graph-def2)
+          :cmd :graph)))
+
+(defn w-chartb
+  [data]
+  (w-push {:cmd :chart
+           :type :bar
+           :data data}))
+
+#_(defn plugin-setup-init-post [ws-name ws-def]
+  [`(plugin-init-post '~ws-name)])
+
+#_(defn plugin-init-post
+  [ws-name]
+  (let [ns-sym (mk-ns-sym ws-name)
+        _ (release-dev-ns ns-sym) ;; TODO necessary?
+        ws-ns (create-ns ns-sym)
+        log (atom {})]
+    (swap! dev-nses conj ns-sym)
+    (intern ws-ns '$log log)
+    {::ws-ns ws-ns
+     ::log log}))
+
+#_(defn plugin-setup-build-post [ws-name ws-def]
+  [`(plugin-build-post ~'state
+                       (-> ~'ws-def :train ::summaries)
+                       (-> ~'ws-def :test ::summaries))])
+
+#_(defn plugin-build-post
+  [{:keys [graph] ::keys [ws-ns]} train-smries test-smries]
+  (mk-nodes-in-ns graph ws-ns)
+  (intern ws-ns '$graph graph)
+  (let [train-smry-ops (->> train-smries
+                            distinct
+                            (add-summaries graph)
+                            (map :id)
+                            distinct)
+        test-smry-ops (->> test-smries
+                           distinct
+                           (add-summaries graph) ;; TODO make idempotent!
+                           (map :id)
+                           distinct)]
+    ;; TODO w-update?
+    {::train-fetch train-smry-ops
+     ::test-fetch test-smry-ops}))
+
+#_(defn plugin-setup-train-interval-post [ws-name ws-def]
+  [`(plugin-train-interval-post)])
+
+#_(defn plugin-train-interval-post
+  [{:keys [graph step train-fetched test-fetched] ::keys [log summaries]}]
+  ;; TODO update-log
+  {})
+
+#_(defn plugin-release-pre [{::keys [ws-ns]}]
+  (release-dev-ns ws-ns))
+
+#_(defn plugin-setup-release-pre []
+  [`(plugin-release-pre ~'state)])
+
+#_(defn plugin-setup-dev-dummy-override [ws-name ws-def])
+
+#_(def plugin
+  {:meta {:ns (str *ns*)
+          :desc "dev things"}
+   :init {:post plugin-setup-init-post}
+   :build {:post plugin-setup-build-post}
+   :train-interval {:post plugin-setup-train-interval-post}
+   :release {:pre plugin-setup-release-pre}
+   ::dummy {:override plugin-setup-dev-dummy-override}})
 
 ;; PLUGIN =====================================
 
@@ -458,7 +666,7 @@
   (swap! log-atom
          assoc step
          {:step step
-          :fetched (fetched->log-entry g fetched)})
+          :fetched fetched})
   (send-web-view-updater g ws-ns @log-atom)
   (clojure.pprint/pprint [fetched step]))
 
@@ -480,42 +688,3 @@
 
 
 ;; END PLUGIN =================================
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

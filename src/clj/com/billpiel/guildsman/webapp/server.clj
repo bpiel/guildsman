@@ -36,6 +36,26 @@
 
 (defonce view-chan (a/chan (a/sliding-buffer 1)))
 
+(defn ->transit
+  [v]
+  (def v1 v)
+  (let [baos (ByteArrayOutputStream.)
+        tw (t/writer baos :json
+                     {:handlers
+                      {com.billpiel.guildsman.tensor.TensorNDArray (t/write-handler
+                                                          (constantly "list")
+                                                          vec
+                                                          str)}})]
+    (t/write tw v)
+    (.toByteArray baos)))
+
+(defn respond-transit
+  [data & [ws]]
+  (when-let [ws' (or ws @ws-conn)]
+    (ms/try-put! ws'
+                 (String. (->transit data)) ;; TODO this can't be a byte array or something???
+                 200)))
+
 (defn update-view
   [& [view-fn]]
   (let [f (or view-fn @last-view-fn)
@@ -79,26 +99,6 @@
       (ByteArrayInputStream.)
       (t/reader :json)
       t/read))
-
-(defn ->transit
-  [v]
-  (def v1 v)
-  (let [baos (ByteArrayOutputStream.)
-        tw (t/writer baos :json
-                     {:handlers
-                      {com.billpiel.guildsman.tensor.TensorNDArray (t/write-handler
-                                                          (constantly "list")
-                                                          vec
-                                                          str)}})]
-    (t/write tw v)
-    (.toByteArray baos)))
-
-(defn respond-transit
-  [data & [ws]]
-  (when-let [ws' (or ws @ws-conn)]
-    (ms/try-put! ws'
-                 (String. (->transit data)) ;; TODO this can't be a byte array or something???
-                 200)))
 
 
 #_(defn update-view
