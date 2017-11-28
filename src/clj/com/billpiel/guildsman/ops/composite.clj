@@ -96,3 +96,4 @@
 (load "composite_nn")
 (load "composite_grad")
 (load "composite_metrics")
+(load "composite_dataset")
