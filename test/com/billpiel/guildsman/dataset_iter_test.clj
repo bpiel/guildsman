@@ -4,7 +4,23 @@
             [com.billpiel.guildsman.ops.basic :as o]
             [com.billpiel.guildsman.ops.composite :as c]
             [com.billpiel.guildsman.data-type :as dt]
-            [com.billpiel.guildsman.dev :as dev]))
+            [com.billpiel.guildsman.dev :as dev]
+;; func attr val
+            [flatland.protobuf.core :as pr])
+;; func attr val  
+  (:import [org.tensorflow.framework AttrValue OpDef]))
+
+(def AttrValueP (pr/protodef AttrValue))
+
+(def OpDefP (pr/protodef OpDef))
+
+(clojure.pprint/pprint 
+ (pr/protobuf-schema AttrValueP))
+
+(clojure.pprint/pprint 
+ (pr/protobuf-schema OpDefP))
+
+(pr/protobuf-load AttrValueP (pr/protobuf-dump AttrValueP {:func {:name "hi"}}))
 
 
 (g/let+ [output-spec {:output_types [g/dt-long g/dt-long]
@@ -253,3 +269,12 @@
         b (g/fetch session features)
         c (g/fetch session labels)]
     [a b c]))
+
+o/fixed-length-record-dataset
+
+o/bitcast
+o/decode-csv
+o/text-line-dataset
+o/decode-raw
+
+o/map-dataset
