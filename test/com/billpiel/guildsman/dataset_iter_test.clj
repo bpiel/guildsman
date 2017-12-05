@@ -8,7 +8,8 @@
 ;; func attr val
             [flatland.protobuf.core :as pr])
 ;; func attr val  
-  (:import [org.tensorflow.framework AttrValue OpDef]))
+  (:import [org.tensorflow.framework AttrValue OpDef]
+           [com.billpiel.guildsman FunctionNI]))
 
 (def AttrValueP (pr/protodef AttrValue))
 
@@ -278,3 +279,24 @@ o/text-line-dataset
 o/decode-raw
 
 o/map-dataset
+
+#_(let [in1 (o/placeholder :in1 g/dt-float [1])
+      in2 (o/placeholder :in2 g/dt-float [1])
+      out1 (o/add :out1 in1 in2)
+      g (g/build->graph out1)
+      id->node (com.billpiel.guildsman.graph/id->node g)
+      in1-hnd (-> "in1" id->node :handle)
+      in2-hnd (-> "in2" id->node :handle)
+      out1-hnd (-> "out1" id->node :handle)]
+  (def f1
+    (FunctionNI/graphToFunction
+     (:handle g)
+     "Func1"
+     false
+     (long-array [in1-hnd in2-hnd out1-hnd])
+     (long-array [in1-hnd in2-hnd])
+     (int-array [0 0])
+     (long-array [out1-hnd])
+     (int-array [0])
+     (into-array String ["out1"])))
+  f1)

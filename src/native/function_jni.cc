@@ -1,5 +1,25 @@
-#include "exception.h"
-#include "function.h"
+/* Copyright 2017, Emmanouil Antonios Platanios. All Rights Reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
+
+
+// Modified by Bill Piel
+// All modifications also licensed under Apache v2.
+
+
+#include "exception_jni.h"
+#include "function_jni.h"
 #include "utilities.h"
 
 #include <limits>
@@ -81,7 +101,7 @@ JNIEXPORT jbyteArray JNICALL Java_com_billpiel_guildsman_FunctionNI_toFunctionDe
   
   // sizeof(jsize) is less than sizeof(size_t) on some platforms.
   if (buffer->length > std::numeric_limits<jint>::max()) {
-    throw_exception(env, tf_invalid_argument_exception,
+    throwException(env, kIllegalArgumentException,
                     "GraphDef is too large to serialize into a Java byte array.");
   } else {
     static_assert(sizeof(jbyte) == 1, "Unexpected size of the Java byte type.");
