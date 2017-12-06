@@ -172,5 +172,9 @@
 
 (defmulti build (fn [g op-plan] (:op op-plan)))
 
-(defmethod build :default [_ op-plan] op-plan)
-
+(defmethod build :default [g op-plan]
+  #_op-plan
+  (def op-plan1 op-plan)
+  (build-op
+   {:g g :plan op-plan
+    :op-def {:name (name (:op op-plan))}}))

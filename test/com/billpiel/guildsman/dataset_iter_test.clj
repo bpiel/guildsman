@@ -280,13 +280,17 @@ o/decode-raw
 
 o/map-dataset
 
-#_(let [in1 (o/placeholder :in1 g/dt-float [1])
-      in2 (o/placeholder :in2 g/dt-float [1])
+(let [in1 (o/c :in1 [0.] g/dt-float) ;; TODO const ids don't work
+      in2 (o/c :in2 [1.] g/dt-float)
+      in3 (o/placeholder :in3 g/dt-float [1])
+      in4 (o/placeholder :in4 g/dt-float [1])
       out1 (o/add :out1 in1 in2)
       g (g/build->graph out1)
+      g2 (g/build-all->graph [in3 in4])
       id->node (com.billpiel.guildsman.graph/id->node g)
-      in1-hnd (-> "in1" id->node :handle)
-      in2-hnd (-> "in2" id->node :handle)
+      _ (clojure.pprint/pprint  id->node)
+      in1-hnd (-> "Const_1" id->node :handle)
+      in2-hnd (-> "Const_2" id->node :handle)
       out1-hnd (-> "out1" id->node :handle)]
   (def f1
     (FunctionNI/graphToFunction
@@ -299,4 +303,13 @@ o/map-dataset
      (long-array [out1-hnd])
      (int-array [0])
      (into-array String ["out1"])))
-  f1)
+  (FunctionNI/copyToGraph (:handle g2) f1 0)
+  (g/build->graph g2 {:op :Func1 :inputs [(o/c [2.] g/dt-float)
+                                          (o/c [5.] g/dt-float)]})
+  (let [id->node2 (com.billpiel.guildsman.graph/id->node g2)]
+    (clojure.pprint/pprint id->node2)
+    (let [s (g/graph->session g2)]
+      (g/produce s (id->node2 "Func1_3"))))
+  #_    f1)
+
+(g/build->graph {:op :Func1 :inputs [(o/add 1. 2.)]})

@@ -87,7 +87,8 @@
                        (if (map? input)
                          input
                          (plan-const-input input-def input)))
-                     (:input-arg (og-cfg/op-list-by-kw (:op plan)))))
+                     (or (not-empty (:input-arg (og-cfg/op-list-by-kw (:op plan))))
+                         (repeat 20 {}))))
     plan))
 
 (defn- apply-plan-to-graph
