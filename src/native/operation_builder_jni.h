@@ -178,6 +178,14 @@ JNIEXPORT void JNICALL Java_com_billpiel_guildsman_OperationBuilderNI_setAttrSha
 JNIEXPORT void JNICALL Java_com_billpiel_guildsman_OperationBuilderNI_setAttrShapeList
 (JNIEnv *, jobject, jlong, jstring, jobjectArray, jintArray, jint);
 
+/*
+ * Class:     com_billpiel_guildsman_OperationBuilderNI
+ * Method:    setAttrProto
+ * Signature: (JLjava/lang/String;[B)V
+ */
+JNIEXPORT void JNICALL Java_com_billpiel_guildsman_OperationBuilderNI_setAttrProto(
+    JNIEnv *, jclass, jlong, jstring, jbyteArray);
+
   
 #ifdef __cplusplus
 }  // extern "C"

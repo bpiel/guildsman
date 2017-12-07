@@ -110,4 +110,6 @@ public final class OperationBuilderNI {
     public static native void setAttrShape(long handle, String name, long[] shape, int numDims);
 
     public static native void setAttrShapeList(long handle, String name, long[][] shapes, int[] numDims, int numShapes);
+
+    public static native void setAttrProto(long handle, String name, byte[] value);
 }

@@ -280,8 +280,8 @@ o/decode-raw
 
 o/map-dataset
 
-(let [in1 (o/c :in1 [0.] g/dt-float) ;; TODO const ids don't work
-      in2 (o/c :in2 [1.] g/dt-float)
+(let [in1 (o/placeholder :in1 g/dt-float [1]) ;; TODO const ids don't work
+      in2 (o/placeholder :in2 g/dt-float [1])
       in3 (o/placeholder :in3 g/dt-float [1])
       in4 (o/placeholder :in4 g/dt-float [1])
       out1 (o/add :out1 in1 in2)
@@ -289,15 +289,15 @@ o/map-dataset
       g2 (g/build-all->graph [in3 in4])
       id->node (com.billpiel.guildsman.graph/id->node g)
       _ (clojure.pprint/pprint  id->node)
-      in1-hnd (-> "Const_1" id->node :handle)
-      in2-hnd (-> "Const_2" id->node :handle)
+      in1-hnd (-> "in1" id->node :handle)
+      in2-hnd (-> "in2" id->node :handle)
       out1-hnd (-> "out1" id->node :handle)]
   (def f1
     (FunctionNI/graphToFunction
      (:handle g)
      "Func1"
      false
-     (long-array [in1-hnd in2-hnd out1-hnd])
+     (long-array [out1-hnd])
      (long-array [in1-hnd in2-hnd])
      (int-array [0 0])
      (long-array [out1-hnd])
@@ -312,4 +312,14 @@ o/map-dataset
       (g/produce s (id->node2 "Func1_3"))))
   #_    f1)
 
+
+(g/fn-tf func1 [{:arg x :type g/dt-float :shape [1]}
+                {:arg y :type g/dt-float :shape [1]}]
+         [(o/add x y)])
+
+
+
+o/map-dataset
+
 (g/build->graph {:op :Func1 :inputs [(o/add 1. 2.)]})
+

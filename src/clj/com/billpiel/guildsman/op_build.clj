@@ -9,8 +9,11 @@
             [flatland.protobuf.core :as pr]
             [com.billpiel.guildsman.common]
             clojure.pprint)
-  (:import [com.billpiel.guildsman.common Graph Op GraphRef]
-           [org.tensorflow.framework OpDef OpList NodeDef]))
+  (:import [com.billpiel.guildsman FunctionNI]
+           [com.billpiel.guildsman.common Graph Op GraphRef]
+           [org.tensorflow.framework OpDef OpList NodeDef AttrValue]))
+
+(def AttrValueP (pr/protodef AttrValue))
 
 (defn get-attr-bytes
   [v]
@@ -23,6 +26,9 @@
   (->> shapes
        (map count)
        int-array))
+
+(defn- func-plan->pb-bytes
+  [graph-hnd plan])
 
 (defn- set-attr
   [builder-handle k v ty]
@@ -43,6 +49,9 @@
       :int (com.billpiel.guildsman.OperationBuilderNI/setAttrInt builder-handle
                                                                  k v)
 
+      ;; :func
+      ;; (com.billpiel.guildsman.OperationBuilderNI/setAttrProto builder-handle k :???????????)
+      
       ;; TODO check :has-minimum for lists somewhere??
       ;; other reqs specified in pb op defs to check?
       

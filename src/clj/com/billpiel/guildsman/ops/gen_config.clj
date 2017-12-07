@@ -166,7 +166,7 @@
 (register-op-gen-cfg!
  "Placeholder"
  {:plan-fn-bodies (constantly
-                   '[([id data-type shape]
+                   '[([id data-type shape] ;; TODO shape is optional???
                       {:op :Placeholder
                        :id id
                        :attrs {:dtype data-type
