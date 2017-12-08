@@ -6,6 +6,7 @@
             [com.billpiel.guildsman.tensor :as tsr]
             [com.billpiel.guildsman.shape :as sh]
             [com.billpiel.guildsman.util :as ut]
+            [com.billpiel.guildsman.functions :as fns]
             [flatland.protobuf.core :as pr]
             [com.billpiel.guildsman.common]
             clojure.pprint)
@@ -27,12 +28,8 @@
        (map count)
        int-array))
 
-(defn- func-plan->name-pb-bytes
-  [^Graph g plan]
-  (throw (Exception. "YO")))
-
 (defn- set-attr
-  [builder-handle ^Graph g k v ty]
+  [builder-handle k v ty]
   (try
     (condp = ty ;; wtf
       :tensor (com.billpiel.guildsman.OperationBuilderNI/setAttrTensor builder-handle
@@ -51,7 +48,7 @@
                                                                  k v)
 
       :func (com.billpiel.guildsman.OperationBuilderNI/setAttrProto builder-handle k
-                                                                    (func-plan->name-pb-bytes g v))
+                                                                    (fns/fn-plan->fn-name-pb-bytes v))
       
       ;; TODO check :has-minimum for lists somewhere??
       ;; other reqs specified in pb op defs to check?
@@ -76,9 +73,9 @@
 
 
 (defn- set-attrs
-  [builder-handle ^Graph g attrs]
+  [builder-handle attrs]
   (doseq [[k v ty] attrs]
-    (set-attr builder-handle g k v ty))
+    (set-attr builder-handle k v ty))
   builder-handle)
 
 (defn- add-inputs
@@ -144,7 +141,7 @@
           handle (-> g
                      :handle
                      (com.billpiel.guildsman.OperationBuilderNI/allocate tf-op (name id'))
-                     (set-attrs g attrs')
+                     (set-attrs attrs')
                      (add-inputs inputs)
                      (add-ctrl-inputs ctrl-input-handles)
                      com.billpiel.guildsman.OperationBuilderNI/finish) ;; TODO release attr tensors? or done for us?
