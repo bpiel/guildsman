@@ -1,7 +1,9 @@
 (ns com.billpiel.guildsman.functions
   (:require [com.billpiel.guildsman.graph :as gr]
             [com.billpiel.guildsman.util :as util]
-            [flatland.protobuf.core :as pr])
+            [com.billpiel.guildsman.ops.basic :as o]
+            [flatland.protobuf.core :as pr]
+            [clojure.walk :as w])
   (:import [com.billpiel.guildsman.common Graph]
            [com.billpiel.guildsman FunctionNI]
            [org.tensorflow.framework AttrValue]))
@@ -13,13 +15,22 @@
 (defn extract-fn-graph-stuff
   [fn-graph fn-plan])
 
-(defn prep-fn-plan [fn-plan])
+
+(defn prep-fn-plan
+  [{:keys [args body] :as fn-plan}]
+  (w/postwalk-replace
+   (into {}
+         (for [a args]
+           [(:name a) (o/placeholder (-> a :name name keyword)
+                                     (:type a)
+                                     (:shape a))]))
+   body))
 
 ;; silly, but good enough?
 (defn mk-fn-name
   [{:keys [func]} prepped-fn-plan]
-  (str func (+ (mod (System/currentTimeMillis) 1000000)
-               (mod (hash prepped-fn-plan) 1000000))))
+  (str func "-" (+ (mod (System/currentTimeMillis) 1000000)
+                   (mod (hash prepped-fn-plan) 1000000))))
 
 (defn fn-graph->fn-hnd
   [^Graph g fn-name {:keys [op-hnds in-hnds in-idxs out-hnds out-idxs out-names]}]
@@ -57,7 +68,7 @@
      ~@body))
 
 (defn str->fn-name-pb-bytes [s]
-  (pr/protobuf-load AttrValueP (pr/protobuf-dump AttrValueP {:func {:name s}})))
+  (pr/protobuf-dump AttrValueP {:func {:name s}}))
 
 (defn fn-plan->fn-name-pb-bytes
   [v]
@@ -66,3 +77,7 @@
   (-> (*fn-builder* v)
       :fn-name
       str->fn-name-pb-bytes))
+
+
+
+
