@@ -386,7 +386,34 @@ o/map-dataset
                                :output_types [g/dt-float]
                                :output_shapes [[1]]}
                               $
-                              (byte-array 0))))
+                              [(o/c 0)])))
+
+(g/let+ [{:keys [ds1]} (+>> (o/tensor-slice-dataset {:output_shapes [[1]]}
+                                                    [(o/c [1. 2. 3.]
+                                                          g/dt-float)])
+                            (o/map-dataset :ds1
+                                           {:f {:func :f1
+                                                :returns [{:shape [1] :type g/dt-float}]
+                                                :args [{:name 'x
+                                                        :shape [1]
+                                                        :type g/dt-float}]
+                                                :body [(o/add 'x 1.)]}
+                                            :output_types [g/dt-float]
+                                            :output_shapes [[1]]}
+                                           $
+                                           []))
+         iter1 (o/iterator :iter1
+                           {:output_types [g/dt-float]
+                            :output_shapes [[1]]})
+         mi1 (o/make-iterator :mi1 ds1 iter1)
+         ign1 (o/iterator-get-next :ign1 {:output_types [g/dt-float]
+                                          :output_shapes [[1]]}
+                                   iter1)
+         {:keys [graph] :as session} (g/build-all->session [mi1 ign1])]
+  (g/run session mi1)
+  (g/produce session ign1))
+
+(g/produce (o/add-n {:N 2} [(o/c 1) (o/c 2)]))
 
 
 

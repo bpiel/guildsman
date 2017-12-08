@@ -3,6 +3,8 @@
 
 (def ^:dynamic *enclosing-form* nil)
 (def ^:dynamic *macro-meta* nil)
+(def ^:dynamic *fn-builder* nil)
+
 
 (defn ->int
   [v]
@@ -87,7 +89,8 @@
 (defn- visit-plan*
   [f plan]
   (if (and (sequential? plan)
-           (some map? (tree-seq sequential? identity plan)))
+           (or (empty? plan) ;; assume an empty input list??
+               (some map? (tree-seq sequential? identity plan)))) ;; TODO not great way to detect input list
     (mapv f plan)
     (f plan)))
 

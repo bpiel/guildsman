@@ -135,7 +135,7 @@
     :scalar? (constantly false)  
     :array? (constantly false)
     :scalar nil
-    :scalar-fn (fn [& args] (throw (Exception. "NOT IMPLEMENTED")))
+    :scalar-fn byte
     :array-fn nil}
 
    {:kw :string 

@@ -292,7 +292,7 @@ JNIEXPORT void JNICALL Java_com_billpiel_guildsman_OperationBuilderNI_setAttrStr
 }
 
 JNIEXPORT void JNICALL Java_com_billpiel_guildsman_OperationBuilderNI_setAttrShapeList(
-    JNIEnv* env, jobject object, jlong handle, jstring name, jobjectArray shapes, jintArray num_dims, jint num_shapes) {
+    JNIEnv* env, jclass object, jlong handle, jstring name, jobjectArray shapes, jintArray num_dims, jint num_shapes) {
   TF_OperationDescription *d = requireHandle(env, handle);
   if (d == nullptr) return;
   std::unique_ptr<int[]> c_num_dims;
@@ -325,8 +325,8 @@ JNIEXPORT void JNICALL Java_com_billpiel_guildsman_OperationBuilderNI_setAttrSha
   env->ReleaseStringUTFChars(name, cname);
 }
 
-JNIEXPORT void JNICALL Java_com_billpiel_guildsman_OperationBuilderNI_setAttrProto(
-    JNIEnv* env, jobject object, jlong handle, jstring name, jbyteArray value) {
+JNIEXPORT void JNICALL Java_com_billpiel_guildsman_OperationBuilderNI_setAttrProto
+(JNIEnv* env, jclass object, jlong handle, jstring name, jbyteArray value) {
   static_assert(sizeof(jbyte) == 1, "Require Java byte to be represented as a single byte"); 
   TF_OperationDescription *d = requireHandle(env, handle);
   if (d == nullptr) return;

@@ -5,8 +5,7 @@
             [com.billpiel.guildsman.graph :as gr]
             [com.billpiel.guildsman.tensor :as tsr]
             [com.billpiel.guildsman.shape :as sh]
-            [com.billpiel.guildsman.util :as ut]
-            [com.billpiel.guildsman.functions :as fns]
+            [com.billpiel.guildsman.util :as ut]            
             [flatland.protobuf.core :as pr]
             [com.billpiel.guildsman.common]
             clojure.pprint)
@@ -28,6 +27,17 @@
        (map count)
        int-array))
 
+(defn- str->fn-name-pb-bytes [s]
+  (pr/protobuf-dump AttrValueP {:func {:name s}}))
+
+(defn- fn-plan->fn-name-pb-bytes
+  [v]
+  (when (nil? ut/*fn-builder*)
+    (throw (Exception. "Cannot build a function when *fn-builder* is not set.")))
+  (-> (ut/*fn-builder* v)
+      :fn-name
+      str->fn-name-pb-bytes))
+
 (defn- set-attr
   [builder-handle k v ty]
   (try
@@ -48,7 +58,7 @@
                                                                  k v)
 
       :func (com.billpiel.guildsman.OperationBuilderNI/setAttrProto builder-handle k
-                                                                    (fns/fn-plan->fn-name-pb-bytes v))
+                                                                    (fn-plan->fn-name-pb-bytes v))
       
       ;; TODO check :has-minimum for lists somewhere??
       ;; other reqs specified in pb op defs to check?

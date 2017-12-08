@@ -4,6 +4,10 @@ import java.nio.charset.Charset;
 
 public final class OperationBuilderNI {
 
+    static {
+        NativeLibrary.load();
+    }
+    
     public static void setAttr(long handle, String name, String value) {
         setAttr(handle, name, value.getBytes(Charset.forName("UTF-8")));
     }
