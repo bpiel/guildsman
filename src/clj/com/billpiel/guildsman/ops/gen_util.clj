@@ -34,6 +34,7 @@
                 (dt/->tf-attr-val :int64 value'))
         :shape (dt/->tf-attr-val :int64 value')
         :int (dt/->tf-attr-val :int32 value')
+        :func value ;; TODO do something here?? Get global fn handle? Handle similarly to a tensor??
         dt/list-int-kw (dt/->tf-attr-val :int64 value') ;; :int64 seems weird
         dt/list-type-kw (dt/->tf-attr-val :int32
                                           (map #(-> % dt/kw->dt :native)

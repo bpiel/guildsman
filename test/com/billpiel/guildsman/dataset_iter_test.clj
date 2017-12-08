@@ -368,11 +368,26 @@ o/map-dataset
                                                   :returns [{:shape [] :type :???}]
                                                   :args [{:name 'x
                                                           :shape []
-                                                          :}]}
+                                                          :type g/dt-float}]}
                                               :output_types :???
                                               :output_shapes :???}
                                              $
                                              (byte-array 0)))})
+
+(g/produce (as-> (o/tensor-slice-dataset {:output_shapes [[1]]} [(o/c [1. 2. 3.]
+                                                                      g/dt-float)])
+               $
+               (o/map-dataset {:f {:func :f1
+                                   :returns [{:shape [1] :type g/dt-float}]
+                                   :args [{:name 'x
+                                           :shape [1]
+                                           :type g/dt-float}]
+                                   :body [(o/add 'x 1.)]}
+                               :output_types [g/dt-float]
+                               :output_shapes [[1]]}
+                              $
+                              (byte-array 0))))
+
 
 
 (g/register-dataset! ::train-ds
@@ -406,3 +421,29 @@ o/map-dataset
              :test {::dev/summaries [v a1]
                     :iters {iter1 (c/dsi-plug {:datasets [::test-ds]})}}}
      :workflows {:train-test {:driver g/default-train-test-wf}}}))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

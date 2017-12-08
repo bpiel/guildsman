@@ -27,11 +27,12 @@
        (map count)
        int-array))
 
-(defn- func-plan->pb-bytes
-  [graph-hnd plan])
+(defn- func-plan->name-pb-bytes
+  [^Graph g plan]
+  (throw (Exception. "YO")))
 
 (defn- set-attr
-  [builder-handle k v ty]
+  [builder-handle ^Graph g k v ty]
   (try
     (condp = ty ;; wtf
       :tensor (com.billpiel.guildsman.OperationBuilderNI/setAttrTensor builder-handle
@@ -49,8 +50,8 @@
       :int (com.billpiel.guildsman.OperationBuilderNI/setAttrInt builder-handle
                                                                  k v)
 
-      ;; :func
-      ;; (com.billpiel.guildsman.OperationBuilderNI/setAttrProto builder-handle k :???????????)
+      :func (com.billpiel.guildsman.OperationBuilderNI/setAttrProto builder-handle k
+                                                                    (func-plan->name-pb-bytes g v))
       
       ;; TODO check :has-minimum for lists somewhere??
       ;; other reqs specified in pb op defs to check?
@@ -64,7 +65,8 @@
                         (dt/mk-typed-2d-array v Long/TYPE long-array)
                         (get-shape-dims v) (count v))
       (com.billpiel.guildsman.OperationBuilderNI/setAttr builder-handle
-                                                         k v))
+                                                         k v)
+      )
     (catch Exception e
       (def e1 e)
       #_ (clojure.pprint/pprint e1)
@@ -74,9 +76,9 @@
 
 
 (defn- set-attrs
-  [builder-handle attrs]
+  [builder-handle ^Graph g attrs]
   (doseq [[k v ty] attrs]
-    (set-attr builder-handle k v ty))
+    (set-attr builder-handle g k v ty))
   builder-handle)
 
 (defn- add-inputs
@@ -142,7 +144,7 @@
           handle (-> g
                      :handle
                      (com.billpiel.guildsman.OperationBuilderNI/allocate tf-op (name id'))
-                     (set-attrs attrs')
+                     (set-attrs g attrs')
                      (add-inputs inputs)
                      (add-ctrl-inputs ctrl-input-handles)
                      com.billpiel.guildsman.OperationBuilderNI/finish) ;; TODO release attr tensors? or done for us?
