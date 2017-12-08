@@ -7,7 +7,8 @@
             [com.billpiel.guildsman.util :as util]
             [com.billpiel.guildsman.macros :as mcro]
             [com.billpiel.guildsman.data-type :as dt]
-            [com.billpiel.guildsman.ops.gen-config :as og-cfg])
+            [com.billpiel.guildsman.ops.gen-config :as og-cfg]
+            [com.billpiel.guildsman.functions :as fns])
   (:import [com.billpiel.guildsman.common Graph Op]))
 
 (declare apply-plan-to-graph)
@@ -100,7 +101,10 @@
                    nil
                    plan))
 
+(declare build->graph)
+
 (defn build->graph
   [^Graph g plan]
-  (apply-plan-to-graph g plan)
+  (fns/with-fn-builder g build->graph
+    (apply-plan-to-graph g plan))
   g)
