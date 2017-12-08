@@ -22,7 +22,7 @@
 (def dt-double dt/double-kw)
 (def dt-int dt/int-kw)
 (def dt-list-int dt/list-int-kw)
-(def dt-uint dt/uint-kw)
+(def dt-uint dt/uint-kw) ;; TODO rename? is unsigned byte?
 (def dt-string dt/string-kw)
 (def dt-long dt/long-kw)
 (def dt-bool dt/bool-kw)
@@ -34,6 +34,7 @@
 (def dt-shape dt/shape-kw)
 (def dt-list-shape dt/list-shape-kw)
 (def dt-list dt/list-kw)
+
 
 (defmacro let+
   [& body]

@@ -323,3 +323,86 @@ o/map-dataset
 
 (g/build->graph {:op :Func1 :inputs [(o/add 1. 2.)]})
 
+
+
+(def b1
+  (g/produce
+   (o/decode-raw {:out_type g/dt-uint}
+                 (o/c "ABC"
+                      g/dt-string))))
+
+(def b1
+  (g/produce
+   (o/decode-raw {:out_type g/dt-uint}
+                 (o/c (byte-array [1 2 3])
+                      g/dt-string))))
+
+(def b1
+  (g/produce
+   (o/decode-raw {:out_type g/dt-uint}
+                 (byte-array [1 2 3]))))
+
+(.byte-size b1)
+
+(.dtype b1)
+
+(String. (byte-array [91 101 51]))
+
+(String. (byte-array [91 51 54]))
+
+
+;; DREAMS ================================================
+
+(def filename-mnist-test-images "/home/bill/repos/guildsman-conj2017/resources/mnist/test-10k-images-idx3-ubyte")
+
+
+(g/register-dataset! ::train-ds
+                     {:recs-per-epoch 200
+                      :plan (as-> (o/fixed-length-record-dataset [filename-mnist-test-images]
+                                                                 16
+                                                                 784
+                                                                 0
+                                                                 784)
+                                $
+                              (o/map-dataset {:f {:func :f1
+                                                  :returns [{:shape [] :type :???}]
+                                                  :args [{:name 'x
+                                                          :shape []
+                                                          :}]}
+                                              :output_types :???
+                                              :output_shapes :???}
+                                             $
+                                             (byte-array 0)))})
+
+
+(g/register-dataset! ::train-ds
+                     (constantly
+                      {:recs-per-epoch 2000
+                       :plan (->> (c/fixed-length-record-ds [filename-mnist-test-images]
+                                                            16
+                                                            784
+                                                            0
+                                                            784)
+                                  (c/map-ds (g/fn-tf
+                                             [{:name :?? :shape [784] :type g/dt-float}] ;; TODO unspecified shape would be nice here
+                                             [{:name x :shape [] :type g/dt-string}] ;; TODO infering signature would be nice!
+                                             (o/div (c/cast-tf g/dt-float
+                                                               (o/decode-raw {:out_type g/dt-uint} x))
+                                                    255.0))))}))
+
+
+(g/def-workspace ws-dream
+  (g/let+ [iter1 (c/dsi-socket :iter1
+                               {:fields [:features :labels]})
+           {:keys [features labels]} (g/destruct-dsi-socket iter1)]
+    {:plugins [dev/plugin g/gm-plugin]
+     :plans [tr]
+     :duration [:epochs 1]
+     :interval [:records 100] ;; whoa!?!?! next best thing to secs?
+     :modes {:train {:targets [tr]
+                     ::dev/summaries [v a1]
+                     :iters {iter1 (c/dsi-plug {:datasets [::train-ds]
+                                                :batch-size 10})}}
+             :test {::dev/summaries [v a1]
+                    :iters {iter1 (c/dsi-plug {:datasets [::test-ds]})}}}
+     :workflows {:train-test {:driver g/default-train-test-wf}}}))

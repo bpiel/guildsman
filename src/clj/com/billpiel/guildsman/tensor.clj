@@ -25,7 +25,10 @@
       dt/float-kw (.getFloat b idx)
       dt/double-kw (.getDouble b idx)
       dt/int-kw (.getInt b idx)
-      dt/long-kw (.getLong b idx))))
+      dt/long-kw (.getLong b idx)
+      dt/uint-kw (.get b idx))))
+
+
 
 (defprotocol PTensorNDArray
   (size [this])
