@@ -12,6 +12,7 @@
             com.billpiel.guildsman.gradients-clj
             com.billpiel.guildsman.grad-desc-opt-clj
             [com.billpiel.guildsman.data-type :as dt]
+            [clojure.walk :as w]
             com.billpiel.guildsman.common
             clojure.pprint)
   (:import [com.billpiel.guildsman.common Graph]
@@ -24,7 +25,7 @@
 (def dt-list-int dt/list-int-kw)
 (def dt-uint dt/uint-kw) ;; TODO rename? is unsigned byte?
 (def dt-string dt/string-kw)
-(def dt-long dt/long-kw)
+(def dt-long dt/long-kw) ;; TODO or rename all of these to use TF terms?
 (def dt-bool dt/bool-kw)
 (def dt-list-bool dt/list-bool-kw)
 (def dt-type dt/type-kw)
@@ -474,8 +475,7 @@ provided an existing Graph defrecord and feed map."
               assoc ::ws2/no-merge-state true)
    ;; TODO only include if there's anything to run
    `(--ws-run-all (-> ~'state :global :gm :session)
-                  (-> ~'ws-cfg :modes :test :enter))])
-
+                  (-> ~'ws-cfg :modes ~mode :enter))])
 
 (defn gm-plugin-mode-form
   [hook-frms ws-cfg [mode]]
@@ -604,6 +604,7 @@ provided an existing Graph defrecord and feed map."
    :init-varis {:main #'gm-plugin-setup-init-varis-main}
    :run-repeat {:inline #'gm-plugin-setup-run-repeat-inline}
    :fetch-map {:inline #'gm-plugin-setup-fetch-map-inline}
+   ;; TODO :init-mode   ?????????
    :mode {:form #'gm-plugin-mode-form
           :inline #'gm-plugin-setup-mode-inline}
    :interval {:block #'gm-plugin-interval-block
@@ -623,7 +624,7 @@ provided an existing Graph defrecord and feed map."
 
 ;; END PLUGIN ========================
 
-
+;; WORKSPACES ========================
 (defn- mk-default-train-test-wf-def
   [{:keys [duration interval] :as ws-cfg}]
   [:block {:type :workflow
@@ -695,3 +696,40 @@ provided an existing Graph defrecord and feed map."
        ((~ws-name :multi) :init ~ws-name) ;; TODO arg is weird??
        (var ~ws-name))))
 
+
+;; END WORKSPACES ========================
+
+(defn- fn-tf-returns
+  [rets]
+  (->> rets
+       (partition 2)
+       (mapv (fn [[t s]]
+               {:type t :shape s}))))
+
+(defn- fn-tf-args
+  [rets]
+  (->> rets
+       (partition 3)
+       (mapv (fn [[a t s]]
+               {:arg `'~a :type t :shape s}))))
+
+(defn- fn-tf-body
+  [args body]
+  (w/postwalk-replace (->> args
+                           (partition 3)
+                           (map first)
+                           (map (fn [sym] [sym `'~sym]))
+                           (into {}))
+                      body))
+
+(defmacro fn-tf
+  [fn-name returns args body]
+  `{:func ~(name fn-name)
+    :returns ~(fn-tf-returns returns)
+    :args ~(fn-tf-args args)
+    :body ~(fn-tf-body args body)})
+
+(defmacro defn-tf
+  [fn-name returns args body]
+  `(def ~fn-name
+     (fn-tf ~fn-name ~returns ~args ~body)))

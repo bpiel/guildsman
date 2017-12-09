@@ -417,22 +417,34 @@ o/map-dataset
 (g/produce (o/add-n {:N 2} [(o/c 1) (o/c 2)]))
 
 
+(g/defn-tf parse-mnist
+  [g/dt-float [784]] ;; TODO unspecified shape would be nice here
+  [x g/dt-string []] ;; TODO infering signature would be nice!
+  [(o/div (->> x
+                (o/decode-raw {:out_type g/dt-uint})
+                (c/cast-tf g/dt-float))
+           255.0)])
+
+(g/defn-tf parse-mnist
+  [g/dt-float [784]] ;; TODO unspecified shape would be nice here
+  [x g/dt-string []] ;; TODO infering signature would be nice!
+  [(o/add x 2)])
+
+(clojure.pprint/pprint parse-mnist)
+
 
 (g/register-dataset! ::train-ds
-                     (constantly
-                      {:recs-per-epoch 2000
-                       :plan (->> (c/fixed-length-record-ds [filename-mnist-test-images]
-                                                            16
-                                                            784
-                                                            0
-                                                            784)
-                                  (c/map-ds (g/fn-tf
-                                             [{:name :?? :shape [784] :type g/dt-float}] ;; TODO unspecified shape would be nice here
-                                             [{:name x :shape [] :type g/dt-string}] ;; TODO infering signature would be nice!
-                                             (o/div (c/cast-tf g/dt-float
-                                                               (o/decode-raw {:out_type g/dt-uint} x))
-                                                    255.0))))}))
+                     (constantly ;; what args would fn take? if any?
+                      (->> (c/fixed-length-record-ds {:epoch-size 2000}
+                                                     [filename-mnist-test-images]
+                                                     16
+                                                     784
+                                                     0
+                                                     784)
+                           (c/map-ds {:fields [:features]}
+                                     parse-mnist))))
 
+;; where/how would you inject a perturber?
 
 (g/def-workspace ws-dream
   (g/let+ [iter1 (c/dsi-socket :iter1
