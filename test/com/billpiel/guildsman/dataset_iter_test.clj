@@ -397,7 +397,7 @@ o/map-dataset
                                                 :args [{:name 'x
                                                         :shape [1]
                                                         :type g/dt-float}]
-                                                :body [(o/add 'x 1.)]}
+                                                :body [(o/add 'x 1.1)]}
                                             :output_types [g/dt-float]
                                             :output_shapes [[1]]}
                                            $
@@ -411,7 +411,8 @@ o/map-dataset
                                    iter1)
          {:keys [graph] :as session} (g/build-all->session [mi1 ign1])]
   (g/run session mi1)
-  (g/produce session ign1))
+  [(g/produce session ign1)
+   (g/produce session ign1)])
 
 (g/produce (o/add-n {:N 2} [(o/c 1) (o/c 2)]))
 

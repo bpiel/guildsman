@@ -11,35 +11,22 @@
 
 (defn extract-fn-graph-stuff
   [fn-graph inputs outputs]
-  (let [hnd-idx-fn (fn [p]
-                     ((juxt :handle :output-idx)
-                      (opn/get-op-by-plan fn-graph p)))
-        in-pairs (map hnd-idx-fn inputs)
-        out-pairs (map hnd-idx-fn outputs)
-        all-pairs (map (juxt :handle :output-idx)
-                       :get-all-nodes-from-graph)]
-    
-    ))
-
-(extract-fn-graph-stuff $s/fn-graph1 $s/inputs $s/plan)
-
-(:handle (opn/get-op-by-plan $s/fn-graph1 (-> $s/inputs first)))
-
-(opn/get-op-by-plan $s/fn-graph1 (-> $s/plan first))
-
-#_(extract-fn-graph-stuff $s/fn-graph $s/fn-plan)
-
-#_(-> $s/fn-graph :state deref :id->node clojure.pprint/pprint )
-
-#_(defn prep-fn-plan
-  [{:keys [args body] :as fn-plan}]
-  (w/postwalk-replace
-   (into {}
-         (for [a args]
-           [(:name a) (o/placeholder (-> a :name name keyword)
-                                     (:type a)
-                                     (:shape a))]))
-   body))
+  (let [f (partial opn/get-op-by-plan fn-graph)
+        in-ops (map f inputs)
+        out-ops (map f outputs)
+        in-hnds (mapv :handle in-ops)
+        in-idxs (mapv :output-idx in-ops)
+        out-hnds (mapv :handle out-ops)
+        out-idxs (mapv :output-idx out-ops)
+        all-hnds (->> fn-graph :state deref :id->node vals (map :handle))
+        op-hnds (remove (set in-hnds)
+                        all-hnds)]
+    {:op-hnds op-hnds
+     :in-hnds in-hnds
+     :in-idxs in-idxs
+     :out-hnds out-hnds
+     :out-idxs out-idxs
+     :out-names (mapv :id out-ops)}))
 
 (defn prep-fn-plan
   [{:keys [args body] :as fn-plan}]
@@ -79,7 +66,7 @@
         fn-graph (build->graph (gr/create)
                                plan)
         fn-graph-stuff (extract-fn-graph-stuff fn-graph inputs plan)
-        fn-hnd (fn-graph->fn-hnd g fn-name fn-graph-stuff)
+        fn-hnd (fn-graph->fn-hnd fn-graph fn-name fn-graph-stuff)
         r {:fn-name fn-name
            :fn-hnd fn-hnd}]
     (FunctionNI/copyToGraph (:handle g) fn-hnd 0)
