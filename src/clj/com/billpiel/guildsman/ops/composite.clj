@@ -11,6 +11,7 @@
             [com.billpiel.guildsman.util :as ut]
             [com.billpiel.guildsman.ops.basic :as o]
             [com.billpiel.guildsman.data-type :as dt]
+            [com.billpiel.guildsman.dyn-registry :as dr]
             com.billpiel.guildsman.common
             [clojure.walk :as w])
   (:import [com.billpiel.guildsman.common Graph]
@@ -96,4 +97,4 @@
 (load "composite_nn")
 (load "composite_grad")
 (load "composite_metrics")
-(load "composite_dataset")
+(load "composite_dataset2")

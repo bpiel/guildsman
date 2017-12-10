@@ -104,16 +104,6 @@
          (into fields)
          flatten)))
 
-#_(clojure.pprint/pprint 
- (plex-iter nil
-            :PLEX-ID
-            [{:id :ds1} {:id :ds2}]
-            [(get-ds-output-specs nil)
-             (get-ds-output-specs nil)]
-            [:ds1 :ds2]
-            [:a :b :c]
-            {:ds1 [:a :b :c]
-             :ds2 [:b :a :c]}))
 
 
 (defn- get-ds-output-specs

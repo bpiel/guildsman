@@ -433,18 +433,40 @@ o/map-dataset
 (clojure.pprint/pprint parse-mnist)
 
 
-(g/register-dataset! ::train-ds
-                     (constantly ;; what args would fn take? if any?
-                      (->> (c/fixed-length-record-ds {:epoch-size 2000}
-                                                     [filename-mnist-test-images]
-                                                     16
-                                                     784
-                                                     0
-                                                     784)
-                           (c/map-ds {:fields [:features]}
-                                     parse-mnist))))
+(g/register-dyn! ::train-ds
+                 (constantly ;; what args would fn take? if any?
+                  (->> (c/fixed-length-record-ds {:epoch-size 2000}
+                                                 [filename-mnist-test-images]
+                                                 16
+                                                 784
+                                                 0
+                                                 784)
+                       (c/map-ds {:fields [:features]}
+                                 parse-mnist))))
+
+
+;; TODO epoch size is coupled to files
+(g/register-dyn! ::mnist-train-10k
+                 (constantly ;; what args would fn take? if any?
+                  (->> (c/fixed-length-record-ds {:size 2000}
+                                                 (c/assets-uri ["http://mnist-train-10k-file"])
+                                                 16
+                                                 784
+                                                 0
+                                                 784)
+                       (c/map-ds {:fields [:features g/dt-float [784]]}
+                                 parse-mnist))))
 
 ;; where/how would you inject a perturber?
+
+(g/import-dyn-registry! "https://bpiel.github.io/guildsman-recipes/recipes.edn")
+
+;; https://bpiel.github.io/guildsman-recipes/recipes.edn
+{:bpiel/mnist-train-10k
+ {:name "MNIST Train 10k"
+  :description "..."
+  :source '()
+  :plan {}}}
 
 (g/def-workspace ws-dream
   (g/let+ [iter1 (c/dsi-socket :iter1
@@ -456,8 +478,10 @@ o/map-dataset
      :interval [:records 100] ;; whoa!?!?! next best thing to secs?
      :modes {:train {:targets [tr]
                      ::dev/summaries [v a1]
-                     :iters {iter1 (c/dsi-plug {:datasets [::train-ds]
-                                                :batch-size 10})}}
+                     :iters {iter1 (c/dsi-plug {:batch-size 10}
+                                               ;; :bpiel/mnist-train-10k
+                                               [::mnist-train-10k])}}
              :test {::dev/summaries [v a1]
-                    :iters {iter1 (c/dsi-plug {:datasets [::test-ds]})}}}
+                    :iters {iter1 (c/dsi-plug [::test-ds])}}}
      :workflows {:train-test {:driver g/default-train-test-wf}}}))
+
