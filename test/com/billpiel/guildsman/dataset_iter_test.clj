@@ -433,29 +433,21 @@ o/map-dataset
 (clojure.pprint/pprint parse-mnist)
 
 
-(g/register-dyn! ::train-ds
-                 (constantly ;; what args would fn take? if any?
-                  (->> (c/fixed-length-record-ds {:epoch-size 2000}
-                                                 [filename-mnist-test-images]
-                                                 16
-                                                 784
-                                                 0
-                                                 784)
-                       (c/map-ds {:fields [:features]}
-                                 parse-mnist))))
 
+(g/register-asset-provider! :uri (fn [& _]))
 
-;; TODO epoch size is coupled to files
+;;  epoch size is coupled to files
 (g/register-dyn! ::mnist-train-10k
-                 (constantly ;; what args would fn take? if any?
+                 {:name "..."
+                  :plan
                   (->> (c/fixed-length-record-ds {:size 2000}
-                                                 (c/assets-uri ["http://mnist-train-10k-file"])
+                                                 (c/file-assets [:uri "http://mnist-train-10k-file"])
                                                  16
                                                  784
                                                  0
                                                  784)
                        (c/map-ds {:fields [:features g/dt-float [784]]}
-                                 parse-mnist))))
+                                 parse-mnist))})
 
 ;; where/how would you inject a perturber?
 
@@ -476,7 +468,7 @@ o/map-dataset
      :plans [tr]
      :duration [:epochs 1]
      :interval [:records 100] ;; whoa!?!?! next best thing to secs?
-     :modes {:train {:targets [tr]
+     :modes {:train {:step [tr]
                      ::dev/summaries [v a1]
                      :iters {iter1 (c/dsi-plug {:batch-size 10}
                                                ;; :bpiel/mnist-train-10k
@@ -485,3 +477,27 @@ o/map-dataset
                     :iters {iter1 (c/dsi-plug [::test-ds])}}}
      :workflows {:train-test {:driver g/default-train-test-wf}}}))
 
+(g/let+ [{:keys [ds1]} (+>> (c/tensor-slice-ds [[1. 2. 3.]])
+                            (c/map-ds :ds1
+                                      {:fields [:features]}
+                                      (g/fn-tf dummy
+                                               [g/dt-float [1]]
+                                               [x g/dt-float [1]]
+                                               [(o/add :dummy1 x 1.1)]))) 
+         dsi-s (c/dsi-socket :dsi-s {:fields [:features :labels]})
+         dsi-p (c/dsi-plug :dsi-p ;; TODO id optional
+                           {:batch-size 10}
+                           [ds1])
+         ;; TODO attrs optional
+         dsi-c (c/dsi-connector :dsi-c {} dsi-s dsi-p)
+         {:keys [features labels]} (c/dsi-socket-fields dsi-s)
+         {:keys [graph] :as session} (g/build-all->session [dsi-c features])]
+  session)
+
+(g/produce (->> (c/tensor-slice-ds {:size 3} [[1. 2. 3.]])
+                (c/map-ds :ds1
+                          {:fields [:features]}
+                          (g/fn-tf dummy
+                                   [g/dt-float [1]]
+                                   [x g/dt-float [1]]
+                                   [(o/add :dummy1 x 1.1)]))))

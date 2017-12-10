@@ -377,6 +377,7 @@
   (let [doc' (dx->str doc)]
     (cond (string? doc') (dx-stack-text width indent col doc')
           (vector? doc) (dx-element :section width indent doc)
+          (nil? doc) ""
           :else (throw (Exception. (str "what's this? " doc))))))
 
 (defn dx-section-element
@@ -386,6 +387,7 @@
           (and (vector? doc)
                (not-empty doc)) (dx-element :table width indent doc)
           (empty? doc) []
+          (nil? doc) []
           :else (throw (Exception. (str "what's this? " doc))))))
 
 (defn dx-prep-section-contents**
@@ -513,6 +515,13 @@
         arg-list (cond (and id attrs' inputs')
                        `[~'id
                          {:keys [~@attrs' ~@ctrl-inputs']}
+                         ~@inputs']
+                       (and id attrs')
+                       `[~'id
+                         {:keys [~@attrs' ~@ctrl-inputs']}]
+                       (and id inputs' ctrl-inputs')
+                       `[~'id
+                         {:keys [~@ctrl-inputs']}
                          ~@inputs'])]
     `(~arg-list
       (sc/with-push-both-scopes (or ~'id ~id)
@@ -524,8 +533,10 @@
 (defn defn-comp-op-fn-attr-map
   [name-sym {:keys [doc attrs inputs]}]
   {:doc (dx [doc
-             (into ['inputs] inputs)
-             (into ['attrs] (mapv vec attrs))]
+             (when (not-empty inputs)
+               (into ['inputs] inputs))
+             (when (not-empty attrs)
+               (into ['attrs] (mapv vec attrs)))]
             75)})
 
 (defn- defn-comp-op*

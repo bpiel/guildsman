@@ -631,9 +631,11 @@ provided an existing Graph defrecord and feed map."
            :span {:steps (second duration)}}
    [:block {:type :stage
             :span {:stages 1}}
+    ;; TODO [:build-mode :train] -- adds op to mode :enter
+    ;; TODO [:build-mode :test] -- adds op to mode :enter
     [:build]
     [:create-session]
-    [:init-varis]
+    [:init-varis] ;; TODO :init-all (includes ds-iter inits)
     [:block {:type :interval
              :span {}}
      [:mode :train]

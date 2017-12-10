@@ -31,7 +31,7 @@
 (defn prep-fn-plan
   [{:keys [args body] :as fn-plan}]
   (let [pairs (for [a args]
-                [(:name a) (o/placeholder (-> a :name name keyword)
+                [(:arg a) (o/placeholder (-> a :arg name keyword)
                                           (:type a)
                                           (:shape a))])
         subs (into {} pairs)
