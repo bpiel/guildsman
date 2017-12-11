@@ -477,6 +477,7 @@ o/map-dataset
                     :iters {iter1 (c/dsi-plug [::test-ds])}}}
      :workflows {:train-test {:driver g/default-train-test-wf}}}))
 
+
 (g/let+ [{:keys [ds1]} (+>> (c/tensor-slice-ds {:size 3}
                                                [[1. 2. 3.]])
                             (c/map-ds :ds1
@@ -496,6 +497,7 @@ o/map-dataset
          {:keys [features labels]} (c/dsi-socket-outputs dsi-s)
          {:keys [graph] :as session} (g/build-all->session [dsi-c features])]
   session)
+
 
 (g/produce (->> (c/tensor-slice-ds {:size 3} [[1. 2. 3.]])
                 (c/map-ds :ds1

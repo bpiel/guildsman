@@ -5,6 +5,7 @@
   [{:fields [{:name :features :shape [] :type :float}]
      :size 10000}])
 
+;; TODO the whole lookup thing with re-map and whatnot!
 (defn- dsi-plug-iter-attrs
   [fields]
   (let [f' (-> fields
@@ -33,12 +34,13 @@
    :attrs {batch-size "The size of the batch.. negotiable."
            fields "Usually provided by dsi-connector."}
    :inputs [[datasets "A vector of one or more datasets. Keywords will be realized as packages." ]]}
-  (let [;; TODO might be plans already!
+  (let [ ;; TODO might be plans already!
         dsets datasets #_(mapv pkg/get-plan datasets)]   
     {:macro :dsi-plug
      :id id
-     :inputs [dsets]
-     :ds-outs (mk-ds-outs dsets)
+     :inputs dsets
+     :ds-outs (mapv #(select-keys % [:fields :field-specs])
+                    dsets)
      :batch-size batch-size
      :fields fields}))
 
@@ -129,20 +131,21 @@
    :fields [nil]})
 
 (defn fields->ds-attrs
-  [fields]
-  {:output_types (mapv :type fields)
-   :output_shapes (mapv :shape fields)})
+  [field-specs]
+  (let [fs (partition 2 field-specs)]
+    {:output_types (mapv first fs)
+     :output_shapes (mapv second fs)}))
 
 (defmethod mc/build-macro :map-ds
-  [^Graph g {:keys [id inputs fields f] :as args}]
+  [^Graph g {:keys [id inputs field-specs f] :as args}]
   [(o/map-dataset id
-                  (assoc (fields->ds-attrs fields)
+                  (assoc (fields->ds-attrs field-specs)
                          :f f)                  
                   (first inputs)
                   ;; TODO support other args
                   [])])
 
-(defn- map-ds-mk-field-attr
+#_(defn- map-ds-mk-field-attr
   [fields {:keys [returns]}]
   (mapv (fn [f st]
           {:field f
@@ -163,7 +166,10 @@
    :f f
    :size (:size input-ds) ;; TODO might be pkg
    ;; TODO get types from fn return????????
-   :fields (map-ds-mk-field-attr fields f)})
+   :field-specs (vec (mapcat (juxt :type :shape) (:returns f)))   
+   :fields fields})
+
+
 
 (defmethod mc/build-macro :tensor-slice-ds
   [^Graph g {:keys [id inputs fields] :as args}]

@@ -11,7 +11,7 @@
             [com.billpiel.guildsman.util :as ut]
             [com.billpiel.guildsman.ops.basic :as o]
             [com.billpiel.guildsman.data-type :as dt]
-            [com.billpiel.guildsman.dyn-registry :as dr]
+            [com.billpiel.guildsman.packages :as pkg]
             [com.billpiel.guildsman.common :as cmn]
             [clojure.walk :as w])
   (:import [com.billpiel.guildsman.common Graph]
