@@ -20,3 +20,6 @@
 
 (defn Op? [o] (= (type o) Op))
 
+(defn op-attrs->map
+  [^Op o]
+  (throw (Exception. "NOT IMPLEMENTED")))

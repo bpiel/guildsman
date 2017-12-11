@@ -12,7 +12,7 @@
             [com.billpiel.guildsman.ops.basic :as o]
             [com.billpiel.guildsman.data-type :as dt]
             [com.billpiel.guildsman.dyn-registry :as dr]
-            com.billpiel.guildsman.common
+            [com.billpiel.guildsman.common :as cmn]
             [clojure.walk :as w])
   (:import [com.billpiel.guildsman.common Graph]
            [com.billpiel.guildsman.session Session]))

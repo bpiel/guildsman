@@ -20,6 +20,7 @@
 (def list-shape-kw (keyword "list(shape)"))
 (def list-kw :list)
 
+;; TODO multimethods and protocols???
 
 (defn is-type?-fn
   [t]

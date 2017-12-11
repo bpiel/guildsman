@@ -437,17 +437,17 @@ o/map-dataset
 (g/register-asset-provider! :uri (fn [& _]))
 
 ;;  epoch size is coupled to files
-(g/register-dyn! ::mnist-train-10k
+(g/register-dyn! :bpiel/mnist-train-10k
                  {:name "..."
                   :plan
-                  (->> (c/fixed-length-record-ds {:size 2000}
-                                                 (c/file-assets [:uri "http://mnist-train-10k-file"])
-                                                 16
-                                                 784
-                                                 0
-                                                 784)
-                       (c/map-ds {:fields [:features g/dt-float [784]]}
-                                 parse-mnist))})
+                  (->> (c/fixed-length-record-ds {:size 2000
+                                                  :header-bytes 16
+                                                  :record-bytes 784
+                                                  :footer-bytes 0
+                                                  :buffer-bytes 784}
+                                                 (c/file-assets :bpiel/mnist-train-10k-file))
+                       (c/map-ds {:fields [:features]}
+                                 :bpiel/parse-mnist-fn))})
 
 ;; where/how would you inject a perturber?
 
@@ -477,20 +477,23 @@ o/map-dataset
                     :iters {iter1 (c/dsi-plug [::test-ds])}}}
      :workflows {:train-test {:driver g/default-train-test-wf}}}))
 
-(g/let+ [{:keys [ds1]} (+>> (c/tensor-slice-ds [[1. 2. 3.]])
+(g/let+ [{:keys [ds1]} (+>> (c/tensor-slice-ds {:size 3}
+                                               [[1. 2. 3.]])
                             (c/map-ds :ds1
                                       {:fields [:features]}
                                       (g/fn-tf dummy
                                                [g/dt-float [1]]
                                                [x g/dt-float [1]]
                                                [(o/add :dummy1 x 1.1)]))) 
-         dsi-s (c/dsi-socket :dsi-s {:fields [:features :labels]})
+         dsi-s (c/dsi-socket :dsi-s
+                             {:fields [:features g/dt-float [-1 1]
+                                       :labels  g/dt-float [-1]]})
          dsi-p (c/dsi-plug :dsi-p ;; TODO id optional
                            {:batch-size 10}
                            [ds1])
          ;; TODO attrs optional
          dsi-c (c/dsi-connector :dsi-c {} dsi-s dsi-p)
-         {:keys [features labels]} (c/dsi-socket-fields dsi-s)
+         {:keys [features labels]} (c/dsi-socket-outputs dsi-s)
          {:keys [graph] :as session} (g/build-all->session [dsi-c features])]
   session)
 
