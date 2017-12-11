@@ -143,7 +143,7 @@
 ;; (= (hash 0) (hash 0.0)) !!!!!!
 (register-op-gen-cfg!
  "Const"
- {:fn-name 'c
+ {:fn-name 'c ;; TODO rename? con?
   :plan-fn-bodies (constantly
                    '[([value] (if (nil? value)
                                 nil

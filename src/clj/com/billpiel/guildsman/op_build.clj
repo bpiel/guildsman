@@ -142,7 +142,7 @@
 (defn build-op
   [{:keys [^Graph g plan op-def]}]
   (try
-    (let [{:keys [id scope op hsh inputs ctrl-inputs attrs output-idx]} plan
+    (let [{:keys [id scope op hsh inputs ctrl-inputs attrs output-idx xprops]} plan
           collections (ut/get-collections plan)
           {tf-op :name def-attr :attr} op-def
           attrs' (or attrs {})
@@ -156,19 +156,20 @@
                      (add-ctrl-inputs ctrl-input-handles)
                      com.billpiel.guildsman.OperationBuilderNI/finish) ;; TODO release attr tensors? or done for us?
           {:keys [num-outputs shapes dtypes]} (opn/get-output-desc-by-handle (:handle g) handle)
-          node (with-meta (Op. id'
-                               [] ;; TODO add :0, when appropriate
-                               op
-                               (flatten (inputs->tf-ids inputs)) 
-                               (mapv ut/mk-tf-id ctrl-inputs)
-                               hsh
-                               attrs'
-                               handle
-                               (or output-idx 0)
-                               num-outputs
-                               shapes
-                               dtypes
-                               (gr/mk-graph-ref g))
+          node (with-meta (merge (Op. id'
+                                      [] ;; TODO add :0, when appropriate
+                                      op
+                                      (flatten (inputs->tf-ids inputs)) 
+                                      (mapv ut/mk-tf-id ctrl-inputs)
+                                      hsh
+                                      attrs'
+                                      handle
+                                      (or output-idx 0)
+                                      num-outputs
+                                      shapes
+                                      dtypes
+                                      (gr/mk-graph-ref g))
+                                 xprops)
                  (meta plan))]
       (gr/add-op-to-state! g node collections)
       node)
@@ -185,8 +186,6 @@
                                 pr-plan)
                         {:plan plan
                          :ex e}))))))
-
-
 
 (defmulti build (fn [g op-plan] (:op op-plan)))
 

@@ -471,10 +471,9 @@ o/map-dataset
      :modes {:train {:step [tr]
                      ::dev/summaries [v a1]
                      :iters {iter1 (c/dsi-plug {:batch-size 10}
-                                               ;; :bpiel/mnist-train-10k
-                                               [::mnist-train-10k])}}
+                                               [:bpiel/mnist-train-10k])}}
              :test {::dev/summaries [v a1]
-                    :iters {iter1 (c/dsi-plug [::test-ds])}}}
+                    :iters {iter1 (c/dsi-plug [:bpiel/mnist-test-10k])}}}
      :workflows {:train-test {:driver g/default-train-test-wf}}}))
 
 

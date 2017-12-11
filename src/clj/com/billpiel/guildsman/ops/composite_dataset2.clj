@@ -1,5 +1,9 @@
 (in-ns 'com.billpiel.guildsman.ops.composite)
 
+(defn- set-ds-fields
+  [plan fields]
+  (assoc-in plan [:xprops :ds-fields]
+            fields))
 
 
 
@@ -7,9 +11,7 @@
   [^Graph g {:keys [id inputs fields-in fields] :as args}]
   ;; TODO zip multiple dsets
   ;; TODO re-map mismatched fields
-  (let [zipped-ds (if (> 1 (count inputs))
-                    (c/zip-ds {:fields fields-in} inputs)
-                    (first inputs))])  
+  
   )
 
 (ut/defn-comp-macro-op remix-ds
@@ -17,8 +19,8 @@
    :id :remix-ds ;; TODO why is :id mandatory? how is it used?
    :attrs {fields ""}
    :inputs [[datasets "" ]]}
-  (let [zipped-ds (if (> 1 (count datasets))
-                    (c/zip-ds datasets)
+#_  (let [zipped-ds (if (> 1 (count datasets))
+                    (zip-ds datasets)
                     (first datasets))]
     {:macro :remix-ds
      :id id
@@ -185,7 +187,6 @@
    :fields fields})
 
 
-
 (defmethod mc/build-macro :tensor-slice-ds
   [^Graph g {:keys [id inputs fields] :as args}]
   [(o/tensor-slice-dataset id
@@ -196,22 +197,10 @@
 (ut/defn-comp-macro-op tensor-slice-ds
   {:doc ""
    :id :tensor-slice-ds
-   :attrs {fields "field names"
-           size "this is dumb"}
+   :attrs {fields "field names"}
    ;; TODO I'd rather components be an & args thing
    :inputs [[components "vectors of tensors/plans"]]}
   {:macro :tensor-slice-ds
    :id id
    :inputs components
-   :size size ;; TODO
    :fields fields})
-
-
-
-
-
-
-
-
-
-
