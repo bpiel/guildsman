@@ -1,27 +1,40 @@
 (in-ns 'com.billpiel.guildsman.ops.composite)
 
-(defn- mk-ds-outs
-  [dsets]
-  [{:fields [{:name :features :shape [] :type :float}]
-     :size 10000}])
 
-;; TODO the whole lookup thing with re-map and whatnot!
-(defn- dsi-plug-iter-attrs
-  [fields]
-  (let [f' (-> fields
-               first
-               :fields)]
-    {:output_shapes (mapv :shapes f')
-     :output_types (mapv :types f')}))
 
-(defmethod mc/build-macro :dsi-plug
-  [^Graph g {:keys [id inputs ds-outs batch-size fields] :as args}]
+
+(defmethod mc/build-macro :remix-ds
+  [^Graph g {:keys [id inputs fields-in fields] :as args}]
   ;; TODO zip multiple dsets
   ;; TODO re-map mismatched fields
-  (let [iter (o/iterator :iterator (dsi-plug-iter-attrs ds-outs))
-        iter-hnd (o/iterator-to-string-handle :iter-hnd iter)
+  (let [zipped-ds (if (> 1 (count inputs))
+                    (c/zip-ds {:fields fields-in} inputs)
+                    (first inputs))])  
+  )
+
+(ut/defn-comp-macro-op remix-ds
+  {:doc ""
+   :id :remix-ds ;; TODO why is :id mandatory? how is it used?
+   :attrs {fields ""}
+   :inputs [[datasets "" ]]}
+  (let [zipped-ds (if (> 1 (count datasets))
+                    (c/zip-ds datasets)
+                    (first datasets))]
+    {:macro :remix-ds
+     :id id
+     :inputs [zipped-ds]
+     :fields-in (mapv :fields datasets)
+     :fields fields
+     :size (apply min (keep :size datasets))}))
+
+(defmethod mc/build-macro :dsi-plug
+  [^Graph g {:keys [id inputs batch-size] :as args}]
+  (let [remixed-ds (first inputs)
+        ds-outs (mc/ds-outs remixed-ds)
+        iter (o/iterator :iterator ds-outs)
+        iter-hnd (o/iterator-to-string-handle :iter-hnd ds-outs iter)
         init-iter (o/make-iterator :init-iter
-                                   (first inputs)
+                                   remixed-ds
                                    iter)]
     [iter-hnd
      init-iter]))
@@ -35,14 +48,15 @@
            fields "Usually provided by dsi-connector."}
    :inputs [[datasets "A vector of one or more datasets. Keywords will be realized as packages." ]]}
   (let [ ;; TODO might be plans already!
-        dsets datasets #_(mapv pkg/get-plan datasets)]   
+        dsets datasets #_(mapv pkg/get-plan datasets)
+        remixed-ds (remix-ds {:fields fields} dsets)]   
     {:macro :dsi-plug
      :id id
-     :inputs dsets
+     :inputs [remixed-ds]
      :ds-outs (mapv #(select-keys % [:fields :field-specs])
                     dsets)
      :batch-size batch-size
-     :fields fields}))
+     :epoch-size (:size remixed-ds)}))
 
 (defn- field-specs->outs-attrs
   [field-specs]
@@ -127,7 +141,7 @@
    :id id
    :inputs [filenames header-bytes record-bytes footer-bytes buffer-bytes]
    :size size
-   :field-specs [dt/string-kw []]
+;   :field-specs [dt/string-kw []]
    :fields [nil]})
 
 (defn fields->ds-attrs
@@ -137,13 +151,14 @@
      :output_shapes (mapv second fs)}))
 
 (defmethod mc/build-macro :map-ds
-  [^Graph g {:keys [id inputs field-specs f] :as args}]
-  [(o/map-dataset id
-                  (assoc (fields->ds-attrs field-specs)
-                         :f f)                  
-                  (first inputs)
-                  ;; TODO support other args
-                  [])])
+  [^Graph g {:keys [id inputs f] :as args}]
+  (let [input (first inputs)]
+    [(o/map-dataset id
+                    (assoc (fields->ds-attrs (mc/ds-outs input))
+                           :f f)                  
+                    input
+                    ;; TODO support other args
+                    [])]))
 
 #_(defn- map-ds-mk-field-attr
   [fields {:keys [returns]}]
@@ -190,3 +205,13 @@
    :inputs components
    :size size ;; TODO
    :fields fields})
+
+
+
+
+
+
+
+
+
+
