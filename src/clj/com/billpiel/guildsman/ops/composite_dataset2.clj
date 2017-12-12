@@ -16,26 +16,22 @@
    :output_shapes (mapv :shape ds-fields-prop)})
 
 (defmethod mc/build-macro :remix-ds
-  [^Graph g {:keys [id inputs fields-in fields] :as args}]
+  [^Graph g {:keys [id inputs fields] :as args}]
   ;; TODO zip multiple dsets
   ;; TODO re-map mismatched fields
-  
-  )
+  [(set-ds-props (first inputs)
+                 fields
+                 (-> inputs first :ds-size))])
 
 (ut/defn-comp-macro-op remix-ds
   {:doc ""
    :id :remix-ds ;; TODO why is :id mandatory? how is it used?
    :attrs {fields ""}
    :inputs [[datasets "" ]]}
-#_  (let [zipped-ds (if (> 1 (count datasets))
-                    (zip-ds datasets)
-                    (first datasets))]
-    {:macro :remix-ds
-     :id id
-     :inputs [zipped-ds]
-     :fields-in (mapv :fields datasets)
-     :fields fields
-     :size (apply min (keep :size datasets))}))
+  {:macro :remix-ds
+   :id id
+   :inputs datasets
+   :fields fields})
 
 (defmethod mc/build-macro :dsi-plug
   [^Graph g {:keys [id inputs fields batch-size] :as args}]
@@ -47,7 +43,8 @@
                                    remixed-ds
                                    iter)]
     [iter-hnd
-     init-iter]))
+     (ut/build-eagerly
+      init-iter)]))
 
 (ut/defn-comp-macro-op dsi-plug
   {:doc
@@ -65,15 +62,14 @@
      :batch-size batch-size
      :fields fields}))
 
-
-
 (defmethod mc/build-macro :dsi-socket
   [^Graph g {:keys [id fields inputs] :as args}]
   (let [outs-attrs (ds-fields-prop->output-attrs fields)
         v (o/variable :iter-hnd-vari {:shape [] :dtype dt/string-kw})
-        iter (o/iterator-from-string-handle :out-iter
-                                            outs-attrs
-                                            v)
+        iter (ut/build-eagerly
+              (o/iterator-from-string-handle :out-iter
+                                             outs-attrs
+                                             v))
         get-next (o/iterator-get-next :get-next
                                       outs-attrs
                                       iter)]
@@ -107,26 +103,32 @@
          :iter (assoc plan
                       :output-idx 1)}
         (map-indexed (fn [idx f]
-                       [f (assoc plan
-                                 :output-idx (+ 2 idx))])
+                       [(:name f) (assoc plan
+                                         :output-idx (+ 2 idx))])
                      fields)))
 
 
 
 (defmethod mc/build-macro :dsi-connector
   [^Graph g {:keys [id attrs inputs] :as args}]
-  [:assign-plug-hnd-to-socket-vari
-   :init-iter])
+  (let [[socket plug-hnd plug-init] inputs]
+    [(o/assign socket plug-hnd)
+     plug-init]))
 
 (ut/defn-comp-macro-op dsi-connector
   {:doc "Dataset Iterator Connector. Used internally by workflows..."
    :id :dsi-connector
    :inputs [[socket "dsi socket"]
             [plug "dsi plug"]]}
-  {:macro :dsi-connector
-   :id id
-   ;; TODO assoc fields/shapes/types to both inputs -- or something??????
-   :inputs [socket plug]})
+  (let [plug' (assoc plug :fields (:fields socket))
+        plug0 (assoc plug' :output-idx 0)
+        plug1 (assoc plug' :output-idx 1)]
+    {:macro :dsi-connector
+     :id id
+     ;; TODO assoc fields/shapes/types to both inputs -- or something??????
+     :inputs [socket
+              plug0
+              plug1]}))
 
 
 (defmethod mc/build-macro :fixed-length-record-ds
@@ -230,5 +232,6 @@
    :inputs [[components "vectors of tensors/plans"]]}
   {:macro :tensor-slice-ds
    :id id
-   :inputs components
+   :inputs [(o/c (first components))
+            (o/c (second components))]
    :fields fields})

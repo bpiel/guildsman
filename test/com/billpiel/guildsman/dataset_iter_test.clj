@@ -477,31 +477,44 @@ o/map-dataset
      :workflows {:train-test {:driver g/default-train-test-wf}}}))
 
 
-(g/let+ [{:keys [ds1]} (+>> (c/tensor-slice-ds {:size 3}
-                                               [[1. 2. 3.]])
+(g/let+ [{:keys [ds1]} (+>> (c/tensor-slice-ds  {:size 3}
+                                               [[[1.] [2.] [3.]]
+                                                [[4.] [5.] [6.]]])
                             (c/map-ds :ds1
-                                      {:fields [:features]}
+                                      {:fields [:features :labels]}
                                       (g/fn-tf dummy
-                                               [g/dt-float [1]]
-                                               [x g/dt-float [1]]
-                                               [(o/add :dummy1 x 1.1)]))) 
+                                               [g/dt-float [1]
+                                                g/dt-float [1]]
+                                               [x g/dt-float [1]
+                                                y g/dt-float [1]]
+                                               [(o/add :dummy1 x 0.1)
+                                                (o/add :dummy2 y 0.2)]))) 
          dsi-s (c/dsi-socket :dsi-s
-                             {:fields [:features g/dt-float [-1 1]
-                                       :labels  g/dt-float [-1]]})
+                             {:fields [:features g/dt-float [1]
+                                       :labels g/dt-float [-1]]})
          dsi-p (c/dsi-plug :dsi-p ;; TODO id optional
                            {:batch-size 10}
                            [ds1])
          ;; TODO attrs optional
          dsi-c (c/dsi-connector :dsi-c {} dsi-s dsi-p)
          {:keys [features labels]} (c/dsi-socket-outputs dsi-s)
-         {:keys [graph] :as session} (g/build-all->session [dsi-c features])]
-  session)
+         {:keys [graph] :as session} (g/build-all->session [dsi-c features labels])]
+  (g/run session (assoc dsi-c :output-idx 1))
+  (g/run session dsi-c)
+  (clojure.pprint/pprint labels)
+  (g/produce session labels))
 
 
-(g/produce (->> (c/tensor-slice-ds {:size 3} [[1. 2. 3.]])
-                (c/map-ds :ds1
-                          {:fields [:features]}
-                          (g/fn-tf dummy
-                                   [g/dt-float [1]]
-                                   [x g/dt-float [1]]
-                                   [(o/add :dummy1 x 1.1)]))))
+(g/let+ [out-spec {:output_types [:float :float] :output_shapes [[1] [1]]}
+         iter1 (o/iterator out-spec)
+         gn1 (o/iterator-get-next :gn1
+                                  out-spec
+                                  iter1)
+         ds1 (o/tensor-slice-dataset :ds1
+                                     out-spec
+                                     [(o/c [[1.] [2.]])
+                                      (o/c [[3.] [4.]])])
+         mi1 (o/make-iterator :mi1 ds1 iter1)
+         {:keys [graph] :as session} (g/build-all->session [mi1 gn1])]
+  (g/run session mi1)
+  (g/produce session (assoc gn1 :output-idx 1)))

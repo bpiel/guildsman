@@ -15,10 +15,13 @@
 
 ;; TODO move to utils?
 (defn compute-hash
-  [{:keys [id scope] :as plan}]
-  (cond (keyword? plan)
-        (hash [plan []])
+  [{:keys [id scope] hsh :hash :as plan}]
+  (cond hsh hsh
+        
+        (keyword? plan) (hash [plan []])
+        
         id (hash [id scope])
+        
         :else
         (-> plan
             (dissoc :output-idx)
@@ -26,10 +29,13 @@
 
 (defn get-op-by-plan
   [^Graph g plan]
-  (->> plan
-       compute-hash
-       ((gr/hash->id g))
-       ((gr/id->node g))))
+  (ut/$- ->> plan
+         compute-hash
+         ((gr/hash->id g))
+         ((gr/id->node g))
+         (assoc $ :output-idx
+                (or (:output-idx plan)
+                    0))))
 
 (defn find-op
   [^Graph g qry]

@@ -37,6 +37,7 @@
 (def dt-list dt/list-kw)
 
 
+;; TODO bug? (+>> (o/xxx :a) (o/yyy a b))
 (defmacro let+
   [& body]
   `(ut/let+ ~@body))

@@ -25,9 +25,9 @@
 (defn macro-plan->op-plan
   [^Graph g {:keys [output-idx] :as plan}]
   (-> plan
-       compute-hash
-       ((gr/macro-hash->outputs g))
-       (nth (or output-idx 0))))
+      compute-hash
+      ((gr/macro-hash->outputs g))
+      (nth (or output-idx 0))))
 
 (defn- mk-id
   [^Graph g base-kw]
