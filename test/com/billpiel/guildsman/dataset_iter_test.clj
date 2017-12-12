@@ -5,9 +5,8 @@
             [com.billpiel.guildsman.ops.composite :as c]
             [com.billpiel.guildsman.data-type :as dt]
             [com.billpiel.guildsman.dev :as dev]
-;; func attr val
+            [com.billpiel.guildsman.packages :as pkg]
             [flatland.protobuf.core :as pr])
-;; func attr val  
   (:import [org.tensorflow.framework AttrValue OpDef]
            [com.billpiel.guildsman FunctionNI]))
 
@@ -356,38 +355,6 @@ o/map-dataset
 (def filename-mnist-test-images "/home/bill/repos/guildsman-conj2017/resources/mnist/test-10k-images-idx3-ubyte")
 
 
-(g/register-dataset! ::train-ds
-                     {:recs-per-epoch 200
-                      :plan (as-> (o/fixed-length-record-dataset [filename-mnist-test-images]
-                                                                 16
-                                                                 784
-                                                                 0
-                                                                 784)
-                                $
-                              (o/map-dataset {:f {:func :f1
-                                                  :returns [{:shape [] :type :???}]
-                                                  :args [{:name 'x
-                                                          :shape []
-                                                          :type g/dt-float}]}
-                                              :output_types :???
-                                              :output_shapes :???}
-                                             $
-                                             (byte-array 0)))})
-
-(g/produce (as-> (o/tensor-slice-dataset {:output_shapes [[1]]} [(o/c [1. 2. 3.]
-                                                                      g/dt-float)])
-               $
-               (o/map-dataset {:f {:func :f1
-                                   :returns [{:shape [1] :type g/dt-float}]
-                                   :args [{:name 'x
-                                           :shape [1]
-                                           :type g/dt-float}]
-                                   :body [(o/add 'x 1.)]}
-                               :output_types [g/dt-float]
-                               :output_shapes [[1]]}
-                              $
-                              [(o/c 0)])))
-
 (g/let+ [{:keys [ds1]} (+>> (o/tensor-slice-dataset {:output_shapes [[1]]}
                                                     [(o/c [1. 2. 3.]
                                                           g/dt-float)])
@@ -414,8 +381,6 @@ o/map-dataset
   [(g/produce session ign1)
    (g/produce session ign1)])
 
-(g/produce (o/add-n {:N 2} [(o/c 1) (o/c 2)]))
-
 
 (g/defn-tf parse-mnist
   [g/dt-float [784]] ;; TODO unspecified shape would be nice here
@@ -430,28 +395,80 @@ o/map-dataset
   [x g/dt-string []] ;; TODO infering signature would be nice!
   [(o/add x 2)])
 
-(clojure.pprint/pprint parse-mnist)
+(pkg/register-pkg! :bpiel/mnist-train-60k-features
+                   {:name "..."
+                    :plan
+                    (->> (c/asset-as-files :bpiel/mnist-train-10k-features-file)
+                         (c/fixed-length-record-ds {:size 60000
+                                                    :header-bytes 16
+                                                    :record-bytes 784
+                                                    :footer-bytes 0
+                                                    :buffer-bytes 784})
+                         (c/map-ds {:fields [:features]}
+                                   :bpiel/parse-mnist-features-fn))})
 
+(pkg/register-pkg! :bpiel/mnist-train-60k-labels
+                   {:name "..."
+                    :pkgs [:deps]
+                    :plan
+                    (->> (c/asset-as-files :bpiel/mnist-train-10k-labels-file)
+                         (c/fixed-length-record-ds {:size 60000
+                                                    :header-bytes 16
+                                                    :record-bytes 1
+                                                    :footer-bytes 0
+                                                    :buffer-bytes 1})
+                         (c/map-ds {:fields [:labels]}
+                                   :bpiel/parse-mnist-labels-fn))})
 
+(pkg/register-pkg! :bpiel/mnist-test-10k-features-file
+                   {:name "..."
+                    :pkgs [:deps]
+                    :asset {:records 10000
+                            :format-or-something?? :?????
+                            :sources [[{:type :uri
+                                        :uri "http://part1"
+                                        :md5hash "????"}
+                                       {:type :uri
+                                        :uri "http://part2"
+                                        :md5hash "..."}]
+                                      [{:type :uri
+                                        :uri "http://part1-mirror"
+                                        :md5hash "..."}
+                                       {:type :uri
+                                        :uri "http://part2-mirror"
+                                        :md5hash "..."}]]}})
 
-(g/register-asset-provider! :uri (fn [& _]))
+(pkg/register-pkg! :bpiel/mnist-test-10k-features
+                   {:name "..."
+                    :desc "...."
+                    :pkgs [:deps]
+                    :source '()
+                    :plan
+                    (->> (c/asset-as-files :bpiel/mnist-test-10k-features-file)
+                         (c/fixed-length-record-ds {:size 10000
+                                                    :header-bytes 16
+                                                    :record-bytes 784
+                                                    :footer-bytes 0
+                                                    :buffer-bytes 784})
+                         (c/map-ds {:fields [:features]}
+                                   :bpiel/parse-mnist-features-fn))})
 
-;;  epoch size is coupled to files
-(g/register-dyn! :bpiel/mnist-train-10k
-                 {:name "..."
-                  :plan
-                  (->> (c/fixed-length-record-ds {:size 2000
-                                                  :header-bytes 16
-                                                  :record-bytes 784
-                                                  :footer-bytes 0
-                                                  :buffer-bytes 784}
-                                                 (c/file-assets :bpiel/mnist-train-10k-file))
-                       (c/map-ds {:fields [:features]}
-                                 :bpiel/parse-mnist-fn))})
+(pkg/register-pkg! :bpiel/mnist-test-10k-labels
+                   {:name "..."
+                    :pkgs [:deps]
+                    :plan
+                    (->> (c/asset-as-files :bpiel/mnist-test-10k-labels-file)
+                         (c/fixed-length-record-ds {:size 10000
+                                                    :header-bytes 16
+                                                    :record-bytes 1
+                                                    :footer-bytes 0
+                                                    :buffer-bytes 1})
+                         (c/map-ds {:fields [:labels]}
+                                   :bpiel/parse-mnist-labels-fn))})
 
 ;; where/how would you inject a perturber?
 
-(g/import-dyn-registry! "https://bpiel.github.io/guildsman-recipes/recipes.edn")
+(pkg/import-package-repo! "https://bpiel.github.io/guildsman-recipes/recipes.edn")
 
 ;; https://bpiel.github.io/guildsman-recipes/recipes.edn
 {:bpiel/mnist-train-10k

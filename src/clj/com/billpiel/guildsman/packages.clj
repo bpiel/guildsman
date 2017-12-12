@@ -2,10 +2,30 @@
 
 (def registry (atom {}))
 
-(defn register-package!
-  [kw pkg])
+(defn register-pkg!
+  [pkg-kw pkg]
+  (swap! registry assoc pkg-kw pkg))
 
-(defn import-packages!
-  [str-or-map])
+(defn import-pkg-repo!
+  [m]
+  (swap! registry
+         merge
+         m))
 
-(defn get-plan [pkg-kw])
+(defn get-pkg [pkg-kw]
+  (pkg-kw @registry))
+
+(defn get-plan [pkg-kw]
+  (-> pkg-kw
+      get-pkg
+      :plan))
+
+(defn get-asset-desc [pkg-kw]
+  (-> pkg-kw
+      get-pkg
+      :asset))
+
+(defn get-function [pkg-kw]
+  (-> pkg-kw
+      get-pkg
+      :function))
