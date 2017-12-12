@@ -6,7 +6,6 @@
   (:import [com.billpiel.guildsman.common Graph Op]))
 
 (defmulti build-macro (fn [^Graph g plan] (:macro plan)))
-(defmulti ds-outs (fn [^Op o] (:op o)))
 
 (defmethod build-macro :default [_ plan]
   (if (contains? plan :macro)

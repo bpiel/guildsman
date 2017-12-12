@@ -1,11 +1,19 @@
 (in-ns 'com.billpiel.guildsman.ops.composite)
 
-(defn- set-ds-fields
-  [plan fields]
-  (assoc-in plan [:xprops :ds-fields]
-            fields))
+;; TODO include :pkgs in macro plans
 
+(defn- set-ds-props
+  [plan fields size]
+  "fields: [{:name :field1 :type :float :shape [1]} ...]"
+  (update plan :xprops
+          merge
+          {:ds-fields fields
+           :ds-size size}))
 
+(defn- ds-fields-prop->output-attrs
+  [ds-fields-prop]
+  {:output_types (mapv :type ds-fields-prop)
+   :output_shapes (mapv :shape ds-fields-prop)})
 
 (defmethod mc/build-macro :remix-ds
   [^Graph g {:keys [id inputs fields-in fields] :as args}]
@@ -30,11 +38,11 @@
      :size (apply min (keep :size datasets))}))
 
 (defmethod mc/build-macro :dsi-plug
-  [^Graph g {:keys [id inputs batch-size] :as args}]
-  (let [remixed-ds (first inputs)
-        ds-outs (mc/ds-outs remixed-ds)
-        iter (o/iterator :iterator ds-outs)
-        iter-hnd (o/iterator-to-string-handle :iter-hnd ds-outs iter)
+  [^Graph g {:keys [id inputs fields batch-size] :as args}]
+  (let [remixed-ds (remix-ds {:fields fields} inputs)
+        out-attrs (ds-fields-prop->output-attrs fields)
+        iter (o/iterator :iterator out-attrs)
+        iter-hnd (o/iterator-to-string-handle :iter-hnd out-attrs iter)
         init-iter (o/make-iterator :init-iter
                                    remixed-ds
                                    iter)]
@@ -49,25 +57,19 @@
    :attrs {batch-size "The size of the batch.. negotiable."
            fields "Usually provided by dsi-connector."}
    :inputs [[datasets "A vector of one or more datasets. Keywords will be realized as packages." ]]}
-  (let [ ;; TODO might be plans already!
-        dsets datasets #_(mapv pkg/get-plan datasets)
-        remixed-ds (remix-ds {:fields fields} dsets)]   
+  (let [ ;;TODO datasets might be plans or pkgs
+        dsets datasets #_(mapv pkg/get-plan datasets)]   
     {:macro :dsi-plug
      :id id
-     :inputs [remixed-ds]
-     :ds-outs (mapv #(select-keys % [:fields :field-specs])
-                    dsets)
+     :inputs dsets
      :batch-size batch-size
-     :epoch-size (:size remixed-ds)}))
+     :fields fields}))
 
-(defn- field-specs->outs-attrs
-  [field-specs]
-  {:output_types (mapv first field-specs)
-   :output_shapes (mapv second field-specs)})
+
 
 (defmethod mc/build-macro :dsi-socket
-  [^Graph g {:keys [id fields field-specs inputs] :as args}]
-  (let [outs-attrs (field-specs->outs-attrs field-specs)
+  [^Graph g {:keys [id fields inputs] :as args}]
+  (let [outs-attrs (ds-fields-prop->output-attrs fields)
         v (o/variable :iter-hnd-vari {:shape [] :dtype dt/string-kw})
         iter (o/iterator-from-string-handle :out-iter
                                             outs-attrs
@@ -81,6 +83,14 @@
                                 :output-idx idx))
                        fields))))
 
+(defn- dsi-socket-ds-fields-prop
+  [fields]
+  (mapv (fn [[n t s]]
+          {:name n
+           :type t
+           :shape s})
+        (partition 3 fields)))
+
 (ut/defn-comp-macro-op dsi-socket
   {:doc "Dataset Iterator Socket......"
    :id :dsi-socket
@@ -89,8 +99,7 @@
     {:macro :dsi-socket
      :id id
      :inputs []
-     :fields (map first field-trpls)
-     :field-specs (map ut/restv field-trpls)}))
+     :fields (dsi-socket-ds-fields-prop fields)}))
 
 (defn dsi-socket-outputs
   [{:keys [fields] :as plan}]
@@ -121,14 +130,17 @@
 
 
 (defmethod mc/build-macro :fixed-length-record-ds
-  [^Graph g {:keys [id inputs] :as args}]
+  [^Graph g {:keys [id inputs size] :as args}]
   (let [[filenames header-bytes record-bytes footer-bytes buffer-bytes] inputs]
-    [(o/fixed-length-record-dataset id
-                                    filenames
-                                    header-bytes
-                                    record-bytes
-                                    footer-bytes
-                                    buffer-bytes)]))
+    [(set-ds-props
+      (o/fixed-length-record-dataset id
+                                     filenames
+                                     header-bytes
+                                     record-bytes
+                                     footer-bytes
+                                     buffer-bytes)
+      [{:name nil :type dt/string-kw :shape []}]
+      size)]))
 
 (ut/defn-comp-macro-op fixed-length-record-ds
   {:doc ""
@@ -142,9 +154,7 @@
   {:macro :fixed-length-record-ds
    :id id
    :inputs [filenames header-bytes record-bytes footer-bytes buffer-bytes]
-   :size size
-;   :field-specs [dt/string-kw []]
-   :fields [nil]})
+   :size size})
 
 (defn fields->ds-attrs
   [field-specs]
@@ -152,24 +162,29 @@
     {:output_types (mapv first fs)
      :output_shapes (mapv second fs)}))
 
-(defmethod mc/build-macro :map-ds
-  [^Graph g {:keys [id inputs f] :as args}]
-  (let [input (first inputs)]
-    [(o/map-dataset id
-                    (assoc (fields->ds-attrs (mc/ds-outs input))
-                           :f f)                  
-                    input
-                    ;; TODO support other args
-                    [])]))
 
-#_(defn- map-ds-mk-field-attr
+(defn- map-ds-fields-prop
   [fields {:keys [returns]}]
-  (mapv (fn [f st]
-          {:field f
-           :shape (:shape st)
-           :type (:type st)})
+  (mapv (fn [f {t :type s :shape}]
+          {:name f
+           :type t
+           :shape s})
         fields
         returns))
+
+(defmethod mc/build-macro :map-ds
+  [^Graph g {:keys [id inputs f fields] :as args}]
+  (let [{:keys [ds-size] :as input} (first inputs)
+        ds-fields-prop (map-ds-fields-prop fields f)]
+    [(set-ds-props (o/map-dataset id
+                                  (assoc (ds-fields-prop->output-attrs ds-fields-prop)
+                                         :f f)                  
+                                  input
+                                  ;; TODO support other args
+                                  [])
+                   ds-fields-prop
+                   ds-size)]))
+
 
 (ut/defn-comp-macro-op map-ds
   {:doc ""
@@ -180,19 +195,32 @@
   {:macro :map-ds
    :id id
    :inputs [input-ds]
-   :f f
-   :size (:size input-ds) ;; TODO might be pkg
-   ;; TODO get types from fn return????????
-   :field-specs (vec (mapcat (juxt :type :shape) (:returns f)))   
+   :f f ;; TODO might be pkg
    :fields fields})
 
+(defn- tensor-slice-ds-ds-fields-prop
+  [fields inputs]
+  (mapv (fn [f {:keys [types shapes]}]
+          {:name f
+           :type (first types)
+           :shape (first shapes)})
+        fields
+        inputs))
+
+(defn- tensor-slice-ds-ds-size-prop
+  [inputs]
+  (->> inputs
+       (map (comp first first :shapes))
+       (apply min)))
 
 (defmethod mc/build-macro :tensor-slice-ds
   [^Graph g {:keys [id inputs fields] :as args}]
-  [(o/tensor-slice-dataset id
-                           {:output_shapes (mapv (comp first :shapes)
-                                                 inputs)}
-                           inputs)])
+  [(set-ds-props (o/tensor-slice-dataset id
+                                         {:output_shapes (mapv (comp first :shapes)
+                                                               inputs)}
+                                         inputs)
+                 (tensor-slice-ds-ds-fields-prop fields inputs)
+                 (tensor-slice-ds-ds-size-prop inputs))])
 
 (ut/defn-comp-macro-op tensor-slice-ds
   {:doc ""
