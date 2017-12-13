@@ -155,6 +155,7 @@
                 (if (sequential? v)
                   (into-array v)
                   (to-array (repeat v (byte-array 0)))))
+    :protobuf :dt-string
     :pb-attr-key :s
     :pb-attr-fn #(if (is-goole-pb-byte-string? %)
                    (String. (.toByteArray %))
@@ -163,26 +164,26 @@
     :to-bytes-fn identity}
    
    #_{:kw :string 
-    :native 7  
-    :byte-size nil
-    :byte-size-fn (fn [v]
-                    (let [v' (if (sequential? v)
-                               (flatten v)
-                               [v])]
-                      (apply + (map count v'))))
-    :scalar? string?  
-    :array? (constantly false)
-    :scalar java.lang.String
-    :scalar-fn str ;; maybe wrong?
-    :array-fn (fn [v]
-                (if (sequential? v)
-                  (into-array v)
-                  (to-array (repeat v ""))))
-    :pb-attr-key :s
-    :pb-attr-fn #(if (is-goole-pb-byte-string? %)
-                   (String. (.toByteArray %))
-                   (str %))
-    :from-bytes #(String. %)
+      :native 7  
+      :byte-size nil
+      :byte-size-fn (fn [v]
+                      (let [v' (if (sequential? v)
+                                 (flatten v)
+                                 [v])]
+                        (apply + (map count v'))))
+      :scalar? string?  
+      :array? (constantly false)
+      :scalar java.lang.String
+      :scalar-fn str ;; maybe wrong?
+      :array-fn (fn [v]
+                  (if (sequential? v)
+                    (into-array v)
+                    (to-array (repeat v ""))))
+      :pb-attr-key :s
+      :pb-attr-fn #(if (is-goole-pb-byte-string? %)
+                     (String. (.toByteArray %))
+                     (str %))
+      :from-bytes #(String. %)
       :to-bytes-fn string?->bytes}
    
    {:kw :int64 

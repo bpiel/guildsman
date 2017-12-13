@@ -110,8 +110,10 @@
 (defn hook-pre-build-op-override-const
   [args]
   (let [attrs (-> args :plan :attrs)
-        dtype (:dtype attrs)
-        val-type (-> attrs :value dt/data-type-of-whatever :kw)]
+        {:keys [dtype value]} attrs
+        val-type (if (string? value)
+                   dt/string-kw ;; HACK
+                   (-> value dt/data-type-of-whatever :kw))]
     (cond (nil? dtype) (-> args
                            (assoc-in [:plan :attrs :dtype]
                                      (-> val-type dt/kw->dt :native))
@@ -140,6 +142,8 @@
             dt/double-kw dt/float-kw}
            dt-kw)))
 
+
+
 ;; (= (hash 0) (hash 0.0)) !!!!!!
 (register-op-gen-cfg!
  "Const"
@@ -149,10 +153,7 @@
                                 nil
                                 {:op :Const
                                  :attrs {:value value
-                                         :dtype (-> value
-                                                    com.billpiel.guildsman.data-type/data-type-of-whatever 
-                                                    :kw
-                                                    com.billpiel.guildsman.ops.gen-config/auto-cast)}}))
+                                         :dtype (get-const-dtype value)}}))
                      ([value data-type] {:op :Const ;; TODO change arg order?
                                          :id nil
                                          :attrs {:value value

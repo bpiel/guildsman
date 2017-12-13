@@ -10,13 +10,10 @@
 (def OpDefP (pr/protodef OpDef))
 (def OpListP (pr/protodef OpList))
 
-(defn maybe-auto-cast
+(defn maybe-cast
   [v]
-  (if auto-cast
-    (condp = (-> v dt/data-type-of-whatever :kw)
-      dt/long-kw (dt/convert-whatever v dt/int-kw)
-      dt/double-kw (dt/convert-whatever v dt/float-kw)
-      v)
+  (if (string? v)
+    (.getBytes v)
     v))
 
 (defn get-op-kw
@@ -25,7 +22,7 @@
 
 (defn convert-attr
   [value def-type]
-  (let [value' value #_(maybe-auto-cast value)]
+  (let [value' (maybe-cast value)]
     (try
       (condp = def-type                                      ;; TODO move this logic to data_type ns????
         :tensor (:handle (tsr/create-ref-from-value value')) ;; TODO!!

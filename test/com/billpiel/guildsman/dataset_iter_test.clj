@@ -506,7 +506,7 @@ o/map-dataset
                 (c/dsi-socket-outputs))
            rsum (c/reduce-sum features)]
     {:plugins [dev/plugin g/gm-plugin]
-     :plans [rsum socket]
+     :plans [rsum]
      :duration [:epochs 1]
      :interval [:records 100] ;; whoa!?!?! next best thing to secs?
      :modes {:train {:step []

@@ -43,8 +43,9 @@
                                    remixed-ds
                                    iter)]
     [iter-hnd
-     (ut/build-eagerly
-      init-iter)]))
+     (-> init-iter
+         (ut/append-collections [:dataset-iter-inits])
+         ut/build-eagerly)]))
 
 (ut/defn-comp-macro-op dsi-plug
   {:doc
@@ -101,9 +102,9 @@
 
 (defn dsi-socket-outputs
   [{:keys [fields] :as plan}]
-  (into {:-select-vari plan
-         :iter (assoc plan
-                      :output-idx 1)}
+  (into {(:id plan) plan
+         :-iter (assoc plan
+                       :output-idx 1)}
         (map-indexed (fn [idx f]
                        [(:name f) (assoc plan
                                          :output-idx (+ 2 idx))])
