@@ -659,11 +659,12 @@ provided an existing Graph defrecord and feed map."
 
 (defn default-train-test-wf
   [ws-cfg]
-  (vary-meta ((eval (ws2/render-wf-fn-src (mk-default-train-test-wf-def ws-cfg)
-                                          ws-cfg))
-              ws-cfg)
-             assoc
-             :doc "A default implementation of a train-test workflow....TODO"))
+  (let [src (ws2/render-wf-fn-src (mk-default-train-test-wf-def ws-cfg)
+                                  ws-cfg)]
+    (vary-meta ((eval src) ws-cfg)
+               assoc
+               :doc "A default implementation of a train-test workflow....TODO"
+               :source src)))
 
 (defmacro ws-show-cmd-source
   [ws cmd]
@@ -681,6 +682,9 @@ provided an existing Graph defrecord and feed map."
        :wf-meta
        ~cmd))
 
+(defmacro ws-pr-workflow-source
+  [ws wf]
+  `(ut/pr-code (:source (ws-show-workflow-meta ~ws ~wf))))
 
 (defmacro def-workspace
   [ws-name & body]

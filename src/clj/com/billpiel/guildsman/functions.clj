@@ -64,7 +64,7 @@
   (let [{:keys [inputs plan]} (prep-fn-plan fn-plan)
         fn-name (mk-fn-name fn-plan plan)        
         fn-graph (build->graph (gr/create)
-                               plan)
+                               (into inputs plan))
         fn-graph-stuff (extract-fn-graph-stuff fn-graph inputs plan)
         fn-hnd (fn-graph->fn-hnd fn-graph fn-name fn-graph-stuff)
         r {:fn-name fn-name

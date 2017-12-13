@@ -395,10 +395,29 @@ o/map-dataset
   [x g/dt-string []] ;; TODO infering signature would be nice!
   [(o/add x 2)])
 
+(pkg/register-pkg! :bpiel/parse-mnist-features-fn
+                   {:name "parse-mnist-features-fn"
+                    :function
+                    (g/fn-tf parse-mnist-features-fn
+                             [g/dt-float [784]]
+                             [x g/dt-string []]
+                             [(o/div (->> x
+                                          (o/decode-raw {:out_type g/dt-uint})
+                                          (c/cast-tf g/dt-float))
+                                     255.0)])})
+
+(pkg/register-pkg! :bpiel/mnist-train-60k-features-file
+                   {:name "..."
+                    :pkgs [:deps]
+                    :asset {:records 60000                            
+                            :sources [[{:type :local
+                                        :path "/home/bill/repos/guildsman-conj2017/resources/mnist/train-60k-images-idx3-ubyte"
+                                        :md5hash "6bbc9ace898e44ae57da46a324031adb"}]]}})
+
 (pkg/register-pkg! :bpiel/mnist-train-60k-features
                    {:name "..."
                     :plan
-                    (->> (c/asset-as-files :bpiel/mnist-train-10k-features-file)
+                    (->> (c/asset-as-files :bpiel/mnist-train-60k-features-file)
                          (c/fixed-length-record-ds {:size 60000
                                                     :header-bytes 16
                                                     :record-bytes 784
@@ -420,7 +439,7 @@ o/map-dataset
                          (c/map-ds {:fields [:labels]}
                                    :bpiel/parse-mnist-labels-fn))})
 
-(pkg/register-pkg! :bpiel/mnist-test-10k-features-file
+#_(pkg/register-pkg! :bpiel/mnist-test-10k-features-file
                    {:name "..."
                     :pkgs [:deps]
                     :asset {:records 10000
@@ -438,7 +457,7 @@ o/map-dataset
                                         :uri "http://part2-mirror"
                                         :md5hash "..."}]]}})
 
-(pkg/register-pkg! :bpiel/mnist-test-10k-features
+#_(pkg/register-pkg! :bpiel/mnist-test-10k-features
                    {:name "..."
                     :desc "...."
                     :pkgs [:deps]
@@ -453,7 +472,7 @@ o/map-dataset
                          (c/map-ds {:fields [:features]}
                                    :bpiel/parse-mnist-features-fn))})
 
-(pkg/register-pkg! :bpiel/mnist-test-10k-labels
+#_(pkg/register-pkg! :bpiel/mnist-test-10k-labels
                    {:name "..."
                     :pkgs [:deps]
                     :plan
@@ -477,22 +496,34 @@ o/map-dataset
   :source '()
   :plan {}}}
 
+
+
 (g/def-workspace ws-dream
-  (g/let+ [iter1 (c/dsi-socket :iter1
-                               {:fields [:features :labels]})
-           {:keys [features labels]} (g/destruct-dsi-socket iter1)]
+  (g/let+ [{:keys [features labels socket]}
+           (->> (c/dsi-socket :socket
+                              {:fields [:features g/dt-float [-1 784]
+                                        :labels g/dt-float [-1]]})
+                (c/dsi-socket-outputs))
+           rsum (c/reduce-sum features)]
     {:plugins [dev/plugin g/gm-plugin]
-     :plans [tr]
+     :plans [rsum socket]
      :duration [:epochs 1]
      :interval [:records 100] ;; whoa!?!?! next best thing to secs?
-     :modes {:train {:step [tr]
-                     ::dev/summaries [v a1]
-                     :iters {iter1 (c/dsi-plug {:batch-size 10}
-                                               [:bpiel/mnist-train-10k])}}
-             :test {::dev/summaries [v a1]
-                    :iters {iter1 (c/dsi-plug [:bpiel/mnist-test-10k])}}}
+     :modes {:train {:step []
+                     ::dev/summaries [rsum]
+                     :iters {socket (c/dsi-plug {:batch-size 10}
+                                                [:bpiel/mnist-train-60k-features
+                                                 :bpiel/mnist-train-60k-labels])}}
+             :test {::dev/summaries [rsum]
+                    :iters {socket (c/dsi-plug [:bpiel/mnist-test-10k-features
+                                                :bpiel/mnist-test-10k-labels])}}}
      :workflows {:train-test {:driver g/default-train-test-wf}}}))
 
+(g/ws-pr-workflow-source ws-dream :train-test)
+
+(clojure.pprint/pprint  (g/ws-status ws-dream))
+
+(g/ws-train-test ws-dream)
 
 (g/let+ [{:keys [ds1]} (+>> (c/tensor-slice-ds  {:size 3}
                                                [[[1.] [2.] [3.]]
@@ -505,7 +536,7 @@ o/map-dataset
                                                [x g/dt-float [1]
                                                 y g/dt-float [1]]
                                                [(o/add :dummy1 x 0.1)
-                                                (o/add :dummy2 y 0.2)]))) 
+                                                (o/add :dummy2 x 0.2)]))) 
          dsi-s (c/dsi-socket :dsi-s
                              {:fields [:features g/dt-float [1]
                                        :labels g/dt-float [-1]]})

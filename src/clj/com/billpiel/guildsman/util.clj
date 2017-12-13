@@ -565,3 +565,23 @@
             :with-push-id-to-scopes true}
            attrs-map)
     body))
+
+
+
+(defn- de-ns-clj-core
+  [sym]
+  (cond (not (symbol? sym)) sym
+        (= "clojure.core" (namespace sym)) (symbol (name sym))
+        :else sym))
+
+(defn- de-ns-clj-core-walk
+  [root]
+  (clojure.walk/prewalk de-ns-clj-core root))
+
+(defn pr-code
+  [c]
+  (clojure.pprint/with-pprint-dispatch clojure.pprint/code-dispatch
+    (binding [clojure.pprint/*print-miser-width* 60
+              clojure.pprint/*print-right-margin* 79]
+      (clojure.pprint/pprint
+       (de-ns-clj-core-walk c)))))

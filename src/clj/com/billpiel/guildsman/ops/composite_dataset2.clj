@@ -54,8 +54,10 @@
    :attrs {batch-size "The size of the batch.. negotiable."
            fields "Usually provided by dsi-connector."}
    :inputs [[datasets "A vector of one or more datasets. Keywords will be realized as packages." ]]}
-  (let [ ;;TODO datasets might be plans or pkgs
-        dsets datasets #_(mapv pkg/get-plan datasets)]   
+  (let [dsets (mapv (fn [i] (if (keyword? i)
+                              (pkg-plan i)
+                              i))
+                    datasets)]   
     {:macro :dsi-plug
      :id id
      :inputs dsets
@@ -232,6 +234,6 @@
    :inputs [[components "vectors of tensors/plans"]]}
   {:macro :tensor-slice-ds
    :id id
-   :inputs [(o/c (first components))
-            (o/c (second components))]
+   :inputs (mapv o/c components)
    :fields fields})
+

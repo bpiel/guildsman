@@ -90,6 +90,18 @@
                       sc/*var-scope*)
               {})})))
 
+(defmethod mc/build-macro :pkg-plan
+  [^Graph g {:keys [id pkg] :as args}]
+  [(pkg/get-plan pkg)])
+
+(ut/defn-comp-macro-op pkg-plan
+  {:doc "package plan"
+   :id :pkg-plan
+   :inputs [[pkg-kw "A keyword that identifies a plan package."]]}
+  {:macro :pkg-plan
+   :id id
+   :pkg pkg-kw})
+
 (load "composite_random")
 (load "composite_init")
 (load "composite_math")
