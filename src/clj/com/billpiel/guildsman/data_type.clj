@@ -364,3 +364,21 @@
          dorun)
     r))
 
+
+(defn HACK-string?
+  [v]
+  (or (string? v)
+      (and (sequential? v)
+           (-> v first string?))))
+
+(defn HACK-string?->bytes
+  [v]
+  (if (HACK-string? v)
+    (if (string? v)
+      (.getBytes v)
+      (w/postwalk (fn [v]
+                    (if (string? v)
+                      (.getBytes v)
+                      v))
+                  v))
+    v))

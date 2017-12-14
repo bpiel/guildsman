@@ -15,8 +15,8 @@
 (defn get-const-dtype
   [v]
   (clojure.pprint/pprint v)
-  (if (string? v)
-    dt/string-kw ;; HACK -- terrible
+  (if (dt/HACK-string?)
+    dt/string-kw 
     (-> v
         com.billpiel.guildsman.data-type/data-type-of-whatever 
         :kw

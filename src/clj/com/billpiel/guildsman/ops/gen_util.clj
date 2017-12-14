@@ -10,21 +10,15 @@
 (def OpDefP (pr/protodef OpDef))
 (def OpListP (pr/protodef OpList))
 
-(defn maybe-cast
-  [v]
-  (if (string? v)
-    (.getBytes v)
-    v))
-
 (defn get-op-kw
   [op-def]
   (keyword (:name op-def)))
 
 (defn convert-attr
   [value def-type]
-  (let [value' (maybe-cast value)]
+  (let [value' (dt/HACK-string?->bytes value)]
     (try
-      (condp = def-type                                      ;; TODO move this logic to data_type ns????
+      (condp = def-type ;; TODO move this logic to data_type ns????
         :tensor (:handle (tsr/create-ref-from-value value')) ;; TODO!!
         :type (if (keyword? value')
                 (dt/->tf-attr-val :int64 (-> value' dt/kw->dt :native))

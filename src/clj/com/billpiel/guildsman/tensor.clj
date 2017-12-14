@@ -180,7 +180,8 @@
 
                      :else
                      (com.billpiel.guildsman.TensorNI/allocateNonScalarBytes shape-arr
-                                                                             (to-array
+                                                                             (to-array v)
+                                                                             #_(to-array
                                                                               (map #(.getBytes % "UTF-8")
                                                                                    v))))
         ref-id (gensym "tref")
