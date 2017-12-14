@@ -4,14 +4,26 @@
             [com.billpiel.guildsman.ops.basic :as o]
             [flatland.protobuf.core :as pr]
             [clojure.walk :as w]
-            [com.billpiel.guildsman.op-node :as opn])
+            [com.billpiel.guildsman.op-node :as opn]
+            [com.billpiel.guildsman.macros :as mcro]
+            [com.billpiel.guildsman.common :as com])
   (:import [com.billpiel.guildsman.common Graph]
            [com.billpiel.guildsman FunctionNI]
            [org.tensorflow.framework AttrValue]))
 
+(defn ->op-node
+  [^Graph g x]
+  (cond (com/Op? x) x
+        (keyword? x) ((gr/id->node g) (name x))
+        (string? x) ((gr/id->node g) x)
+        (:op x) (opn/get-op-by-plan g x)
+        (:macro x) (->> x
+                        (mcro/macro-plan->op-plan g)
+                        (opn/get-op-by-plan g))))
+
 (defn extract-fn-graph-stuff
   [fn-graph inputs outputs]
-  (let [f (partial opn/get-op-by-plan fn-graph)
+  (let [f (partial ->op-node fn-graph)
         in-ops (map f inputs)
         out-ops (map f outputs)
         in-hnds (mapv :handle in-ops)

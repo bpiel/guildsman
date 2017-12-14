@@ -423,7 +423,7 @@ provided an existing Graph defrecord and feed map."
            (let [dsi-cn (c/dsi-connector s p)]
              ;; TODO build-all and find-ops instead?
              (build->graph graph dsi-cn) 
-             (opn/find-op dsi-cn)))
+             (opn/find-op graph dsi-cn)))
          doall
          (update mode :enter into))
     mode))

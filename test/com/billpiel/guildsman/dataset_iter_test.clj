@@ -410,8 +410,15 @@ o/map-dataset
                                           (c/cast-tf g/dt-float))
                                      255.0)])})
 
-(c/cast-tf g/dt-float 1)
-
+(pkg/register-pkg! :bpiel/parse-mnist-labels-fn
+                   {:name "parse-mnist-labels-fn"
+                    :function
+                    (g/fn-tf parse-mnist-labels-fn
+                             [g/dt-int []]
+                             [x g/dt-string []]
+                             [(->> x
+                                   (o/decode-raw {:out_type g/dt-uint})
+                                   (c/cast-tf g/dt-int))])})
 
 
 (pkg/register-pkg! :bpiel/mnist-train-60k-features-file
@@ -420,6 +427,14 @@ o/map-dataset
                     :asset {:records 60000                            
                             :sources [[{:type :local
                                         :path "/home/bill/repos/guildsman-conj2017/resources/mnist/train-60k-images-idx3-ubyte"
+                                        :md5hash "6bbc9ace898e44ae57da46a324031adb"}]]}})
+
+(pkg/register-pkg! :bpiel/mnist-train-60k-labels-file
+                   {:name "..."
+                    :pkgs [:deps]
+                    :asset {:records 60000                            
+                            :sources [[{:type :local
+                                        :path "/home/bill/repos/guildsman-conj2017/resources/mnist/train-50k-labels-idx1-ubyte"
                                         :md5hash "6bbc9ace898e44ae57da46a324031adb"}]]}})
 
 (pkg/register-pkg! :bpiel/mnist-train-60k-features
@@ -438,60 +453,59 @@ o/map-dataset
                    {:name "..."
                     :pkgs [:deps]
                     :plan
-                    (->> (c/asset-as-files :bpiel/mnist-train-10k-labels-file)
+                    (->> (c/asset-as-files :bpiel/mnist-train-60k-labels-file)
                          (c/fixed-length-record-ds {:size 60000
-                                                    :header-bytes 16
-                                                    :record-bytes 1
-                                                    :footer-bytes 0
-                                                    :buffer-bytes 1})
+                                                    :header-bytes (o/c 16 g/dt-long)
+                                                    :record-bytes (o/c 1 g/dt-long)
+                                                    :footer-bytes (o/c 0 g/dt-long)
+                                                    :buffer-bytes (o/c 1 g/dt-long)})
                          (c/map-ds {:fields [:labels]}
                                    :bpiel/parse-mnist-labels-fn))})
 
-#_(pkg/register-pkg! :bpiel/mnist-test-10k-features-file
+
+
+(pkg/register-pkg! :bpiel/mnist-test-10k-features-file
                    {:name "..."
                     :pkgs [:deps]
                     :asset {:records 10000
-                            :format-or-something?? :?????
-                            :sources [[{:type :uri
-                                        :uri "http://part1"
-                                        :md5hash "????"}
-                                       {:type :uri
-                                        :uri "http://part2"
-                                        :md5hash "..."}]
-                                      [{:type :uri
-                                        :uri "http://part1-mirror"
-                                        :md5hash "..."}
-                                       {:type :uri
-                                        :uri "http://part2-mirror"
-                                        :md5hash "..."}]]}})
+                            :sources [[{:type :local
+                                        :path "/home/bill/repos/guildsman-conj2017/resources/mnist/test-10k-images-idx3-ubyte"
+                                        :md5hash "6bbc9ace898e44ae57da46a324031adb"}]]}})
 
-#_(pkg/register-pkg! :bpiel/mnist-test-10k-features
+(pkg/register-pkg! :bpiel/mnist-test-10k-labels-file
                    {:name "..."
-                    :desc "...."
                     :pkgs [:deps]
-                    :source '()
+                    :asset {:records 10000                            
+                            :sources [[{:type :local
+                                        :path "/home/bill/repos/guildsman-conj2017/resources/mnist/train-50k-labels-idx1-ubyte"
+                                        :md5hash "6bbc9ace898e44ae57da46a324031adb"}]]}})
+
+(pkg/register-pkg! :bpiel/mnist-test-10k-features
+                   {:name "..."
                     :plan
                     (->> (c/asset-as-files :bpiel/mnist-test-10k-features-file)
                          (c/fixed-length-record-ds {:size 10000
-                                                    :header-bytes 16
-                                                    :record-bytes 784
-                                                    :footer-bytes 0
-                                                    :buffer-bytes 784})
+                                                    :header-bytes (o/c 16 g/dt-long) ;; TODO type hints for macros?
+                                                    :record-bytes (o/c 784 g/dt-long)
+                                                    :footer-bytes (o/c 0 g/dt-long)
+                                                    :buffer-bytes (o/c 784 g/dt-long)})
                          (c/map-ds {:fields [:features]}
                                    :bpiel/parse-mnist-features-fn))})
 
-#_(pkg/register-pkg! :bpiel/mnist-test-10k-labels
+(pkg/register-pkg! :bpiel/mnist-test-10k-labels
                    {:name "..."
                     :pkgs [:deps]
                     :plan
                     (->> (c/asset-as-files :bpiel/mnist-test-10k-labels-file)
                          (c/fixed-length-record-ds {:size 10000
-                                                    :header-bytes 16
-                                                    :record-bytes 1
-                                                    :footer-bytes 0
-                                                    :buffer-bytes 1})
+                                                    :header-bytes (o/c 16 g/dt-long)
+                                                    :record-bytes (o/c 1 g/dt-long)
+                                                    :footer-bytes (o/c 0 g/dt-long)
+                                                    :buffer-bytes (o/c 1 g/dt-long)})
                          (c/map-ds {:fields [:labels]}
                                    :bpiel/parse-mnist-labels-fn))})
+
+
 
 ;; where/how would you inject a perturber?
 
