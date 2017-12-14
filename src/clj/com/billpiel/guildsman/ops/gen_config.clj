@@ -111,7 +111,9 @@
   [args]
   (let [attrs (-> args :plan :attrs)
         {:keys [dtype value]} attrs
-        val-type (if (string? value)
+        val-type (if (or (string? value)
+                         (and (vector? value)
+                              (-> value first string?)))
                    dt/string-kw ;; HACK
                    (-> value dt/data-type-of-whatever :kw))]
     (cond (nil? dtype) (-> args

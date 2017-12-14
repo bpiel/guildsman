@@ -100,7 +100,23 @@
    :inputs [[pkg-kw "A keyword that identifies a plan package."]]}
   {:macro :pkg-plan
    :id id
-   :pkg pkg-kw})
+   :pkg pkg-kw
+   :inputs []})
+
+
+(defmethod mc/build-macro :pkg-asset-as-files
+  [^Graph g {:keys [id pkg] :as args}]
+  [(o/c ["hello"] dt/string-kw)])
+
+(ut/defn-comp-macro-op asset-as-files
+  {:doc ""
+   :id :pkg-asset-as-files
+   :inputs [[pkg-kw "A keyword that identifies a plan package."]]}
+  {:macro :pkg-asset-as-files
+   :id id
+   :pkg pkg-kw
+   :inputs []})
+
 
 (load "composite_random")
 (load "composite_init")

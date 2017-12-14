@@ -339,10 +339,6 @@
                            (+ col' hc 1))))
       [agg "\n"])))
 
-(drop-last
- (interleave (clojure.string/split "a b" #"\n\n+")
-             (repeat ::br)))
-
 (defn- dx-stack-text
   [width indent col doc]
   ($- -> doc

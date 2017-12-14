@@ -437,10 +437,10 @@ provided an existing Graph defrecord and feed map."
   [`(gm-plugin-build-main (-> ~'state :global :gm :graph)
                           (:plans ~'ws-cfg))
    #_   `(ws2/--wf-setup-modes (:modes ~'ws-cfg))
-   `(-> ~'ws-cfg
-        :modes
-        (gm-plugin-build-modes (-> ~'state :global :gm :graph))
-        ws2/--wf-setup-modes)])
+   `(->> ~'ws-cfg
+         :modes
+         (gm-plugin-build-modes (-> ~'state :global :gm :graph))
+         ws2/--wf-setup-modes)])
 
 (defn gm-plugin-create-session-main
   [graph session]

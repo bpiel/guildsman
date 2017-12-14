@@ -566,3 +566,4 @@ o/map-dataset
          {:keys [graph] :as session} (g/build-all->session [mi1 gn1])]
   (g/run session mi1)
   (g/produce session (assoc gn1 :output-idx 1)))
+

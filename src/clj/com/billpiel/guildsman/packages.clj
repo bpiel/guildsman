@@ -13,7 +13,8 @@
          m))
 
 (defn get-pkg [pkg-kw]
-  (pkg-kw @registry))
+  (or (pkg-kw @registry)
+      (throw (Exception. (str "Could not find package: " pkg-kw)))))
 
 (defn get-plan [pkg-kw]
   (-> pkg-kw
