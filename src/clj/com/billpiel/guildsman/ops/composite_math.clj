@@ -73,8 +73,10 @@
 (ut/defn-comp-macro-op cast-tf
   {:doc "Casts a tensor to a new type."
    :id :cast
-   :inputs [[x "The tensor to cast"]]
-   :attrs {dest-type "The type to convert to."}}
+   :inputs [[dest-type "The type to convert to."]
+            [x "The tensor to cast"]]}
   {:macro :cast-tf
+   :id :cast-tf
    :inputs [x]
    :dest-type dest-type})
+

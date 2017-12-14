@@ -116,6 +116,10 @@
   (g/produce m1))
 
 
+(type (g/produce (o/add 1 2)))
+
+(type (g/produce (o/add 1. 2.)))
+
 (g/let+ [output-spec {:output_types [g/dt-long g/dt-long]
                       :output_shapes [[1] [1]]}
 
@@ -406,6 +410,10 @@ o/map-dataset
                                           (c/cast-tf g/dt-float))
                                      255.0)])})
 
+(c/cast-tf g/dt-float 1)
+
+
+
 (pkg/register-pkg! :bpiel/mnist-train-60k-features-file
                    {:name "..."
                     :pkgs [:deps]
@@ -419,10 +427,10 @@ o/map-dataset
                     :plan
                     (->> (c/asset-as-files :bpiel/mnist-train-60k-features-file)
                          (c/fixed-length-record-ds {:size 60000
-                                                    :header-bytes 16
-                                                    :record-bytes 784
-                                                    :footer-bytes 0
-                                                    :buffer-bytes 784})
+                                                    :header-bytes (o/c 16 g/dt-long) ;; TODO type hints for macros?
+                                                    :record-bytes (o/c 784 g/dt-long)
+                                                    :footer-bytes (o/c 0 g/dt-long)
+                                                    :buffer-bytes (o/c 784 g/dt-long)})
                          (c/map-ds {:fields [:features]}
                                    :bpiel/parse-mnist-features-fn))})
 
@@ -524,6 +532,8 @@ o/map-dataset
 (clojure.pprint/pprint  (g/ws-status ws-dream))
 
 (g/ws-train-test ws-dream)
+
+
 
 (g/let+ [{:keys [ds1]} (+>> (c/tensor-slice-ds  {:size 3}
                                                [[[1.] [2.] [3.]]

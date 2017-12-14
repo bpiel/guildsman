@@ -106,34 +106,6 @@
  "AddN"
  {:hook-pre-build `hook-pre-build-op-override-addn})
 
-
-(defn hook-pre-build-op-override-const
-  [args]
-  (let [attrs (-> args :plan :attrs)
-        {:keys [dtype value]} attrs
-        val-type (if (dt/HACK-string? value)
-                   dt/string-kw ;; HACK
-                   (-> value dt/data-type-of-whatever :kw))]
-    (cond (nil? dtype) (-> args
-                           (assoc-in [:plan :attrs :dtype]
-                                     (-> val-type dt/kw->dt :native))
-                           hook-pre-build-op-default)
-          (= dtype val-type) (-> args
-                                 (assoc-in [:plan :attrs :dtype]
-                                           (-> val-type dt/kw->dt :native))
-                                 hook-pre-build-op-default)
-          :else (-> args
-                    (update-in [:plan :attrs :value]
-                               #(dt/convert-whatever % dtype))
-                    (update-in [:plan :attrs :dtype]
-                               #(-> % dt/kw->dt :native))
-                    hook-pre-build-op-default))))
-
-(defn plan->expr-const
-  [plan fn-name _ _]
-  (let [{:keys [id attrs]} plan]
-    `(~fn-name ~id ~(:value attrs))))
-
 ;;TODO make less shitty
 (defn auto-cast
   [dt-kw]
@@ -141,6 +113,39 @@
     (dt-kw {dt/long-kw dt/int-kw
             dt/double-kw dt/float-kw}
            dt-kw)))
+
+(defn hook-pre-build-op-override-const
+  [args]
+  (let [attrs (-> args :plan :attrs)
+        {:keys [dtype value]} attrs
+        val-type (if (dt/HACK-string? value)
+                   dt/string-kw ;; HACK
+                   (-> value dt/data-type-of-whatever :kw #_auto-cast))
+        dtype' (if (nil? dtype)
+                 (auto-cast val-type)
+                 dtype)]
+    (cond #_(nil? dtype) #_(-> args
+                           (assoc-in [:plan :attrs :dtype]
+                                     (-> val-type dt/kw->dt :native))
+                           hook-pre-build-op-default)
+          (= dtype' val-type) (-> args
+                                  (assoc-in [:plan :attrs :dtype]
+                                            (-> val-type dt/kw->dt :native))
+                                  hook-pre-build-op-default)
+          :else (-> args
+                    (update-in [:plan :attrs :value]
+                               #(dt/convert-whatever % dtype'))
+                    (assoc-in [:plan :attrs :dtype]
+                              (-> dtype' dt/kw->dt :native))
+                    hook-pre-build-op-default))))
+
+(defn plan->expr-const
+  [plan fn-name _ _]
+  (let [{:keys [id attrs]} plan]
+    `(~fn-name ~id ~(:value attrs))))
+
+
+
 
 
 

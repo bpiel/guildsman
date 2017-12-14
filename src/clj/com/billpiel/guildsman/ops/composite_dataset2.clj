@@ -200,7 +200,9 @@
   {:macro :map-ds
    :id id
    :inputs [input-ds]
-   :f f ;; TODO might be pkg
+   :f (if (keyword? f)
+        (pkg/get-function f)
+        f)
    :fields fields})
 
 (defn- tensor-slice-ds-ds-fields-prop

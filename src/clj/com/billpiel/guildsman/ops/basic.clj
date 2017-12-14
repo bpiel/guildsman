@@ -14,10 +14,10 @@
 
 (defn get-const-dtype
   [v]
-  (clojure.pprint/pprint v)
-  (if (dt/HACK-string?)
-    dt/string-kw 
-    (-> v
+  (if (dt/HACK-string? v)
+    dt/string-kw
+    nil
+#_    (-> v
         com.billpiel.guildsman.data-type/data-type-of-whatever 
         :kw
         com.billpiel.guildsman.ops.gen-config/auto-cast)))
