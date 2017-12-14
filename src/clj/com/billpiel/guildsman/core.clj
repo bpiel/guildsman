@@ -7,6 +7,7 @@
             [com.billpiel.guildsman.op-node :as opn]
             [com.billpiel.guildsman.workspace2 :as ws2]
             [com.billpiel.guildsman.util :as ut]
+            [com.billpiel.guildsman.ops.composite :as c]
             com.billpiel.guildsman.gradients
             com.billpiel.guildsman.grad-desc-opt
             com.billpiel.guildsman.gradients-clj
@@ -223,7 +224,9 @@ provided an existing Graph defrecord and feed map."
   called immediately after a session is created."
   [^Session session]
   (let [g (:graph session)
-        inits (gr/get-global-var-init-assign-ops g)]
+        inits (into (gr/get-global-var-init-assign-ops g)
+                    ;; TODO make func "run-all-inits"
+                    (gr/get-nodes-in-collection g :dataset-iter-inits))]
     (run-all session inits)
     session))
 
@@ -413,11 +416,31 @@ provided an existing Graph defrecord and feed map."
 (defn gm-plugin-build-main [graph plans]
   {:global {:graph (build-all->graph plans)}})
 
+(defn- gm-plugin-build-mode
+  [graph {:keys [iters] :as mode}]
+  (if (not-empty iters)
+    (->> (for [[s p] iters]
+           (let [dsi-cn (c/dsi-connector s p)]
+             ;; TODO build-all and find-ops instead?
+             (build->graph graph dsi-cn) 
+             (opn/find-op dsi-cn)))
+         doall
+         (update mode :enter into))
+    mode))
+
+(defn gm-plugin-build-modes [graph modes]
+  (ut/fmap (partial gm-plugin-build-mode graph)
+           modes))
+
 (defn gm-plugin-setup-build-main
   [ws-cfg & _]
   [`(gm-plugin-build-main (-> ~'state :global :gm :graph)
                           (:plans ~'ws-cfg))
-   `(ws2/--wf-setup-modes (:modes ~'ws-cfg))])
+   #_   `(ws2/--wf-setup-modes (:modes ~'ws-cfg))
+   `(-> ~'ws-cfg
+        :modes
+        (gm-plugin-build-modes (-> ~'state :global :gm :graph))
+        ws2/--wf-setup-modes)])
 
 (defn gm-plugin-create-session-main
   [graph session]
@@ -634,7 +657,7 @@ provided an existing Graph defrecord and feed map."
             :span {:stages 1}}
     ;; TODO [:build-mode :train] -- adds op to mode :enter
     ;; TODO [:build-mode :test] -- adds op to mode :enter
-    [:build]
+    [:build]  
     [:create-session]
     [:init-varis] ;; TODO :init-all (includes ds-iter inits)
     [:block {:type :interval
@@ -659,7 +682,8 @@ provided an existing Graph defrecord and feed map."
 
 (defn default-train-test-wf
   [ws-cfg]
-  (let [src (ws2/render-wf-fn-src (mk-default-train-test-wf-def ws-cfg)
+  (let [ws-cfg' (ws2/filter-modes ws-cfg [:train :test])
+        src (ws2/render-wf-fn-src (mk-default-train-test-wf-def ws-cfg)
                                   ws-cfg)]
     (vary-meta ((eval src) ws-cfg)
                assoc

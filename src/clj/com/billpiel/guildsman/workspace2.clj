@@ -5,17 +5,11 @@
             [com.billpiel.guildsman.ops.basic :as o]
             [com.billpiel.guildsman.ops.composite :as c]))
 
+(defn filter-modes
+  [ws-cfg modes]
+  (update ws-cfg :modes select-keys modes))
 
-(defn de-ns-clj-core
-  [sym]
-  (cond (not (symbol? sym)) sym
-        (= "clojure.core" (namespace sym)) (symbol (name sym))
-        :else sym))
-
-(defn de-ns-clj-core-walk
-  [root]
-  (clojure.walk/prewalk de-ns-clj-core root))
-
+;; TODO :targets => :steps, :enter
 (defn --wf-merge-mode-maps
   [g & ms]
   {:targets (->> ms
@@ -536,7 +530,7 @@
 
 (defn --wf-setup-modes
   [modes]
-  {:modes (ut/fmap #(select-keys % [:targets :fetch :feed])
+  {:modes (ut/fmap #(select-keys % [:step :fetch :feed :enter])
                    modes)})
 
 (defn --wf-query-steps
@@ -613,10 +607,3 @@
                         (bt span 0))
                     true))
                 (keys span))))))
-
-#_(clojure.pprint/with-pprint-dispatch clojure.pprint/code-dispatch
-  (binding [clojure.pprint/*print-miser-width* 60
-            clojure.pprint/*print-right-margin* 79]
-    (clojure.pprint/pprint
-     (de-ns-clj-core-walk
-      (render-wf-fn-src wf-def ws-cfg)))))

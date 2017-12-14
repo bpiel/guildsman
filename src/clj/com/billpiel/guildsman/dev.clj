@@ -436,7 +436,6 @@
 (defn plugin-setup-init-post [{:keys [ws-name]} & _]
   [`(plugin-init-post '~ws-name)])
 
-;; TODO build summary ops
 (defn plugin-build-post
   [^Graph g ws-ns summaries]
   (mk-nodes-in-ns g ws-ns)
@@ -444,11 +443,8 @@
   {:modes
    (->> summaries
         (ut/fmap (partial add-summaries g))
-        (ut/fmap (partial hash-map :fetch)))}
-  #_  {:modes {:train {:fetch (:train summaries)}
-               :test {:fetch (:test summaries)}}})
+        (ut/fmap (partial hash-map :fetch)))})
 
-;; TODO support arbitrary modes
 (defn plugin-setup-build-post
   [ws-cfg & _]
   [`(plugin-build-post ~'(-> state :global :gm :graph)
