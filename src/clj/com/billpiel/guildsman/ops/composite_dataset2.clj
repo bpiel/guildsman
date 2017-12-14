@@ -19,9 +19,16 @@
   [^Graph g {:keys [id inputs fields] :as args}]
   ;; TODO zip multiple dsets
   ;; TODO re-map mismatched fields
-  [(set-ds-props (first inputs)
-                 fields
-                 (-> inputs first :ds-size))])
+  (if (> (count inputs) 1)
+    [(set-ds-props (o/zip-dataset (assoc (ds-fields-prop->output-attrs fields)
+                                         :N (count inputs))
+                                  inputs)
+                   fields
+                   (-> inputs first :ds-size))]
+    [(set-ds-props (first inputs)
+                   fields
+                   (-> inputs first :ds-size))]))
+
 
 (ut/defn-comp-macro-op remix-ds
   {:doc ""

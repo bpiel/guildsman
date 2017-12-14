@@ -76,6 +76,7 @@
       )
     (catch Exception e
       (def e1 e)
+      #_ (def e1 nil)
       #_ (clojure.pprint/pprint e1)
       (throw (Exception. (format "Failed to set attribute. type=%s, key=%s, value=%s, \n\nmsg=%s"
                                  ty k v
