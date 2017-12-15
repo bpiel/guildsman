@@ -526,12 +526,13 @@ o/map-dataset
                               {:fields [:features g/dt-float [-1 784]
                                         :labels g/dt-int [-1]]})
                 (c/dsi-socket-outputs))
-           rsum (c/reduce-sum features)]
+           rsum (c/reduce-sum features)
+           noop (o/no-op)]
     {:plugins [dev/plugin g/gm-plugin]
-     :plans [rsum]
+     :plans [rsum noop]
      :duration [:steps 100] #_[:epochs 1]
      :interval [:steps 10] #_[:records 100] ;; whoa!?!?! next best thing to secs?
-     :modes {:train {:step [] ;; <==============================
+     :modes {:train {:step [noop]
                      ::dev/summaries [rsum]
                      :iters {socket (c/dsi-plug {:batch-size 10}
                                                 [:bpiel/mnist-train-60k-features

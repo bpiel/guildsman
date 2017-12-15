@@ -480,12 +480,18 @@ provided an existing Graph defrecord and feed map."
          compiled
          (assoc-in state' [:modes :-compiled :-current]))))
 
+(defn gm-plugin-prep-for-run-repeat
+  [{:keys [step feed]}]
+  {:targets step
+   :feed feed})
+
 (defn gm-plugin-setup-run-repeat-inline
   [ws-cfg & _]
   [(vary-meta `(gm-plugin-compile-modes-run-req ~'state)
               assoc ::ws2/no-merge-state true)
    `(--ws-run-all-repeat ~'(-> state :global :gm :session)
-                         ~'(-> state :modes :-compiled :-current)
+                         (-> ~'state :modes :-compiled :-current
+                             gm-plugin-prep-for-run-repeat)
                          (ws2/--wf-query-steps ~'state :block :span))])
 
 (defn gm-plugin-setup-fetch-map-inline
