@@ -312,10 +312,10 @@
                     :shape
                     sh/scalar?)
         id->node (gr/id->node g)]
-    [(when-not (id->node smry-id)
-       (if scalar?
-         (o/scalar-summary {:id smry-id} smry-id target)
-         (o/histogram-summary {:id smry-id} smry-id target)))
+    [(or (id->node smry-id)
+         (if scalar?
+           (o/scalar-summary {:id smry-id} smry-id target)
+           (o/histogram-summary {:id smry-id} smry-id target)))
      (when (and agd (-> agd-smry-id id->node nil?))
        (agd->delta-ratio-smry g agd-smry-id agd))]))
 

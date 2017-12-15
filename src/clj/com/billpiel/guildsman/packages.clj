@@ -31,3 +31,9 @@
       get-pkg
       :function))
 
+(defn get-asset-as-files
+  [pkg-kw]
+  (if-let [asset (get-asset-desc pkg-kw)]
+    ;;TODO
+    [(-> asset :sources first first :path)]
+    (throw (Exception. (str "Package was not an asset: " pkg-kw)))))

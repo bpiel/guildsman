@@ -4,6 +4,7 @@
             [com.billpiel.guildsman.op-node :as op-node]
             [com.billpiel.guildsman.macros :as mcro]
             [com.billpiel.guildsman.util :as util]
+            [com.billpiel.guildsman.special-utils :as sput]
             [com.billpiel.guildsman.tensor-mgr :as tm]
             [com.billpiel.guildsman.builder :as bdr]
             [com.billpiel.guildsman.data-type :as dt])
@@ -32,19 +33,9 @@
   (Session. (com.billpiel.guildsman.SessionNI/allocate (:handle g))
             g))
 
-(defn ->op-node
-  [^Graph g x]
-  (cond (com/Op? x) x
-        (keyword? x) ((gr/id->node g) (name x))
-        (string? x) ((gr/id->node g) x)
-        (:op x) (op-node/get-op-by-plan g x)
-        (:macro x) (->> x
-                        (mcro/macro-plan->op-plan g)
-                        (op-node/get-op-by-plan g))))
-
 (defn ->op-node-strict
   [^Graph g x]
-  (if-let [r (->op-node g x)]
+  (if-let [r (sput/->op-node g x)]
     r
     (throw (Exception. (format "No op-node found for: %s"
                                x)))))

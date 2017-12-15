@@ -44,10 +44,13 @@
   [^Graph g {:keys [id inputs fields batch-size] :as args}]
   (let [remixed-ds (remix-ds {:fields fields} inputs)
         out-attrs (ds-fields-prop->output-attrs fields)
+        batched-ds (o/batch-dataset (ds-fields-prop->output-attrs fields)
+                                    remixed-ds
+                                    10)
         iter (o/iterator :iterator out-attrs)
         iter-hnd (o/iterator-to-string-handle :iter-hnd out-attrs iter)
         init-iter (o/make-iterator :init-iter
-                                   remixed-ds
+                                   batched-ds
                                    iter)]
     [iter-hnd
      (-> init-iter

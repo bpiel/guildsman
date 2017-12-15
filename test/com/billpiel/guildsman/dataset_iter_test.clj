@@ -434,7 +434,7 @@ o/map-dataset
                     :pkgs [:deps]
                     :asset {:records 60000                            
                             :sources [[{:type :local
-                                        :path "/home/bill/repos/guildsman-conj2017/resources/mnist/train-50k-labels-idx1-ubyte"
+                                        :path "/home/bill/repos/guildsman-conj2017/resources/mnist/train-60k-labels-idx1-ubyte"
                                         :md5hash "6bbc9ace898e44ae57da46a324031adb"}]]}})
 
 (pkg/register-pkg! :bpiel/mnist-train-60k-features
@@ -477,7 +477,7 @@ o/map-dataset
                     :pkgs [:deps]
                     :asset {:records 10000                            
                             :sources [[{:type :local
-                                        :path "/home/bill/repos/guildsman-conj2017/resources/mnist/train-50k-labels-idx1-ubyte"
+                                        :path "/home/bill/repos/guildsman-conj2017/resources/mnist/test-10k-labels-idx1-ubyte"
                                         :md5hash "6bbc9ace898e44ae57da46a324031adb"}]]}})
 
 (pkg/register-pkg! :bpiel/mnist-test-10k-features
@@ -524,14 +524,14 @@ o/map-dataset
   (g/let+ [{:keys [features labels socket]}
            (->> (c/dsi-socket :socket
                               {:fields [:features g/dt-float [-1 784]
-                                        :labels g/dt-float [-1]]})
+                                        :labels g/dt-int [-1]]})
                 (c/dsi-socket-outputs))
            rsum (c/reduce-sum features)]
     {:plugins [dev/plugin g/gm-plugin]
      :plans [rsum]
-     :duration [:epochs 1]
-     :interval [:records 100] ;; whoa!?!?! next best thing to secs?
-     :modes {:train {:step []
+     :duration [:steps 100] #_[:epochs 1]
+     :interval [:steps 10] #_[:records 100] ;; whoa!?!?! next best thing to secs?
+     :modes {:train {:step [] ;; <==============================
                      ::dev/summaries [rsum]
                      :iters {socket (c/dsi-plug {:batch-size 10}
                                                 [:bpiel/mnist-train-60k-features

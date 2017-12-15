@@ -7,6 +7,7 @@
             [com.billpiel.guildsman.op-node :as opn]
             [com.billpiel.guildsman.workspace2 :as ws2]
             [com.billpiel.guildsman.util :as ut]
+            [com.billpiel.guildsman.special-utils :as sput]
             [com.billpiel.guildsman.ops.composite :as c]
             com.billpiel.guildsman.gradients
             com.billpiel.guildsman.grad-desc-opt
@@ -181,7 +182,7 @@ In the example below, both `graph` and `session` will be closed upon
 (defn fetch-map [^Session session plans & [feed targets]]
   (let [g (:graph session)]
     (zipmap (map (comp :id
-                       (partial sess/->op-node g))
+                       (partial sput/->op-node g))
                  plans)
             (fetch-all session plans feed targets))))
 
@@ -423,7 +424,7 @@ provided an existing Graph defrecord and feed map."
            (let [dsi-cn (c/dsi-connector s p)]
              ;; TODO build-all and find-ops instead?
              (build->graph graph dsi-cn) 
-             (opn/find-op graph dsi-cn)))
+             (sput/->op-node graph dsi-cn))) ;; TODO ->op-node!!!
          doall
          (update mode :enter into))
     mode))
@@ -497,9 +498,12 @@ provided an existing Graph defrecord and feed map."
   [ws-cfg mode]
   [(vary-meta `(assoc ~'state :mode ~mode)
               assoc ::ws2/no-merge-state true)
+   (vary-meta `(gm-plugin-compile-modes-run-req ~'state)
+              assoc ::ws2/no-merge-state true)
    ;; TODO only include if there's anything to run
    `(--ws-run-all (-> ~'state :global :gm :session)
-                  (-> ~'ws-cfg :modes ~mode :enter))])
+                  {:targets 
+                   (-> ~'state :modes :-compiled :-current :enter)})])
 
 (defn gm-plugin-mode-form
   [hook-frms ws-cfg [mode]]
@@ -655,8 +659,6 @@ provided an existing Graph defrecord and feed map."
            :span {:steps (second duration)}}
    [:block {:type :stage
             :span {:stages 1}}
-    ;; TODO [:build-mode :train] -- adds op to mode :enter
-    ;; TODO [:build-mode :test] -- adds op to mode :enter
     [:build]  
     [:create-session]
     [:init-varis] ;; TODO :init-all (includes ds-iter inits)

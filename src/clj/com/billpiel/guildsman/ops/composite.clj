@@ -106,7 +106,8 @@
 
 (defmethod mc/build-macro :pkg-asset-as-files
   [^Graph g {:keys [id pkg] :as args}]
-  [(o/c ["hello"] dt/string-kw)])
+  [(o/c (pkg/get-asset-as-files pkg)
+         dt/string-kw)])
 
 (ut/defn-comp-macro-op asset-as-files
   {:doc ""

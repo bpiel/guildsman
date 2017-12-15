@@ -1,7 +1,7 @@
 (ns com.billpiel.guildsman.workspace2
   (:require [clojure.core.async :as a]
             [com.billpiel.guildsman.util :as ut]
-            [com.billpiel.guildsman.session :as sess]
+            [com.billpiel.guildsman.special-utils :as sput]
             [com.billpiel.guildsman.ops.basic :as o]
             [com.billpiel.guildsman.ops.composite :as c]))
 
@@ -9,14 +9,18 @@
   [ws-cfg modes]
   (update ws-cfg :modes select-keys modes))
 
-;; TODO :targets => :steps, :enter
 (defn --wf-merge-mode-maps
   [g & ms]
-  {:targets (->> ms
-                 (map :targets)
-                 (apply concat)
-                 distinct                 
-                 vec)
+  {:step (->> ms
+              (map :step)
+              (apply concat)
+              distinct                 
+              vec)
+   :enter (->> ms
+               (map :enter)
+               (apply concat)
+               distinct
+               vec)
    :fetch (->> ms
                (map :fetch)
                (apply concat)
@@ -29,14 +33,16 @@
              {})})
 
 (defn --wf-merge-state-modes*
-  [g {:keys [targets feed fetch]}]
-  {:targets (mapv (partial sess/->op-node g)
-                  targets)
-   :fetch (mapv (partial sess/->op-node g)
-                  fetch)
+  [g {:keys [step enter feed fetch]}]
+  {:step (mapv (partial sput/->op-node g)
+               step)
+   :enter (mapv (partial sput/->op-node g)
+                enter)
+   :fetch (mapv (partial sput/->op-node g)
+                fetch)
    :feed (into {}
                (for [[k v] feed]
-                 [(sess/->op-node g k) v]))})
+                 [(sput/->op-node g k) v]))})
 
 (defn --wf-merge-state-modes
   [g modes]

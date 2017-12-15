@@ -73,8 +73,8 @@
 
 (defn- plan-const-input
   [input-def input]
-  (if-let [t (:type input-def)]
-    (o/c input (-> t dt/protobuf->dt :kw))
+  (if-let [t (some-> input-def :type dt/protobuf->dt :kw)]
+    (o/c input t)
     input))
 
 
