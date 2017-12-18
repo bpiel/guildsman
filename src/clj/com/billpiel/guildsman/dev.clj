@@ -451,6 +451,16 @@
                        ~'(-> state :global ::plugin :ws-ns)
                        (->> ~'ws-cfg :modes (ut/fmap ::summaries)))])
 
+(defn plugin-create-session-post
+  [^Session s ws-ns]
+  (intern ws-ns '$session s)
+  {})
+
+(defn plugin-setup-create-session-post
+  [ws-cfg & _]
+  [`(plugin-create-session-post ~'(-> state :global :gm :session)
+                                ~'(-> state :global ::plugin :ws-ns))])
+
 (defn plugin-interval-post
   [^Graph g ws-ns log-atom fetched step]
   (swap! log-atom
@@ -474,6 +484,7 @@
           :desc "dev things"}
    :init {:post  #'plugin-setup-init-post}
    :build {:post #'plugin-setup-build-post}
+   :create-session {:post #'plugin-setup-create-session-post}
    :interval {:post-async #'plugin-setup-interval-post}})
 
 

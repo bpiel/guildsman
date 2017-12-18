@@ -29,6 +29,7 @@
                              [x g/dt-string []]
                              [(->> x
                                    (o/decode-raw {:out_type g/dt-uint})
+                                   (o/unpack {:num 1 :axis 0})
                                    (c/cast-tf g/dt-int))])})
 
 
@@ -199,3 +200,11 @@
 
 ;; TODO non-trainable varis
 
+(g/produce $.ws-mnist1/$session "acc/accuracy")
+
+(g/produce $.ws-mnist1/$session $.ws-mnist1/classes)
+
+(g/produce $.ws-mnist1/$session (assoc $.ws-mnist1/socket>socket>get-next
+                                       :output-idx 1))
+
+(g/produce (o/unpack {:num 1 :axis 0} [1] ))

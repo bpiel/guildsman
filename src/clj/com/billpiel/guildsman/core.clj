@@ -668,7 +668,8 @@ provided an existing Graph defrecord and feed map."
     [:build]  
     [:create-session]
     [:init-varis] ;; TODO :init-all (includes ds-iter inits)
-    [:block {:type :interval
+    ;; TODO option for step 0 fetch/summaries
+    #_[:block {:type :interval
              :span {}}
      [:mode :train]
      [:fetch-map]
