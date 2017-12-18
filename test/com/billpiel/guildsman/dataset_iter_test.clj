@@ -122,10 +122,10 @@
 
 #_(pkg/import-package-repo! "https://bpiel.github.io/guildsman-recipes/recipes.edn")
 
-
 (g/def-workspace ws-dream
   (g/let+ [{:keys [features labels socket]}
            (->> (c/dsi-socket :socket
+                              ;; different format for field spec??????????
                               {:fields [:features g/dt-float [-1 784]
                                         :labels g/dt-int [-1]]})
                 (c/dsi-socket-outputs))
@@ -133,7 +133,7 @@
            noop (o/no-op)]
     {:plugins [dev/plugin g/gm-plugin]
      :plans [rsum noop]
-     :duration [:steps 20000] #_[:epochs 1]
+     :duration [:steps 20000] #_[:epochs 1] #_[:secs 10]
      :interval [:steps 1000] #_[:records 100] ;; whoa!?!?! next best thing to secs?
      :modes {:train {:step [noop]
                      ::dev/summaries [rsum]
@@ -151,3 +151,52 @@
 (clojure.pprint/pprint  (g/ws-status ws-dream))
 
 (g/ws-train-test ws-dream)
+
+
+(g/def-workspace ws-mnist1
+  (g/let+ [{:keys [features labels socket]}
+           (->> (c/dsi-socket :socket
+                              {:fields [:features g/dt-float [-1 784]
+                                        :labels   g/dt-int   [-1]]})
+                (c/dsi-socket-outputs))
+
+           {:keys [logits classes]}
+           (+>> features
+                (c/dense {:id :logits
+                          :units 10})
+                (o/arg-max :classes $ 1))
+
+           {:keys [opt]}
+           (+>> labels
+                (c/one-hot $ 10)
+                (c/mean-squared-error logits)
+                (c/grad-desc-opt :opt 0.1))
+
+           acc (c/accuracy :acc
+                           (c/cast-tf dt/int-kw
+                                      classes)
+                           labels)]
+    
+    {:plugins [dev/plugin g/gm-plugin]
+     :plans [acc opt]
+     :duration [:steps 100] #_[:epochs 1] #_[:secs 10]
+     :interval [:steps 1] #_[:records 100] ;; whoa!?!?! next best thing to secs?
+     :modes {:train {:step [opt]
+                     ::dev/summaries [acc]
+                     :iters {socket (c/dsi-plug {:batch-size 10}
+                                                [:bpiel/mnist-train-60k-labels
+                                                 :bpiel/mnist-train-60k-features])}}
+             :test {::dev/summaries [acc]
+                    :iters {socket (c/dsi-plug {:batch-size 10 #_[:epochs 1]} 
+                                               [:bpiel/mnist-test-10k-features
+                                                :bpiel/mnist-test-10k-labels])}}}
+     :workflows {:train-test {:driver g/default-train-test-wf}}}))
+
+(clojure.pprint/pprint 
+ (g/ws-status ws-mnist1))
+
+(g/ws-train-test ws-mnist1)
+
+;; TODO non-trainable varis
+
+(type $s/*)

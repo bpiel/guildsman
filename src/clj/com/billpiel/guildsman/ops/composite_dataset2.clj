@@ -1,6 +1,9 @@
 (in-ns 'com.billpiel.guildsman.ops.composite)
 
 ;; TODO include :pkgs in macro plans
+;; TODO weird macro double-naming thing
+;; TODO don't scope one-op macros below
+
 
 (defn- set-ds-props
   [plan fields size]

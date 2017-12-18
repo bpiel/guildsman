@@ -44,7 +44,7 @@
   [^Graph g plan]
   (let [plan' (if (map? plan)
                 plan
-                (o/c plan))
+                (o/c plan (dt/data-type-of-whatever plan) ))
         output-idx (if (map? plan)
                      (:output-idx plan')
                      0)]

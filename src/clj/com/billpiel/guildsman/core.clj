@@ -721,11 +721,13 @@ provided an existing Graph defrecord and feed map."
 (defmacro def-workspace
   [ws-name & body]
   `(do
-     (when-let [~'existing (ns-resolve *ns* '~ws-name)]
-       (when (and (some-> ~'existing deref :wf-out deref :status (= :running))
-                  (not (ws-interrupt (deref ~'existing))))
-         (throw (Exception. "Could not interrupt running workflow.")))
-       (ws-do-wf (deref ~'existing) :close))
+     (when-let [~'existing (some-> (ns-resolve *ns* '~ws-name)
+                                   deref)]
+       (when (map? ~'existing)
+         (when (and (some-> ~'existing :wf-out deref :status (= :running))
+                    (not (ws-interrupt ~'existing)))
+           (throw (Exception. "Could not interrupt running workflow.")))
+         (ws-do-wf ~'existing :close)))
      (let [ws-def# (do ~@body)
            [ws# meta#] (mk-workspace '~ws-name ws-def#)]
        (def ~ws-name ws#)
@@ -734,7 +736,6 @@ provided an existing Graph defrecord and feed map."
                     :wf-meta meta#)
        ((~ws-name :multi) :init ~ws-name) ;; TODO arg is weird??
        (var ~ws-name))))
-
 
 ;; END WORKSPACES ========================
 

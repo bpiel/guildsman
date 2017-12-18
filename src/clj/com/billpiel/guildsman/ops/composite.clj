@@ -17,7 +17,7 @@
   (:import [com.billpiel.guildsman.common Graph]
            [com.billpiel.guildsman.session Session]))
 
-(defn reduction-dims
+#_(defn reduction-dims
   [x & [axis]]
   (or axis
       (o/range-tf (int 0)
