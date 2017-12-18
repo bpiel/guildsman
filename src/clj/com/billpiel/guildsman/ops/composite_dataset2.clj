@@ -10,10 +10,44 @@
           {:ds-fields fields
            :ds-size size}))
 
+(defn- copy-ds-props
+  [target {:keys [ds-fields ds-size]}]
+  (update target :xprops
+          merge
+          {:ds-fields ds-fields
+           :ds-size ds-size}))
+
 (defn- ds-fields-prop->output-attrs
   [ds-fields-prop]
   {:output_types (mapv :type ds-fields-prop)
    :output_shapes (mapv :shape ds-fields-prop)})
+
+(defn- ds->output-attrs
+  [{:keys [attrs]}]
+  (select-keys attrs
+               [:output_types :output_shapes]))
+
+(defmethod mc/build-macro :repeat-ds
+  [^Graph g {:keys [id inputs fields] :as args}]
+  (let [[n dataset] inputs]
+    (clojure.pprint/pprint  [(copy-ds-props (o/repeat-dataset id
+                                                              (ds->output-attrs dataset)
+                                                              n dataset)
+                                            dataset)])
+    (throw (Exception. "NOOO"))))
+
+(ut/defn-comp-macro-op repeat-ds
+  {:doc ""
+   :id :repeat-ds
+   :attrs {fields "field names"
+           size "size"}
+   :inputs [[n "number of times to repeat"]
+            [dataset "the dataset to repeat"]]}
+  {:macro :repeat-ds
+   :id id
+   :inputs [n dataset]
+   :fields fields})
+
 
 
 (defmethod mc/build-macro :remix-ds
@@ -125,14 +159,16 @@
 (defmethod mc/build-macro :dsi-plug
   [^Graph g {:keys [id inputs fields batch-size] :as args}]
   (let [remixed-ds (remix-ds {:fields fields} inputs)
+        repeated (repeat-ds -1 remixed-ds)
         out-attrs (ds-fields-prop->output-attrs fields)
         batched-ds (o/batch-dataset (ds-fields-prop->output-attrs fields)
-                                    remixed-ds
+                                    repeated
                                     (or batch-size 1))
+        repeat-batches (repeat-ds -1 batched-ds)
         iter (o/iterator :iterator out-attrs)
         iter-hnd (o/iterator-to-string-handle :iter-hnd out-attrs iter)
         init-iter (o/make-iterator :init-iter
-                                   batched-ds
+                                   repeat-batches
                                    iter)]
     [iter-hnd
      (-> init-iter
