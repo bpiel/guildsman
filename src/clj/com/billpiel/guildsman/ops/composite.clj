@@ -58,9 +58,10 @@
   [^Graph g {:keys [attrs inputs]}]
   (sc/with-override-id-with-var-scope
     (let [[init] inputs
-          vari (o/variable :variable
-                           (merge (opn/get-desc-of-output init)
-                                  attrs))]
+          vari (-> (o/variable :variable
+                               (merge (opn/get-desc-of-output init)
+                                      attrs))
+                   (ut/append-collections [:trainable-varis]))]
       [(o/identity-tf :read {} vari)
        (-> (o/assign :init {} vari init)
            (ut/append-collections [:global-var-inits])

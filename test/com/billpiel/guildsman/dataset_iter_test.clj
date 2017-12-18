@@ -199,4 +199,3 @@
 
 ;; TODO non-trainable varis
 
-(type $s/*)
