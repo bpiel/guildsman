@@ -89,7 +89,12 @@
                tail))
       r)))
 
-(defn drop-output-idx [id] (first (clojure.string/split id #":")))
+(defn drop-output-idx [id]
+  (try (first (clojure.string/split id #":"))
+       (catch Exception e
+         (def e1 e)
+         #_ (clojure.pprint/pprint e1)
+         (clojure.pprint/pprint id))))
 
 (defn filter-cyto-edges
   [edges]
@@ -116,7 +121,7 @@
       (update :nodes filter-cyto-nodes)))
 
 (defn mk-node-defs
-  [{:keys [id]}]
+  [{:keys [id] :as node}]
   (mk-id-seq (clojure.string/split (drop-output-idx id)
                                    #"/")))
 
