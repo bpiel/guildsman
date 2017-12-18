@@ -530,13 +530,13 @@ o/map-dataset
            noop (o/no-op)]
     {:plugins [dev/plugin g/gm-plugin]
      :plans [rsum noop]
-     :duration [:steps 100] #_[:epochs 1]
-     :interval [:steps 10] #_[:records 100] ;; whoa!?!?! next best thing to secs?
+     :duration [:steps 10000] #_[:epochs 1]
+     :interval [:steps 1000] #_[:records 100] ;; whoa!?!?! next best thing to secs?
      :modes {:train {:step [noop]
                      ::dev/summaries [rsum]
                      :iters {socket (c/dsi-plug {:batch-size 10}
-                                                [:bpiel/mnist-train-60k-features
-                                                 :bpiel/mnist-train-60k-labels])}}
+                                                [:bpiel/mnist-train-60k-labels
+                                                 :bpiel/mnist-train-60k-features])}}
              :test {::dev/summaries [rsum]
                     :iters {socket (c/dsi-plug [:bpiel/mnist-test-10k-features
                                                 :bpiel/mnist-test-10k-labels])}}}

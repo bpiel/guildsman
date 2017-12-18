@@ -750,7 +750,7 @@ provided an existing Graph defrecord and feed map."
   (->> rets
        (partition 3)
        (mapv (fn [[a t s]]
-               {:arg `'~a :type t :shape s}))))
+               {:name `'~a :type t :shape s}))))
 
 (defn- fn-tf-body
   [args body]

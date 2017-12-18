@@ -15,6 +15,7 @@
   {:output_types (mapv :type ds-fields-prop)
    :output_shapes (mapv :shape ds-fields-prop)})
 
+
 (defmethod mc/build-macro :remix-ds
   [^Graph g {:keys [id inputs fields] :as args}]
   ;; TODO zip multiple dsets
@@ -29,6 +30,75 @@
                    fields
                    (-> inputs first :ds-size))]))
 
+(defn- remix-ds-zip-fn
+  [inputs]
+  (if (> (count inputs) 1)
+    (o/zip-dataset (assoc (ds-fields-prop->output-attrs
+                           (mapcat :ds-fields inputs))
+                          :N (count inputs))
+                   inputs)
+    inputs))
+
+#_{:func :f1
+ :returns [{:shape [1] :type g/dt-float}]
+ :args [{:name 'x
+         :shape [1]
+         :type g/dt-float}]
+ :body [(o/add 'x 1.1)]}
+
+(defn- int->arg-sym [i]
+  (-> i
+      (+ 97)
+      char
+      str
+      symbol))
+
+(defn fields->name-sym-map
+  [in-fields]
+  (into {}
+        (for [{n :name} in-fields]
+          [])))
+
+(defn- remix-ds-map-fn-fn
+  [in-fields out-fields]
+  (let [in-fields' (map #(update % :name (comp symbol name))
+                        in-fields)
+        name->in-field (->> (map
+                             (fn [a b]
+                               [(:name a) b])
+                             in-fields
+                             in-fields')
+                            (into {}))
+        out-fields-mapped (map name->in-field
+                               out-fields)]
+    {:f {:func :remix-ds-map-fn
+         :returns (mapv #(select-keys % [:shape :type])
+                        out-fields-mapped)
+         :args (mapv (comp name->in-field :name)
+                     in-fields)
+         :body (mapv :name out-fields-mapped)}
+     :output_shapes (mapv :shape out-fields-mapped)
+     :output_types (mapv :type out-fields-mapped)}))
+
+(defn- remix-ds-map-fn
+  [zipped-ds inputs fields]
+  (let [in-fields (mapcat :ds-fields inputs)
+        out-field-names (mapv :name fields)]
+    (if-not false ;; TODO
+      (o/map-dataset (remix-ds-map-fn-fn in-fields out-field-names)
+                     zipped-ds
+                     [])
+      zipped-ds)))
+
+(defmethod mc/build-macro :remix-ds
+  [^Graph g {:keys [id inputs fields] :as args}]
+  [(let [size (some->> inputs (keep :ds-size) not-empty (apply min))]
+      (-> inputs
+          remix-ds-zip-fn
+          (remix-ds-map-fn inputs fields)
+          (set-ds-props fields
+                        size)))])
+
 
 (ut/defn-comp-macro-op remix-ds
   {:doc ""
@@ -40,13 +110,25 @@
    :inputs datasets
    :fields fields})
 
+
+;; ## dsi-plug chain
+;; zip
+;; map (select and order named fields)
+;; repeat -1
+;; map (provided/optional)
+;; shuffle? (true => window = batch size)
+;; batch
+;; take (/ epoch-size batch-size)
+;; repeat -1
+
+
 (defmethod mc/build-macro :dsi-plug
   [^Graph g {:keys [id inputs fields batch-size] :as args}]
   (let [remixed-ds (remix-ds {:fields fields} inputs)
         out-attrs (ds-fields-prop->output-attrs fields)
         batched-ds (o/batch-dataset (ds-fields-prop->output-attrs fields)
                                     remixed-ds
-                                    10)
+                                    (or batch-size 1))
         iter (o/iterator :iterator out-attrs)
         iter-hnd (o/iterator-to-string-handle :iter-hnd out-attrs iter)
         init-iter (o/make-iterator :init-iter
