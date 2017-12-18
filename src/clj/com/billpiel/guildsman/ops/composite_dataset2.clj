@@ -23,18 +23,16 @@
    :output_shapes (mapv :shape ds-fields-prop)})
 
 (defn- ds->output-attrs
-  [{:keys [attrs]}]
-  (select-keys attrs
-               [:output_types :output_shapes]))
+  [{:keys [ds-fields]}]
+  (ds-fields-prop->output-attrs ds-fields))
 
 (defmethod mc/build-macro :repeat-ds
   [^Graph g {:keys [id inputs fields] :as args}]
   (let [[n dataset] inputs]
-    (clojure.pprint/pprint  [(copy-ds-props (o/repeat-dataset id
-                                                              (ds->output-attrs dataset)
-                                                              n dataset)
-                                            dataset)])
-    (throw (Exception. "NOOO"))))
+    [(copy-ds-props (o/repeat-dataset id
+                                      (ds->output-attrs dataset)
+                                      dataset (cast-tf dt/long-kw n))
+                    dataset)]))
 
 (ut/defn-comp-macro-op repeat-ds
   {:doc ""
@@ -48,21 +46,25 @@
    :inputs [n dataset]
    :fields fields})
 
-
-
-(defmethod mc/build-macro :remix-ds
+(defmethod mc/build-macro :take-ds
   [^Graph g {:keys [id inputs fields] :as args}]
-  ;; TODO zip multiple dsets
-  ;; TODO re-map mismatched fields
-  (if (> (count inputs) 1)
-    [(set-ds-props (o/zip-dataset (assoc (ds-fields-prop->output-attrs fields)
-                                         :N (count inputs))
-                                  inputs)
-                   fields
-                   (-> inputs first :ds-size))]
-    [(set-ds-props (first inputs)
-                   fields
-                   (-> inputs first :ds-size))]))
+  (let [[n dataset] inputs]
+    [(copy-ds-props (o/take-dataset id
+                                    (ds->output-attrs dataset)
+                                    dataset (cast-tf dt/long-kw n))
+                    dataset)]))
+
+(ut/defn-comp-macro-op take-ds
+  {:doc ""
+   :id :take-ds
+   :attrs {fields "field names"
+           size "size"}
+   :inputs [[n "number of records to take"]
+            [dataset "the dataset to take"]]}
+  {:macro :take-ds
+   :id id
+   :inputs [n dataset]
+   :fields fields})
 
 (defn- remix-ds-zip-fn
   [inputs]
@@ -72,13 +74,6 @@
                           :N (count inputs))
                    inputs)
     inputs))
-
-#_{:func :f1
- :returns [{:shape [1] :type g/dt-float}]
- :args [{:name 'x
-         :shape [1]
-         :type g/dt-float}]
- :body [(o/add 'x 1.1)]}
 
 (defn- int->arg-sym [i]
   (-> i
@@ -158,17 +153,25 @@
 
 (defmethod mc/build-macro :dsi-plug
   [^Graph g {:keys [id inputs fields batch-size] :as args}]
-  (let [remixed-ds (remix-ds {:fields fields} inputs)
-        repeated (repeat-ds -1 remixed-ds)
+  (let [batch-size' (or batch-size 1)
+        inputs-min-size (some->> inputs (keep :ds-size) not-empty (apply min))
         out-attrs (ds-fields-prop->output-attrs fields)
-        batched-ds (o/batch-dataset (ds-fields-prop->output-attrs fields)
-                                    repeated
-                                    (or batch-size 1))
-        repeat-batches (repeat-ds -1 batched-ds)
+        ds (ut/$- ->> inputs
+                  (remix-ds {:fields fields})
+                  (repeat-ds -1)
+                  (o/batch-dataset (ds-fields-prop->output-attrs fields)
+                                   $
+                                   batch-size')
+                  (set-ds-props $
+                                fields
+                                batch-size')
+                  (take-ds (ut/ceil-quot inputs-min-size
+                                         batch-size'))
+                  (repeat-ds -1))
         iter (o/iterator :iterator out-attrs)
         iter-hnd (o/iterator-to-string-handle :iter-hnd out-attrs iter)
         init-iter (o/make-iterator :init-iter
-                                   repeat-batches
+                                   ds
                                    iter)]
     [iter-hnd
      (-> init-iter

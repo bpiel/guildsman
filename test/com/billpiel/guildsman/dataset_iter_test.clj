@@ -122,14 +122,6 @@
 
 #_(pkg/import-package-repo! "https://bpiel.github.io/guildsman-recipes/recipes.edn")
 
-;; https://bpiel.github.io/guildsman-recipes/recipes.edn
-{:bpiel/mnist-train-10k
- {:name "MNIST Train 10k"
-  :description "..."
-  :source '()
-  :plan {}}}
-
-
 
 (g/def-workspace ws-dream
   (g/let+ [{:keys [features labels socket]}
@@ -149,7 +141,7 @@
                                                 [:bpiel/mnist-train-60k-labels
                                                  :bpiel/mnist-train-60k-features])}}
              :test {::dev/summaries [rsum]
-                    :iters {socket (c/dsi-plug {:batch-size 1000}
+                    :iters {socket (c/dsi-plug {:batch-size 1000 #_[:epochs 1]} 
                                                [:bpiel/mnist-test-10k-features
                                                 :bpiel/mnist-test-10k-labels])}}}
      :workflows {:train-test {:driver g/default-train-test-wf}}}))

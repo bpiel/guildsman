@@ -14,6 +14,12 @@
        (catch Exception e
          nil)))
 
+(defn ceil-quot
+  [a b]
+  (int (+ (quot a b)
+          (if (zero? (mod a b))
+            0 1))))
+
 (defn visit-post
   [f branch? children make-node root]
   (if (branch? root)
