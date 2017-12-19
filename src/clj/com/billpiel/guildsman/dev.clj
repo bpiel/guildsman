@@ -130,7 +130,7 @@
   (let [id-src (drop-output-idx (:id opnode))]
     (map (fn [id-target]
            {:data {:source (drop-output-idx id-target) :target id-src }})
-          (:inputs opnode))))
+          (-> opnode :inputs flatten))))
 
 
 (defn mk-graph-def
