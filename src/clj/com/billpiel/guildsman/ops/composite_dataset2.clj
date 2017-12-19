@@ -42,7 +42,7 @@
    :id :repeat-ds
    :attrs {fields "field names"
            size "size"}
-   :inputs [[n "number of times to repeat"]
+   :inputs [[n "number of times to repeat"] ;; TODO multiply to get size? unless -1, then use original size????
             [dataset "the dataset to repeat"]]}
   {:macro :repeat-ds
    :id id
@@ -61,8 +61,8 @@
   {:doc ""
    :id :take-ds
    :attrs {fields "field names"
-           size "size"}
-   :inputs [[n "number of records to take"]
+           size "size"}  ;; uneccesary??
+   :inputs [[n "number of records to take"] ;; TODO use as size
             [dataset "the dataset to take"]]}
   {:macro :take-ds
    :id id
@@ -143,22 +143,15 @@
    :fields fields})
 
 
-;; ## dsi-plug chain
-;; zip
-;; map (select and order named fields)
-;; repeat -1
-;; map (provided/optional)
-;; shuffle? (true => window = batch size)
-;; batch
-;; take (/ epoch-size batch-size)
-;; repeat -1
-
-
 (defmethod mc/build-macro :dsi-plug
-  [^Graph g {:keys [id inputs fields batch-size] :as args}]
-  (let [batch-size' (or batch-size 1)
-        inputs-min-size (some->> inputs (keep :ds-size) not-empty (apply min))
+  [^Graph g {:keys [id inputs fields batch-size epoch-size] :as args}]
+  (let [epoch-size' (or epoch-size
+                        (some->> inputs (keep :ds-size) not-empty (apply min)))
+        batch-size' (if (= batch-size -1)
+                      epoch-size'
+                      (or batch-size 1))
         out-attrs (ds-fields-prop->output-attrs fields)
+        batch-count (ut/ceil-quot epoch-size' batch-size')
         ds (ut/$- ->> inputs
                   (remix-ds {:fields fields})
                   (repeat-ds -1)
@@ -167,9 +160,8 @@
                                    batch-size')
                   (set-ds-props $
                                 fields
-                                batch-size')
-                  (take-ds (ut/ceil-quot inputs-min-size
-                                         batch-size'))
+                                batch-count)
+                  (take-ds batch-count)
                   (repeat-ds -1))
         iter (o/iterator :iterator out-attrs)
         iter-hnd (o/iterator-to-string-handle :iter-hnd out-attrs iter)
@@ -187,6 +179,7 @@
    a workspace's :mode->:iter"
    :id :dsi-plug ;; TODO why is :id mandatory? how is it used?
    :attrs {batch-size "The size of the batch.. negotiable."
+           epoch-size "OPTIONAL"
            fields "Usually provided by dsi-connector."}
    :inputs [[datasets "A vector of one or more datasets. Keywords will be realized as packages." ]]}
   (let [dsets (mapv (fn [i] (if (keyword? i)
@@ -197,6 +190,7 @@
      :id id
      :inputs dsets
      :batch-size batch-size
+     :epoch-size epoch-size
      :fields fields}))
 
 (defmethod mc/build-macro :dsi-socket

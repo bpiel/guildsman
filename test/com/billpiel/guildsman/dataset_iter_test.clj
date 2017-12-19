@@ -67,7 +67,7 @@
                     :plan
                     (->> (c/asset-as-files :bpiel/mnist-train-60k-labels-file)
                          (c/fixed-length-record-ds {:size 60000
-                                                    :header-bytes (o/c 16 g/dt-long)
+                                                    :header-bytes (o/c 8 g/dt-long)
                                                     :record-bytes (o/c 1 g/dt-long)
                                                     :footer-bytes (o/c 0 g/dt-long)
                                                     :buffer-bytes (o/c 1 g/dt-long)})
@@ -110,7 +110,7 @@
                     :plan
                     (->> (c/asset-as-files :bpiel/mnist-test-10k-labels-file)
                          (c/fixed-length-record-ds {:size 10000
-                                                    :header-bytes (o/c 16 g/dt-long)
+                                                    :header-bytes (o/c 8 g/dt-long)
                                                     :record-bytes (o/c 1 g/dt-long)
                                                     :footer-bytes (o/c 0 g/dt-long)
                                                     :buffer-bytes (o/c 1 g/dt-long)})
@@ -163,6 +163,7 @@
 
            {:keys [logits classes]}
            (+>> features
+                (c/dense {:units 1024})
                 (c/dense {:id :logits
                           :units 10})
                 (o/arg-max :classes $ 1))
@@ -171,9 +172,10 @@
            (+>> labels
                 (c/one-hot $ 10)
                 (c/mean-squared-error logits)
-                (c/grad-desc-opt :opt 0.1))
+                (c/grad-desc-opt :opt 0.2))
 
            acc (c/accuracy :acc
+                           ;; TODO :id isn't id arg for cast-tf
                            (c/cast-tf dt/int-kw
                                       classes)
                            labels)]
@@ -181,16 +183,20 @@
     {:plugins [dev/plugin g/gm-plugin]
      :plans [acc opt]
      :duration [:steps 100] #_[:epochs 1] #_[:secs 10]
-     :interval [:steps 1] #_[:records 100] ;; whoa!?!?! next best thing to secs?
+     :interval [:steps 10] #_[:records 100] ;; whoa!?!?! next best thing to secs?
      :modes {:train {:step [opt]
                      ::dev/summaries [acc]
-                     :iters {socket (c/dsi-plug {:batch-size 10}
+                     :iters {socket (c/dsi-plug {:batch-size 300
+                                                 :epoch-size 300}
                                                 [:bpiel/mnist-train-60k-labels
                                                  :bpiel/mnist-train-60k-features])}}
              :test {::dev/summaries [acc]
-                    :iters {socket (c/dsi-plug {:batch-size 10 #_[:epochs 1]} 
+                    :iters {socket (c/dsi-plug {:batch-size -1
+                                                #_[:epochs 1]
+                                                :epoch-size 100} 
                                                [:bpiel/mnist-test-10k-features
                                                 :bpiel/mnist-test-10k-labels])}}}
+     ;; TODO train-test should reset log
      :workflows {:train-test {:driver g/default-train-test-wf}}}))
 
 (clojure.pprint/pprint 
