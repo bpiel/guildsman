@@ -163,7 +163,7 @@
 
            {:keys [logits classes]}
            (+>> features
-                (c/dense {:units 1024})
+                (c/dense {:units 1024}) ;; TODO why is this scoped as ::req??
                 (c/dense {:id :logits
                           :units 10})
                 (o/arg-max :classes $ 1))
@@ -182,8 +182,8 @@
     
     {:plugins [dev/plugin g/gm-plugin]
      :plans [acc opt]
-     :duration [:steps 100] #_[:epochs 1] #_[:secs 10]
-     :interval [:steps 10] #_[:records 100] ;; whoa!?!?! next best thing to secs?
+     :duration [:steps 100] ;; TODO ?? [:epochs 1] [:secs 10]
+     :interval [:steps 10]
      :modes {:train {:step [opt]
                      ::dev/summaries [acc]
                      :iters {socket (c/dsi-plug {:batch-size 300
@@ -203,14 +203,3 @@
  (g/ws-status ws-mnist1))
 
 (g/ws-train-test ws-mnist1)
-
-;; TODO non-trainable varis
-
-(g/produce $.ws-mnist1/$session "acc/accuracy")
-
-(g/produce $.ws-mnist1/$session $.ws-mnist1/classes)
-
-(g/produce $.ws-mnist1/$session (assoc $.ws-mnist1/socket>socket>get-next
-                                       :output-idx 1))
-
-(g/produce (o/unpack {:num 1 :axis 0} [1] ))
