@@ -11,12 +11,13 @@
             [com.billpiel.guildsman.util :as ut]
             [com.billpiel.guildsman.ops.basic :as o]
             [com.billpiel.guildsman.data-type :as dt]
-            com.billpiel.guildsman.common
+            [com.billpiel.guildsman.packages :as pkg]
+            [com.billpiel.guildsman.common :as cmn]
             [clojure.walk :as w])
   (:import [com.billpiel.guildsman.common Graph]
            [com.billpiel.guildsman.session Session]))
 
-(defn reduction-dims
+#_(defn reduction-dims
   [x & [axis]]
   (or axis
       (o/range-tf (int 0)
@@ -57,9 +58,10 @@
   [^Graph g {:keys [attrs inputs]}]
   (sc/with-override-id-with-var-scope
     (let [[init] inputs
-          vari (o/variable :variable
-                           (merge (opn/get-desc-of-output init)
-                                  attrs))]
+          vari (-> (o/variable :variable
+                               (merge (opn/get-desc-of-output init)
+                                      attrs))
+                   (ut/append-collections [:trainable-varis]))]
       [(o/identity-tf :read {} vari)
        (-> (o/assign :init {} vari init)
            (ut/append-collections [:global-var-inits])
@@ -89,6 +91,35 @@
                       sc/*var-scope*)
               {})})))
 
+(defmethod mc/build-macro :pkg-plan
+  [^Graph g {:keys [id pkg] :as args}]
+  [(pkg/get-plan pkg)])
+
+(ut/defn-comp-macro-op pkg-plan
+  {:doc "package plan"
+   :id :pkg-plan
+   :inputs [[pkg-kw "A keyword that identifies a plan package."]]}
+  {:macro :pkg-plan
+   :id id
+   :pkg pkg-kw
+   :inputs []})
+
+
+(defmethod mc/build-macro :pkg-asset-as-files
+  [^Graph g {:keys [id pkg] :as args}]
+  [(o/c (pkg/get-asset-as-files pkg)
+         dt/string-kw)])
+
+(ut/defn-comp-macro-op asset-as-files
+  {:doc ""
+   :id :pkg-asset-as-files
+   :inputs [[pkg-kw "A keyword that identifies a plan package."]]}
+  {:macro :pkg-asset-as-files
+   :id id
+   :pkg pkg-kw
+   :inputs []})
+
+
 (load "composite_random")
 (load "composite_init")
 (load "composite_math")
@@ -96,3 +127,4 @@
 (load "composite_nn")
 (load "composite_grad")
 (load "composite_metrics")
+(load "composite_dataset2")

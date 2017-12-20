@@ -3,12 +3,10 @@
             [com.billpiel.guildsman.graph :as gr]
             [com.billpiel.guildsman.scope :as sc]
             [com.billpiel.guildsman.util :as ut])
-  (:import [com.billpiel.guildsman.common Graph]))
+  (:import [com.billpiel.guildsman.common Graph Op]))
 
-(defmulti pre-build-macro (fn [^Graph g plan] (:macro plan)))
 (defmulti build-macro (fn [^Graph g plan] (:macro plan)))
 
-(defmethod pre-build-macro :default [_ plan] plan)
 (defmethod build-macro :default [_ plan]
   (if (contains? plan :macro)
     (throw (Exception. (str "Unknown macro " plan)))
@@ -25,9 +23,9 @@
 (defn macro-plan->op-plan
   [^Graph g {:keys [output-idx] :as plan}]
   (-> plan
-       compute-hash
-       ((gr/macro-hash->outputs g))
-       (nth (or output-idx 0))))
+      compute-hash
+      ((gr/macro-hash->outputs g))
+      (nth (or output-idx 0))))
 
 (defn- mk-id
   [^Graph g base-kw]

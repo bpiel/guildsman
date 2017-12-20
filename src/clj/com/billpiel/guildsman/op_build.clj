@@ -5,12 +5,15 @@
             [com.billpiel.guildsman.graph :as gr]
             [com.billpiel.guildsman.tensor :as tsr]
             [com.billpiel.guildsman.shape :as sh]
-            [com.billpiel.guildsman.util :as ut]
+            [com.billpiel.guildsman.util :as ut]            
             [flatland.protobuf.core :as pr]
             [com.billpiel.guildsman.common]
             clojure.pprint)
-  (:import [com.billpiel.guildsman.common Graph Op GraphRef]
-           [org.tensorflow.framework OpDef OpList NodeDef]))
+  (:import [com.billpiel.guildsman FunctionNI]
+           [com.billpiel.guildsman.common Graph Op GraphRef]
+           [org.tensorflow.framework OpDef OpList NodeDef AttrValue]))
+
+(def AttrValueP (pr/protodef AttrValue))
 
 (defn get-attr-bytes
   [v]
@@ -23,6 +26,17 @@
   (->> shapes
        (map count)
        int-array))
+
+(defn- str->fn-name-pb-bytes [s]
+  (pr/protobuf-dump AttrValueP {:func {:name s}}))
+
+(defn- fn-plan->fn-name-pb-bytes
+  [v]
+  (when (nil? ut/*fn-builder*)
+    (throw (Exception. "Cannot build a function when *fn-builder* is not set.")))
+  (-> (ut/*fn-builder* v)
+      :fn-name
+      str->fn-name-pb-bytes))
 
 (defn- set-attr
   [builder-handle k v ty]
@@ -43,6 +57,9 @@
       :int (com.billpiel.guildsman.OperationBuilderNI/setAttrInt builder-handle
                                                                  k v)
 
+      :func (com.billpiel.guildsman.OperationBuilderNI/setAttrProto builder-handle k
+                                                                    (fn-plan->fn-name-pb-bytes v))
+      
       ;; TODO check :has-minimum for lists somewhere??
       ;; other reqs specified in pb op defs to check?
       
@@ -55,9 +72,11 @@
                         (dt/mk-typed-2d-array v Long/TYPE long-array)
                         (get-shape-dims v) (count v))
       (com.billpiel.guildsman.OperationBuilderNI/setAttr builder-handle
-                                                         k v))
+                                                         k v)
+      )
     (catch Exception e
       (def e1 e)
+      #_ (def e1 nil)
       #_ (clojure.pprint/pprint e1)
       (throw (Exception. (format "Failed to set attribute. type=%s, key=%s, value=%s, \n\nmsg=%s"
                                  ty k v
@@ -124,7 +143,7 @@
 (defn build-op
   [{:keys [^Graph g plan op-def]}]
   (try
-    (let [{:keys [id scope op hsh inputs ctrl-inputs attrs output-idx]} plan
+    (let [{:keys [id scope op hsh inputs ctrl-inputs attrs output-idx xprops]} plan
           collections (ut/get-collections plan)
           {tf-op :name def-attr :attr} op-def
           attrs' (or attrs {})
@@ -138,19 +157,20 @@
                      (add-ctrl-inputs ctrl-input-handles)
                      com.billpiel.guildsman.OperationBuilderNI/finish) ;; TODO release attr tensors? or done for us?
           {:keys [num-outputs shapes dtypes]} (opn/get-output-desc-by-handle (:handle g) handle)
-          node (with-meta (Op. id'
-                               [] ;; TODO add :0, when appropriate
-                               op
-                               (flatten (inputs->tf-ids inputs)) 
-                               (mapv ut/mk-tf-id ctrl-inputs)
-                               hsh
-                               attrs'
-                               handle
-                               (or output-idx 0)
-                               num-outputs
-                               shapes
-                               dtypes
-                               (gr/mk-graph-ref g))
+          node (with-meta (merge (Op. id'
+                                      [] ;; TODO add :0, when appropriate
+                                      op
+                                      (flatten (inputs->tf-ids inputs)) 
+                                      (mapv ut/mk-tf-id ctrl-inputs)
+                                      hsh
+                                      attrs'
+                                      handle
+                                      (or output-idx 0)
+                                      num-outputs
+                                      shapes
+                                      dtypes
+                                      (gr/mk-graph-ref g))
+                                 xprops)
                  (meta plan))]
       (gr/add-op-to-state! g node collections)
       node)
@@ -168,9 +188,10 @@
                         {:plan plan
                          :ex e}))))))
 
-
-
 (defmulti build (fn [g op-plan] (:op op-plan)))
 
-(defmethod build :default [_ op-plan] op-plan)
-
+(defmethod build :default [g op-plan]
+  (def op-plan1 op-plan)
+  (build-op
+   {:g g :plan op-plan
+    :op-def {:name (name (:op op-plan))}}))

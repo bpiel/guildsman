@@ -1,28 +1,26 @@
 (ns com.billpiel.guildsman.workspace2
   (:require [clojure.core.async :as a]
             [com.billpiel.guildsman.util :as ut]
-            [com.billpiel.guildsman.session :as sess]
+            [com.billpiel.guildsman.special-utils :as sput]
             [com.billpiel.guildsman.ops.basic :as o]
             [com.billpiel.guildsman.ops.composite :as c]))
 
-
-(defn de-ns-clj-core
-  [sym]
-  (cond (not (symbol? sym)) sym
-        (= "clojure.core" (namespace sym)) (symbol (name sym))
-        :else sym))
-
-(defn de-ns-clj-core-walk
-  [root]
-  (clojure.walk/prewalk de-ns-clj-core root))
+(defn filter-modes
+  [ws-cfg modes]
+  (update ws-cfg :modes select-keys modes))
 
 (defn --wf-merge-mode-maps
   [g & ms]
-  {:targets (->> ms
-                 (map :targets)
-                 (apply concat)
-                 distinct                 
-                 vec)
+  {:step (->> ms
+              (map :step)
+              (apply concat)
+              distinct                 
+              vec)
+   :enter (->> ms
+               (map :enter)
+               (apply concat)
+               distinct
+               vec)
    :fetch (->> ms
                (map :fetch)
                (apply concat)
@@ -35,14 +33,16 @@
              {})})
 
 (defn --wf-merge-state-modes*
-  [g {:keys [targets feed fetch]}]
-  {:targets (mapv (partial sess/->op-node g)
-                  targets)
-   :fetch (mapv (partial sess/->op-node g)
-                  fetch)
+  [g {:keys [step enter feed fetch]}]
+  {:step (mapv (partial sput/->op-node g)
+               step)
+   :enter (mapv (partial sput/->op-node g)
+                enter)
+   :fetch (mapv (partial sput/->op-node g)
+                fetch)
    :feed (into {}
                (for [[k v] feed]
-                 [(sess/->op-node g k) v]))})
+                 [(sput/->op-node g k) v]))})
 
 (defn --wf-merge-state-modes
   [g modes]
@@ -536,7 +536,7 @@
 
 (defn --wf-setup-modes
   [modes]
-  {:modes (ut/fmap #(select-keys % [:targets :fetch :feed])
+  {:modes (ut/fmap #(select-keys % [:step :fetch :feed :enter])
                    modes)})
 
 (defn --wf-query-steps
@@ -613,10 +613,3 @@
                         (bt span 0))
                     true))
                 (keys span))))))
-
-#_(clojure.pprint/with-pprint-dispatch clojure.pprint/code-dispatch
-  (binding [clojure.pprint/*print-miser-width* 60
-            clojure.pprint/*print-right-margin* 79]
-    (clojure.pprint/pprint
-     (de-ns-clj-core-walk
-      (render-wf-fn-src wf-def ws-cfg)))))

@@ -33,19 +33,24 @@
             :node (id->node start-id)})))
 
 (defn find-vari-paths*
-  [{:keys [node] :as x}]
+  [trainable-ids {:keys [node] :as x}]
   (let [x' (update x
                    :node
                    assoc
                    ::tagged?
-                   true)]
-    (if (= (:op node) :VariableV2)
-      (update x' :collector assoc (:id node) node)
+                   true)
+        id (:id node)]
+    (if (trainable-ids id)
+      (update x' :collector assoc id node)
       x')))
 
 (defn find-vari-paths
   [state target]
-  (input-depth-traveller find-vari-paths*
+  (input-depth-traveller (partial find-vari-paths*
+                                  (-> state
+                                      :collections
+                                      :trainable-varis
+                                      set))
                          (-> (get-traveller state
                                             (:id target)
                                             {:collector {}})

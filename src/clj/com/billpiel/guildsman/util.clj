@@ -3,6 +3,8 @@
 
 (def ^:dynamic *enclosing-form* nil)
 (def ^:dynamic *macro-meta* nil)
+(def ^:dynamic *fn-builder* nil)
+
 
 (defn ->int
   [v]
@@ -11,6 +13,12 @@
              (float? v) (int v))
        (catch Exception e
          nil)))
+
+(defn ceil-quot
+  [a b]
+  (int (+ (quot a b)
+          (if (zero? (mod a b))
+            0 1))))
 
 (defn visit-post
   [f branch? children make-node root]
@@ -72,7 +80,7 @@
 (defn- visit-plan**
   [cache-fn pre-fn merge-fn post-fn top-fn plan]
   (or (cache-fn plan)
-      (let [pre (pre-fn plan) ;; TODO set input const types here?!?!
+      (let [pre (pre-fn plan)
             post (if (map? pre)
                    (cond-> pre
                      (-> pre :inputs not-empty)
@@ -87,7 +95,8 @@
 (defn- visit-plan*
   [f plan]
   (if (and (sequential? plan)
-           (some map? (tree-seq sequential? identity plan)))
+           (or (empty? plan) ;; assume an empty input list??
+               (some map? (tree-seq sequential? identity plan)))) ;; TODO not great way to detect input list
     (mapv f plan)
     (f plan)))
 
@@ -130,7 +139,6 @@
 (defn build-eagerly?
   [v]
   (-> v meta ::build-eagerly?))
-
 
 (defn replace$
   [form]
@@ -282,8 +290,6 @@
           (partial walk/prewalk
                    prune-plan*)))
 
-
-
 (defn id-attrs->id
   [id-attrs]
   (if (keyword? id-attrs)
@@ -301,8 +307,6 @@
   (if (map? id-attrs)
     (:ctrl-inputs id-attrs [])
     []))
-
-
 
 (defn- spacer [n] (apply str (repeat n " ")))
 
@@ -336,10 +340,6 @@
                            (+ col' hc 1))))
       [agg "\n"])))
 
-(drop-last
- (interleave (clojure.string/split "a b" #"\n\n+")
-             (repeat ::br)))
-
 (defn- dx-stack-text
   [width indent col doc]
   ($- -> doc
@@ -365,7 +365,6 @@
         (number? doc) (str doc)
         :else nil))
 
-#_ (def dx-element nil)
 (defmulti dx-element
   (fn [mode width indent doc] mode))
 
@@ -374,6 +373,7 @@
   (let [doc' (dx->str doc)]
     (cond (string? doc') (dx-stack-text width indent col doc')
           (vector? doc) (dx-element :section width indent doc)
+          (nil? doc) ""
           :else (throw (Exception. (str "what's this? " doc))))))
 
 (defn dx-section-element
@@ -383,6 +383,7 @@
           (and (vector? doc)
                (not-empty doc)) (dx-element :table width indent doc)
           (empty? doc) []
+          (nil? doc) []
           :else (throw (Exception. (str "what's this? " doc))))))
 
 (defn dx-prep-section-contents**
@@ -510,6 +511,13 @@
         arg-list (cond (and id attrs' inputs')
                        `[~'id
                          {:keys [~@attrs' ~@ctrl-inputs']}
+                         ~@inputs']
+                       (and id attrs')
+                       `[~'id
+                         {:keys [~@attrs' ~@ctrl-inputs']}]
+                       (and id inputs' ctrl-inputs')
+                       `[~'id
+                         {:keys [~@ctrl-inputs']}
                          ~@inputs'])]
     `(~arg-list
       (sc/with-push-both-scopes (or ~'id ~id)
@@ -521,8 +529,10 @@
 (defn defn-comp-op-fn-attr-map
   [name-sym {:keys [doc attrs inputs]}]
   {:doc (dx [doc
-             (into ['inputs] inputs)
-             (into ['attrs] (mapv vec attrs))]
+             (when (not-empty inputs)
+               (into ['inputs] inputs))
+             (when (not-empty attrs)
+               (into ['attrs] (mapv vec attrs)))]
             75)})
 
 (defn- defn-comp-op*
@@ -551,3 +561,21 @@
             :with-push-id-to-scopes true}
            attrs-map)
     body))
+
+(defn- de-ns-clj-core
+  [sym]
+  (cond (not (symbol? sym)) sym
+        (= "clojure.core" (namespace sym)) (symbol (name sym))
+        :else sym))
+
+(defn- de-ns-clj-core-walk
+  [root]
+  (clojure.walk/prewalk de-ns-clj-core root))
+
+(defn pr-code
+  [c]
+  (clojure.pprint/with-pprint-dispatch clojure.pprint/code-dispatch
+    (binding [clojure.pprint/*print-miser-width* 60
+              clojure.pprint/*print-right-margin* 79]
+      (clojure.pprint/pprint
+       (de-ns-clj-core-walk c)))))

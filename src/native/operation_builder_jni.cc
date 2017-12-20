@@ -292,7 +292,7 @@ JNIEXPORT void JNICALL Java_com_billpiel_guildsman_OperationBuilderNI_setAttrStr
 }
 
 JNIEXPORT void JNICALL Java_com_billpiel_guildsman_OperationBuilderNI_setAttrShapeList(
-    JNIEnv* env, jobject object, jlong handle, jstring name, jobjectArray shapes, jintArray num_dims, jint num_shapes) {
+    JNIEnv* env, jclass object, jlong handle, jstring name, jobjectArray shapes, jintArray num_dims, jint num_shapes) {
   TF_OperationDescription *d = requireHandle(env, handle);
   if (d == nullptr) return;
   std::unique_ptr<int[]> c_num_dims;
@@ -323,4 +323,18 @@ JNIEXPORT void JNICALL Java_com_billpiel_guildsman_OperationBuilderNI_setAttrSha
   const char *cname = env->GetStringUTFChars(name, nullptr);
   TF_SetAttrShapeList(d, cname, c_shapes.get(), c_num_dims.get(), c_num_shapes);
   env->ReleaseStringUTFChars(name, cname);
+}
+
+JNIEXPORT void JNICALL Java_com_billpiel_guildsman_OperationBuilderNI_setAttrProto
+(JNIEnv* env, jclass object, jlong handle, jstring name, jbyteArray value) {
+  static_assert(sizeof(jbyte) == 1, "Require Java byte to be represented as a single byte"); 
+  TF_OperationDescription *d = requireHandle(env, handle);
+  if (d == nullptr) return;
+  const char *c_name = env->GetStringUTFChars(name, nullptr);
+  jbyte *c_value = env->GetByteArrayElements(value, nullptr);
+  std::unique_ptr<TF_Status, decltype(&TF_DeleteStatus)> status(TF_NewStatus(), TF_DeleteStatus);
+  TF_SetAttrValueProto(d, c_name, c_value, static_cast<size_t>(env->GetArrayLength(value)), status.get());
+  env->ReleaseByteArrayElements(value, c_value, JNI_ABORT);
+  env->ReleaseStringUTFChars(name, c_name);
+  CHECK_STATUS(env, status.get(), void());
 }

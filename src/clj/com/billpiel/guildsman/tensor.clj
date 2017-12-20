@@ -25,7 +25,10 @@
       dt/float-kw (.getFloat b idx)
       dt/double-kw (.getDouble b idx)
       dt/int-kw (.getInt b idx)
-      dt/long-kw (.getLong b idx))))
+      dt/long-kw (.getLong b idx)
+      dt/uint-kw (.get b idx))))
+
+
 
 (defprotocol PTensorNDArray
   (size [this])
@@ -177,7 +180,8 @@
 
                      :else
                      (com.billpiel.guildsman.TensorNI/allocateNonScalarBytes shape-arr
-                                                                             (to-array
+                                                                             (to-array v)
+                                                                             #_(to-array
                                                                               (map #(.getBytes % "UTF-8")
                                                                                    v))))
         ref-id (gensym "tref")

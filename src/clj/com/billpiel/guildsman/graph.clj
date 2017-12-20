@@ -119,12 +119,16 @@
 (defn add-output-by-handle! [^Graph g handle idx]
   (throw (Exception. "NOT IMPLEMENTED")))
 
-(defn get-global-var-init-assign-ops
-  [^Graph g]
+(defn get-nodes-in-collection
+  [^Graph g coll-kw]
   (let [i->n (id->node g)]
     (->> g
          :state
          deref
          :collections
-         :global-var-inits
+         coll-kw
          (map i->n))))
+
+(defn get-global-var-init-assign-ops
+  [^Graph g]
+  (get-nodes-in-collection g :global-var-inits))

@@ -10,30 +10,22 @@
 (def OpDefP (pr/protodef OpDef))
 (def OpListP (pr/protodef OpList))
 
-(defn maybe-auto-cast
-  [v]
-  (if auto-cast
-    (condp = (-> v dt/data-type-of-whatever :kw)
-      dt/long-kw (dt/convert-whatever v dt/int-kw)
-      dt/double-kw (dt/convert-whatever v dt/float-kw)
-      v)
-    v))
-
 (defn get-op-kw
   [op-def]
   (keyword (:name op-def)))
 
 (defn convert-attr
   [value def-type]
-  (let [value' value #_(maybe-auto-cast value)]
+  (let [value' (dt/HACK-string?->bytes value)]
     (try
-      (condp = def-type                                      ;; TODO move this logic to data_type ns????
+      (condp = def-type ;; TODO move this logic to data_type ns????
         :tensor (:handle (tsr/create-ref-from-value value')) ;; TODO!!
         :type (if (keyword? value')
                 (dt/->tf-attr-val :int64 (-> value' dt/kw->dt :native))
                 (dt/->tf-attr-val :int64 value'))
         :shape (dt/->tf-attr-val :int64 value')
         :int (dt/->tf-attr-val :int32 value')
+        :func value ;; TODO do something here?? Get global fn handle? Handle similarly to a tensor??
         dt/list-int-kw (dt/->tf-attr-val :int64 value') ;; :int64 seems weird
         dt/list-type-kw (dt/->tf-attr-val :int32
                                           (map #(-> % dt/kw->dt :native)

@@ -7,7 +7,7 @@
 (def double-kw :double)
 (def int-kw :int32)
 (def list-int-kw (keyword "list(int)"))
-(def uint-kw :unit8)
+(def uint-kw :uint8)
 (def string-kw :string)
 (def long-kw :int64)
 (def bool-kw :bool)
@@ -20,6 +20,7 @@
 (def list-shape-kw (keyword "list(shape)"))
 (def list-kw :list)
 
+;; TODO multimethods and protocols???
 
 (defn is-type?-fn
   [t]
@@ -54,6 +55,14 @@
         ia (double-array (.remaining ib))]
     (.get ib ia)
     (vec ia)))
+
+(defn string?->bytes
+  [v]
+  (cond (string? v)
+        (.getBytes v "UTF-8")
+        (= (type v) (type (byte-array 0)))
+        v
+        :else (throw (Exception. (str "Not a string or byte-array " v)))))
 
 (declare protobuf->dt)
 
@@ -123,12 +132,13 @@
     :pb-tensor-key :int-val}
    {:kw :uint8 
     :native 4  
-    :byte-size 4 
+    :byte-size 1
     :scalar? (constantly false)  
     :array? (constantly false)
     :scalar nil
-    :scalar-fn (fn [& args] (throw (Exception. "NOT IMPLEMENTED")))
+    :scalar-fn byte
     :array-fn nil}
+
    {:kw :string 
     :native 7  
     :byte-size nil
@@ -137,20 +147,21 @@
                                (flatten v)
                                [v])]
                       (apply + (map count v'))))
-    :scalar? string?  
+    :scalar? (is-type?-fn (type (byte-array 0)))  
     :array? (constantly false)
-    :scalar java.lang.String
-    :scalar-fn str ;; maybe wrong?
+    :scalar (type (byte-array 0))
+    :scalar-fn byte-array
     :array-fn (fn [v]
                 (if (sequential? v)
                   (into-array v)
-                  (to-array (repeat v ""))))
+                  (to-array (repeat v (byte-array 0)))))
+    :protobuf :dt-string
     :pb-attr-key :s
     :pb-attr-fn #(if (is-goole-pb-byte-string? %)
                    (String. (.toByteArray %))
                    (str %))
     :from-bytes #(String. %)
-    :to-bytes-fn (fn [^String s] (.getBytes s "UTF-8"))}
+    :to-bytes-fn identity}
    {:kw :int64 
     :native 9  
     :byte-size 8 
@@ -329,3 +340,21 @@
          dorun)
     r))
 
+
+(defn HACK-string?
+  [v]
+  (or (string? v)
+      (and (sequential? v)
+           (-> v first string?))))
+
+(defn HACK-string?->bytes
+  [v]
+  (if (HACK-string? v)
+    (if (string? v)
+      (.getBytes v)
+      (w/postwalk (fn [v]
+                    (if (string? v)
+                      (.getBytes v)
+                      v))
+                  v))
+    v))

@@ -4,6 +4,10 @@ import java.nio.charset.Charset;
 
 public final class OperationBuilderNI {
 
+    static {
+        NativeLibrary.load();
+    }
+    
     public static void setAttr(long handle, String name, String value) {
         setAttr(handle, name, value.getBytes(Charset.forName("UTF-8")));
     }
@@ -110,4 +114,6 @@ public final class OperationBuilderNI {
     public static native void setAttrShape(long handle, String name, long[] shape, int numDims);
 
     public static native void setAttrShapeList(long handle, String name, long[][] shapes, int[] numDims, int numShapes);
+
+    public static native void setAttrProto(long handle, String name, byte[] value);
 }

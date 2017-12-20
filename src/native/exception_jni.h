@@ -16,6 +16,7 @@ limitations under the License.
 #ifndef TENSORFLOW_JAVA_EXCEPTION_JNI_H_
 #define TENSORFLOW_JAVA_EXCEPTION_JNI_H_
 
+#include "include/c_api.h"
 #include <jni.h>
 
 #ifdef __cplusplus
@@ -35,6 +36,10 @@ void throwException(JNIEnv* env, const char* clazz, const char* fmt, ...);
 // If status is not TF_OK, then throw an appropriate exception.
 // Returns true iff TF_GetCode(status) == TF_OK.
 bool throwExceptionIfNotOK(JNIEnv* env, const TF_Status* status);
+
+#define CHECK_STATUS(env, status, null_return_value)     \
+  if (!throwExceptionIfNotOK(env, status))           \
+    return null_return_value;
 
 #ifdef __cplusplus
 }  // extern "C"

@@ -7,11 +7,14 @@
             [com.billpiel.guildsman.op-node :as opn]
             [com.billpiel.guildsman.workspace2 :as ws2]
             [com.billpiel.guildsman.util :as ut]
+            [com.billpiel.guildsman.special-utils :as sput]
+            [com.billpiel.guildsman.ops.composite :as c]
             com.billpiel.guildsman.gradients
             com.billpiel.guildsman.grad-desc-opt
             com.billpiel.guildsman.gradients-clj
             com.billpiel.guildsman.grad-desc-opt-clj
             [com.billpiel.guildsman.data-type :as dt]
+            [clojure.walk :as w]
             com.billpiel.guildsman.common
             clojure.pprint)
   (:import [com.billpiel.guildsman.common Graph]
@@ -22,9 +25,9 @@
 (def dt-double dt/double-kw)
 (def dt-int dt/int-kw)
 (def dt-list-int dt/list-int-kw)
-(def dt-uint dt/uint-kw)
+(def dt-uint dt/uint-kw) ;; TODO rename? is unsigned byte?
 (def dt-string dt/string-kw)
-(def dt-long dt/long-kw)
+(def dt-long dt/long-kw) ;; TODO or rename all of these to use TF terms?
 (def dt-bool dt/bool-kw)
 (def dt-list-bool dt/list-bool-kw)
 (def dt-type dt/type-kw)
@@ -34,6 +37,7 @@
 (def dt-shape dt/shape-kw)
 (def dt-list-shape dt/list-shape-kw)
 (def dt-list dt/list-kw)
+
 
 (defmacro let+
   [& body]
@@ -177,7 +181,7 @@ In the example below, both `graph` and `session` will be closed upon
 (defn fetch-map [^Session session plans & [feed targets]]
   (let [g (:graph session)]
     (zipmap (map (comp :id
-                       (partial sess/->op-node g))
+                       (partial sput/->op-node g))
                  plans)
             (fetch-all session plans feed targets))))
 
@@ -220,7 +224,9 @@ provided an existing Graph defrecord and feed map."
   called immediately after a session is created."
   [^Session session]
   (let [g (:graph session)
-        inits (gr/get-global-var-init-assign-ops g)]
+        inits (into (gr/get-global-var-init-assign-ops g)
+                    ;; TODO make func "run-all-inits"
+                    (gr/get-nodes-in-collection g :dataset-iter-inits))]
     (run-all session inits)
     session))
 
@@ -410,11 +416,30 @@ provided an existing Graph defrecord and feed map."
 (defn gm-plugin-build-main [graph plans]
   {:global {:graph (build-all->graph plans)}})
 
+(defn- gm-plugin-build-mode
+  [graph {:keys [iters] :as mode}]
+  (if (not-empty iters)
+    (->> (for [[s p] iters]
+           (let [dsi-cn (c/dsi-connector s p)]
+             ;; TODO build-all and find-ops instead?
+             (build->graph graph dsi-cn) 
+             (sput/->op-node graph dsi-cn)))
+         doall
+         (update mode :enter into))
+    mode))
+
+(defn gm-plugin-build-modes [graph modes]
+  (ut/fmap (partial gm-plugin-build-mode graph)
+           modes))
+
 (defn gm-plugin-setup-build-main
   [ws-cfg & _]
   [`(gm-plugin-build-main (-> ~'state :global :gm :graph)
                           (:plans ~'ws-cfg))
-   `(ws2/--wf-setup-modes (:modes ~'ws-cfg))])
+   `(->> ~'ws-cfg
+         :modes
+         (gm-plugin-build-modes (-> ~'state :global :gm :graph))
+         ws2/--wf-setup-modes)])
 
 (defn gm-plugin-create-session-main
   [graph session]
@@ -453,12 +478,18 @@ provided an existing Graph defrecord and feed map."
          compiled
          (assoc-in state' [:modes :-compiled :-current]))))
 
+(defn gm-plugin-prep-for-run-repeat
+  [{:keys [step feed]}]
+  {:targets step
+   :feed feed})
+
 (defn gm-plugin-setup-run-repeat-inline
   [ws-cfg & _]
   [(vary-meta `(gm-plugin-compile-modes-run-req ~'state)
               assoc ::ws2/no-merge-state true)
    `(--ws-run-all-repeat ~'(-> state :global :gm :session)
-                         ~'(-> state :modes :-compiled :-current)
+                         (-> ~'state :modes :-compiled :-current
+                             gm-plugin-prep-for-run-repeat)
                          (ws2/--wf-query-steps ~'state :block :span))])
 
 (defn gm-plugin-setup-fetch-map-inline
@@ -471,10 +502,12 @@ provided an existing Graph defrecord and feed map."
   [ws-cfg mode]
   [(vary-meta `(assoc ~'state :mode ~mode)
               assoc ::ws2/no-merge-state true)
+   (vary-meta `(gm-plugin-compile-modes-run-req ~'state)
+              assoc ::ws2/no-merge-state true)
    ;; TODO only include if there's anything to run
    `(--ws-run-all (-> ~'state :global :gm :session)
-                  (-> ~'ws-cfg :modes :test :enter))])
-
+                  {:targets 
+                   (-> ~'state :modes :-compiled :-current :enter)})])
 
 (defn gm-plugin-mode-form
   [hook-frms ws-cfg [mode]]
@@ -622,7 +655,7 @@ provided an existing Graph defrecord and feed map."
 
 ;; END PLUGIN ========================
 
-
+;; WORKSPACES ========================
 (defn- mk-default-train-test-wf-def
   [{:keys [duration interval] :as ws-cfg}]
   [:block {:type :workflow
@@ -631,8 +664,9 @@ provided an existing Graph defrecord and feed map."
             :span {:stages 1}}
     [:build]
     [:create-session]
-    [:init-varis]
-    [:block {:type :interval
+    [:init-varis] ;; TODO :init-all (includes ds-iter inits)
+    ;; TODO option for step 0 fetch/summaries
+    #_[:block {:type :interval
              :span {}}
      [:mode :train]
      [:fetch-map]
@@ -654,11 +688,13 @@ provided an existing Graph defrecord and feed map."
 
 (defn default-train-test-wf
   [ws-cfg]
-  (vary-meta ((eval (ws2/render-wf-fn-src (mk-default-train-test-wf-def ws-cfg)
-                                          ws-cfg))
-              ws-cfg)
-             assoc
-             :doc "A default implementation of a train-test workflow....TODO"))
+  (let [ws-cfg' (ws2/filter-modes ws-cfg [:train :test])
+        src (ws2/render-wf-fn-src (mk-default-train-test-wf-def ws-cfg)
+                                  ws-cfg)]
+    (vary-meta ((eval src) ws-cfg)
+               assoc
+               :doc "A default implementation of a train-test workflow....TODO"
+               :source src)))
 
 (defmacro ws-show-cmd-source
   [ws cmd]
@@ -676,15 +712,20 @@ provided an existing Graph defrecord and feed map."
        :wf-meta
        ~cmd))
 
+(defmacro ws-pr-workflow-source
+  [ws wf]
+  `(ut/pr-code (:source (ws-show-workflow-meta ~ws ~wf))))
 
 (defmacro def-workspace
   [ws-name & body]
   `(do
-     (when-let [~'existing (ns-resolve *ns* '~ws-name)]
-       (when (and (some-> ~'existing deref :wf-out deref :status (= :running))
-                  (not (ws-interrupt (deref ~'existing))))
-         (throw (Exception. "Could not interrupt running workflow.")))
-       (ws-do-wf (deref ~'existing) :close))
+     (when-let [~'existing (some-> (ns-resolve *ns* '~ws-name)
+                                   deref)]
+       (when (map? ~'existing)
+         (when (and (some-> ~'existing :wf-out deref :status (= :running))
+                    (not (ws-interrupt ~'existing)))
+           (throw (Exception. "Could not interrupt running workflow.")))
+         (ws-do-wf ~'existing :close)))
      (let [ws-def# (do ~@body)
            [ws# meta#] (mk-workspace '~ws-name ws-def#)]
        (def ~ws-name ws#)
@@ -694,3 +735,39 @@ provided an existing Graph defrecord and feed map."
        ((~ws-name :multi) :init ~ws-name) ;; TODO arg is weird??
        (var ~ws-name))))
 
+;; END WORKSPACES ========================
+
+(defn- fn-tf-returns
+  [rets]
+  (->> rets
+       (partition 2)
+       (mapv (fn [[t s]]
+               {:type t :shape s}))))
+
+(defn- fn-tf-args
+  [rets]
+  (->> rets
+       (partition 3)
+       (mapv (fn [[a t s]]
+               {:name `'~a :type t :shape s}))))
+
+(defn- fn-tf-body
+  [args body]
+  (w/postwalk-replace (->> args
+                           (partition 3)
+                           (map first)
+                           (map (fn [sym] [sym `'~sym]))
+                           (into {}))
+                      body))
+
+(defmacro fn-tf
+  [fn-name returns args body]
+  `{:func ~(name fn-name)
+    :returns ~(fn-tf-returns returns)
+    :args ~(fn-tf-args args)
+    :body ~(fn-tf-body args body)})
+
+(defmacro defn-tf
+  [fn-name returns args body]
+  `(def ~fn-name
+     (fn-tf ~fn-name ~returns ~args ~body)))

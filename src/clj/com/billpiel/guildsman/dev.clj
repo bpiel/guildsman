@@ -35,8 +35,7 @@
   [& [enable?]]
   (enable-op-meta-assoc enable?)
   (if-not (false? enable?)
-    (do #_(swap! g/plugins conj ::dev)
-        (wsvr/start-server))
+    (wsvr/start-server)
     (throw (Exception. "NOT IMPLEMENTED"))))
 
 #_ (activate-dev-mode true)
@@ -89,7 +88,8 @@
                tail))
       r)))
 
-(defn drop-output-idx [id] (first (clojure.string/split id #":")))
+(defn drop-output-idx [id]
+  (first (clojure.string/split id #":")))
 
 (defn filter-cyto-edges
   [edges]
@@ -116,7 +116,7 @@
       (update :nodes filter-cyto-nodes)))
 
 (defn mk-node-defs
-  [{:keys [id]}]
+  [{:keys [id] :as node}]
   (mk-id-seq (clojure.string/split (drop-output-idx id)
                                    #"/")))
 
@@ -125,7 +125,7 @@
   (let [id-src (drop-output-idx (:id opnode))]
     (map (fn [id-target]
            {:data {:source (drop-output-idx id-target) :target id-src }})
-          (:inputs opnode))))
+          (-> opnode :inputs flatten))))
 
 
 (defn mk-graph-def
@@ -312,10 +312,10 @@
                     :shape
                     sh/scalar?)
         id->node (gr/id->node g)]
-    [(when-not (id->node smry-id)
-       (if scalar?
-         (o/scalar-summary {:id smry-id} smry-id target)
-         (o/histogram-summary {:id smry-id} smry-id target)))
+    [(or (id->node smry-id)
+         (if scalar?
+           (o/scalar-summary {:id smry-id} smry-id target)
+           (o/histogram-summary {:id smry-id} smry-id target)))
      (when (and agd (-> agd-smry-id id->node nil?))
        (agd->delta-ratio-smry g agd-smry-id agd))]))
 
@@ -436,7 +436,6 @@
 (defn plugin-setup-init-post [{:keys [ws-name]} & _]
   [`(plugin-init-post '~ws-name)])
 
-;; TODO build summary ops
 (defn plugin-build-post
   [^Graph g ws-ns summaries]
   (mk-nodes-in-ns g ws-ns)
@@ -444,16 +443,23 @@
   {:modes
    (->> summaries
         (ut/fmap (partial add-summaries g))
-        (ut/fmap (partial hash-map :fetch)))}
-  #_  {:modes {:train {:fetch (:train summaries)}
-               :test {:fetch (:test summaries)}}})
+        (ut/fmap (partial hash-map :fetch)))})
 
-;; TODO support arbitrary modes
 (defn plugin-setup-build-post
   [ws-cfg & _]
   [`(plugin-build-post ~'(-> state :global :gm :graph)
                        ~'(-> state :global ::plugin :ws-ns)
                        (->> ~'ws-cfg :modes (ut/fmap ::summaries)))])
+
+(defn plugin-create-session-post
+  [^Session s ws-ns]
+  (intern ws-ns '$session s)
+  {})
+
+(defn plugin-setup-create-session-post
+  [ws-cfg & _]
+  [`(plugin-create-session-post ~'(-> state :global :gm :session)
+                                ~'(-> state :global ::plugin :ws-ns))])
 
 (defn plugin-interval-post
   [^Graph g ws-ns log-atom fetched step]
@@ -478,6 +484,7 @@
           :desc "dev things"}
    :init {:post  #'plugin-setup-init-post}
    :build {:post #'plugin-setup-build-post}
+   :create-session {:post #'plugin-setup-create-session-post}
    :interval {:post-async #'plugin-setup-interval-post}})
 
 

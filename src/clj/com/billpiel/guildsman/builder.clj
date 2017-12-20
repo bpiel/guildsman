@@ -7,7 +7,8 @@
             [com.billpiel.guildsman.util :as util]
             [com.billpiel.guildsman.macros :as mcro]
             [com.billpiel.guildsman.data-type :as dt]
-            [com.billpiel.guildsman.ops.gen-config :as og-cfg])
+            [com.billpiel.guildsman.ops.gen-config :as og-cfg]
+            [com.billpiel.guildsman.functions :as fns])
   (:import [com.billpiel.guildsman.common Graph Op]))
 
 (declare apply-plan-to-graph)
@@ -43,7 +44,7 @@
   [^Graph g plan]
   (let [plan' (if (map? plan)
                 plan
-                (o/c plan))
+                (o/c plan (dt/data-type-of-whatever plan) ))
         output-idx (if (map? plan)
                      (:output-idx plan')
                      0)]
@@ -72,8 +73,8 @@
 
 (defn- plan-const-input
   [input-def input]
-  (if-let [t (:type input-def)]
-    (o/c input (-> t dt/protobuf->dt :kw))
+  (if-let [t (some-> input-def :type dt/protobuf->dt :kw)]
+    (o/c input t)
     input))
 
 
@@ -87,7 +88,8 @@
                        (if (map? input)
                          input
                          (plan-const-input input-def input)))
-                     (:input-arg (og-cfg/op-list-by-kw (:op plan)))))
+                     (or (not-empty (:input-arg (og-cfg/op-list-by-kw (:op plan))))
+                         (repeat 20 {}))))
     plan))
 
 (defn- apply-plan-to-graph
@@ -99,7 +101,10 @@
                    nil
                    plan))
 
+(declare build->graph)
+
 (defn build->graph
   [^Graph g plan]
-  (apply-plan-to-graph g plan)
+  (fns/with-fn-builder g build->graph
+    (apply-plan-to-graph g plan))
   g)

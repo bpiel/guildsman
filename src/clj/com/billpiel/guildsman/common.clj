@@ -19,4 +19,3 @@
                ^GraphRef graphref])
 
 (defn Op? [o] (= (type o) Op))
-

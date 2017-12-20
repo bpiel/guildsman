@@ -71,6 +71,7 @@
   []
   (vreset! view-chan-thread-state :starting)
   (vreset! view-chan-thread-ex nil)
+  #_ (clojure.pprint/pprint @view-chan-thread-ex)
   (a/thread
     (vreset! view-chan-thread-state :running)
     (try

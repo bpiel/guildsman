@@ -59,3 +59,24 @@
          {:keep_dims (true? keep-dims)}
          input
          (reduction-dims input axis)))
+
+(defmethod mc/build-macro :cast-tf
+  [^Graph g {:keys [id inputs dest-type] :as args}]
+  (let [[x] inputs
+        ;; TODO wrong src-type if output-idx != 0
+        src-type (-> x :types first)]
+    [(o/cast-tf id
+                {:SrcT src-type
+                 :DstT dest-type}
+                x)]))
+
+(ut/defn-comp-macro-op cast-tf
+  {:doc "Casts a tensor to a new type."
+   :id :cast
+   :inputs [[dest-type "The type to convert to."]
+            [x "The tensor to cast"]]}
+  {:macro :cast-tf
+   :id :cast-tf
+   :inputs [x]
+   :dest-type dest-type})
+
