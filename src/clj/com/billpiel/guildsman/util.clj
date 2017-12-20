@@ -140,7 +140,6 @@
   [v]
   (-> v meta ::build-eagerly?))
 
-
 (defn replace$
   [form]
   (let [$sym `$#
@@ -291,8 +290,6 @@
           (partial walk/prewalk
                    prune-plan*)))
 
-
-
 (defn id-attrs->id
   [id-attrs]
   (if (keyword? id-attrs)
@@ -310,8 +307,6 @@
   (if (map? id-attrs)
     (:ctrl-inputs id-attrs [])
     []))
-
-
 
 (defn- spacer [n] (apply str (repeat n " ")))
 
@@ -370,7 +365,6 @@
         (number? doc) (str doc)
         :else nil))
 
-#_ (def dx-element nil)
 (defmulti dx-element
   (fn [mode width indent doc] mode))
 
@@ -567,8 +561,6 @@
             :with-push-id-to-scopes true}
            attrs-map)
     body))
-
-
 
 (defn- de-ns-clj-core
   [sym]

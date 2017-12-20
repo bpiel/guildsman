@@ -90,10 +90,7 @@
       ~@(plan-input->expr-input-walker output-fn
                                        inputs))))
 
-
-
 ;; Op Gen Custom Overrides =================================================
-
 
 (defn hook-pre-build-op-override-addn
   [args]
@@ -143,11 +140,6 @@
   [plan fn-name _ _]
   (let [{:keys [id attrs]} plan]
     `(~fn-name ~id ~(:value attrs))))
-
-
-
-
-
 
 ;; (= (hash 0) (hash 0.0)) !!!!!!
 (register-op-gen-cfg!
@@ -263,7 +255,6 @@
  :default
  {:op-def-processor op-def-processor-default})
 
-
 (defn op-def-processor [op-def]
   (call-config op-def :op-def-processor [op-def]))
 
@@ -292,4 +283,3 @@
   :hook-pre-build `hook-pre-build-op-default
   :node-def->plan ogu/node-def->plan-default
   :plan->expr plan->expr-default})
-

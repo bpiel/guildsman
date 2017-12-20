@@ -256,7 +256,6 @@
         plug1 (assoc plug' :output-idx 1)]
     {:macro :dsi-connector
      :id id
-     ;; TODO assoc fields/shapes/types to both inputs -- or something??????
      :inputs [socket
               plug0
               plug1]}))

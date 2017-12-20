@@ -39,7 +39,6 @@
 (def dt-list dt/list-kw)
 
 
-;; TODO bug? (+>> (o/xxx :a) (o/yyy a b))
 (defmacro let+
   [& body]
   `(ut/let+ ~@body))
@@ -424,7 +423,7 @@ provided an existing Graph defrecord and feed map."
            (let [dsi-cn (c/dsi-connector s p)]
              ;; TODO build-all and find-ops instead?
              (build->graph graph dsi-cn) 
-             (sput/->op-node graph dsi-cn))) ;; TODO ->op-node!!!
+             (sput/->op-node graph dsi-cn)))
          doall
          (update mode :enter into))
     mode))
@@ -437,7 +436,6 @@ provided an existing Graph defrecord and feed map."
   [ws-cfg & _]
   [`(gm-plugin-build-main (-> ~'state :global :gm :graph)
                           (:plans ~'ws-cfg))
-   #_   `(ws2/--wf-setup-modes (:modes ~'ws-cfg))
    `(->> ~'ws-cfg
          :modes
          (gm-plugin-build-modes (-> ~'state :global :gm :graph))
@@ -638,7 +636,6 @@ provided an existing Graph defrecord and feed map."
    :init-varis {:main #'gm-plugin-setup-init-varis-main}
    :run-repeat {:inline #'gm-plugin-setup-run-repeat-inline}
    :fetch-map {:inline #'gm-plugin-setup-fetch-map-inline}
-   ;; TODO :init-mode   ?????????
    :mode {:form #'gm-plugin-mode-form
           :inline #'gm-plugin-setup-mode-inline}
    :interval {:block #'gm-plugin-interval-block
@@ -665,7 +662,7 @@ provided an existing Graph defrecord and feed map."
            :span {:steps (second duration)}}
    [:block {:type :stage
             :span {:stages 1}}
-    [:build]  
+    [:build]
     [:create-session]
     [:init-varis] ;; TODO :init-all (includes ds-iter inits)
     ;; TODO option for step 0 fetch/summaries

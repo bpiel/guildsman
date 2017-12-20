@@ -35,8 +35,7 @@
   [& [enable?]]
   (enable-op-meta-assoc enable?)
   (if-not (false? enable?)
-    (do #_(swap! g/plugins conj ::dev)
-        (wsvr/start-server))
+    (wsvr/start-server)
     (throw (Exception. "NOT IMPLEMENTED"))))
 
 #_ (activate-dev-mode true)
@@ -90,11 +89,7 @@
       r)))
 
 (defn drop-output-idx [id]
-  (try (first (clojure.string/split id #":"))
-       (catch Exception e
-         (def e1 e)
-         #_ (clojure.pprint/pprint e1)
-         (clojure.pprint/pprint id))))
+  (first (clojure.string/split id #":")))
 
 (defn filter-cyto-edges
   [edges]

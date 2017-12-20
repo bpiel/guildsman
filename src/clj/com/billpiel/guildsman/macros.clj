@@ -12,8 +12,6 @@
     (throw (Exception. (str "Unknown macro " plan)))
     plan))
 
-
-
 (defn compute-hash
   [{:keys [id scope] :as plan}]
   (if id
