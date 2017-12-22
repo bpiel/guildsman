@@ -2,7 +2,23 @@
   (:require [com.billpiel.guildsman.data-type :as dt]
             [com.billpiel.guildsman.shape :as sh]))
 
-(defrecord TensorRef [handle id dtype shape value])
+(defprotocol PTensor
+  (handle [this])
+  (dtype [this])
+  (shape [this])
+  (valid-v [this])
+  (invalidate! [this]))
+
+(defrecord TensorRef [handle dtype shape valid-v])
+
+(extend TensorRef
+  PTensor
+  {:handle (fn [this] (.handle this))
+   :dtype  (fn [this] (.dtype this))
+   :shape (fn [this] (.shape this))
+   :valid? (fn [this] @(.valid-v this))
+   :invalidate! (fn [this] (vreset! (:valid-v this)
+                                    false))})
 
 (defn- tnda-dec-shape [shape]
   (cons (-> shape first dec)
@@ -27,8 +43,6 @@
       dt/int-kw (.getInt b idx)
       dt/long-kw (.getLong b idx)
       dt/uint-kw (.get b idx))))
-
-
 
 (defprotocol PTensorNDArray
   (size [this])
@@ -161,7 +175,7 @@
       (get-scalar-value handle (:kw dtype))
       (mk-tensor-ndarray handle ref-id dtype shape))))
 
-(defn create-ref-from-value ^TensorRef [v]
+#_(defn create-ref-from-value ^TensorRef [v]
   (let [shape (sh/shape-of-seq v)
         shape-arr (long-array shape)
         {:keys [kw native byte-size to-bytes-fn] :as dtype} (dt/data-type-of-whatever v)
@@ -192,7 +206,32 @@
                 shape
                 value)))
 
-(defn create-ref-from-handle ^TensorRef [handle]
+(defn create-ref-from-value ^TensorRef [v]
+  (let [shape (sh/shape-of-seq v)
+        shape-arr (long-array shape)
+        {:keys [kw native byte-size to-bytes-fn] :as dtype} (dt/data-type-of-whatever v)
+        handle (cond (nil? kw) ;; TODO TEMP byte array becomes string
+                     (com.billpiel.guildsman.TensorNI/allocateScalarBytes v)
+
+                     (not= kw dt/string-kw)
+                     (let [handle (com.billpiel.guildsman.TensorNI/allocate native
+                                                                            shape-arr
+                                                                            (apply * byte-size shape))]
+                       (com.billpiel.guildsman.TensorNI/setValue handle (dt/seq->md-array v)) ;; TODO more efficient?
+                       handle)
+
+                     (sh/scalar? shape)
+                     (com.billpiel.guildsman.TensorNI/allocateScalarBytes (to-bytes-fn v))
+
+                     :else
+                     (com.billpiel.guildsman.TensorNI/allocateNonScalarBytes shape-arr
+                                                                             (to-array v)))]
+    (TensorRef. handle
+                kw
+                shape
+                (volatile! true))))
+
+#_(defn create-ref-from-handle ^TensorRef [handle]
   (let [dtype (get-data-type-by-handle handle)
         shape (get-shape-by-handle handle)
         ref-id (gensym "tref")]
@@ -205,7 +244,15 @@
                                  dtype
                                  shape))))
 
-(defn create-ref-from-ref ^TensorRef
+(defn create-ref-from-handle ^TensorRef [handle]
+  (let [dtype (get-data-type-by-handle handle)
+        shape (get-shape-by-handle handle)]
+    (TensorRef. handle
+                dtype
+                shape
+                (volatile! true))))
+
+#_(defn create-ref-from-ref ^TensorRef
   [^TensorRef {:keys [handle dtype shape]}]
   (TensorRef. handle
               (gensym "tref")

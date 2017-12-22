@@ -6,6 +6,7 @@
             [com.billpiel.guildsman.util :as util]
             [com.billpiel.guildsman.special-utils :as sput]
             [com.billpiel.guildsman.tensor-mgr :as tm]
+            [com.billpiel.guildsman.tensor-scope :as tsc]
             [com.billpiel.guildsman.builder :as bdr]
             [com.billpiel.guildsman.data-type :as dt])
   (:import [com.billpiel.guildsman.common Graph]))
@@ -82,33 +83,34 @@
 ;; TODO use Graph doSync
 (defn run-req->handles
   [^Session s ^RunRequest req]
-  (let [{:keys [fetch targets feed return-meta options]} req
-        g (:graph s)
-        fetch-pairs (->handles-idx-pairs fetch g)
-        fetch-handles (map first fetch-pairs)
-        fetch-idxs (map second fetch-pairs)
-        outputs (long-array (vec
-                             (take (count fetch)
-                                   (repeatedly #(:handle (tm/get-tensor-ref-by-value 0)))))) ;; TODO release
-        [in-tsrs in-ops in-idx] (feed-> g feed)
-        _ (def in-tsrs1 (vec in-tsrs))
-        maybe-meta (com.billpiel.guildsman.SessionNI/run
-                     (:handle s) 
-                     options
-                     (long-array (map :handle in-tsrs)) ;; inputTensorHandles
-                     (long-array in-ops)     ;; inputOpHandles
-                     (int-array in-idx)      ;; inputOpIndices
-                     (long-array fetch-handles) ;; outputOpHandles
-                     (int-array fetch-idxs)     ;; outputOpIndices
-                     (long-array (->handles targets g))
-                     ;; targetOpHandles
-                     return-meta
-                     outputs)]
-    (doseq [t in-tsrs]
-      (tm/release-tensor-ref t))
-    outputs
-    #_    {:output-handles outputs
-           :meta-data maybe-meta}))
+  (tsc/with-default-scope
+    (let [{:keys [fetch targets feed return-meta options]} req
+          g (:graph s)
+          fetch-pairs (->handles-idx-pairs fetch g)
+          fetch-handles (map first fetch-pairs)
+          fetch-idxs (map second fetch-pairs)
+          outputs (long-array (vec
+                               (take (count fetch)
+                                     (repeatedly #(:handle (tm/get-tensor-ref-by-value 0))))))
+          [in-tsrs in-ops in-idx] (feed-> g feed)
+          _ (def in-tsrs1 (vec in-tsrs))
+          maybe-meta (com.billpiel.guildsman.SessionNI/run
+                       (:handle s) 
+                       options
+                       (long-array (map :handle in-tsrs)) ;; inputTensorHandles
+                       (long-array in-ops)     ;; inputOpHandles
+                       (int-array in-idx)      ;; inputOpIndices
+                       (long-array fetch-handles) ;; outputOpHandles
+                       (int-array fetch-idxs)     ;; outputOpIndices
+                       (long-array (->handles targets g))
+                       ;; targetOpHandles
+                       return-meta
+                       outputs)]
+#_      (doseq [t in-tsrs]
+        (tm/release-tensor-ref t))
+      outputs
+      #_    {:output-handles outputs
+             :meta-data maybe-meta})))
 
 (defn run-req->tensors
   [^Session s ^RunRequest req]

@@ -2,7 +2,6 @@
   (:require [com.billpiel.guildsman.graph :as gr]
             [com.billpiel.guildsman.builder :as bdr]
             [com.billpiel.guildsman.session :as sess]
-            [com.billpiel.guildsman.tensor-mgr :as tm]
             [com.billpiel.guildsman.op-node :as opn]
             [com.billpiel.guildsman.ops.gen-util :as ogu]
             [com.billpiel.guildsman.util :as ut]

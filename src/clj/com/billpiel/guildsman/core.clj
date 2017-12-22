@@ -3,7 +3,7 @@
             [com.billpiel.guildsman.graph :as gr]
             [com.billpiel.guildsman.builder :as bdr]
             [com.billpiel.guildsman.session :as sess]
-            [com.billpiel.guildsman.tensor-mgr :as tm]
+            #_[com.billpiel.guildsman.tensor-mgr :as tm]
             [com.billpiel.guildsman.op-node :as opn]
             [com.billpiel.guildsman.workspace2 :as ws2]
             [com.billpiel.guildsman.util :as ut]
@@ -84,10 +84,10 @@ In the example below, both `graph` and `session` will be closed upon
   [bindings & body]
   (with-close-let* bindings body))
 
-(defn tensor->value [tensor]
+#_(defn tensor->value [tensor]
   (:value tensor))
 
-(defn delete-tensor->value [tensor]
+#_(defn delete-tensor->value [tensor]
   (let [r (tensor->value tensor)]
     (tm/release-tensor-ref tensor)    
     r))
