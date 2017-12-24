@@ -2,56 +2,49 @@
   (:require [com.billpiel.guildsman.tensor :as tsr]
             [com.billpiel.guildsman.data-type :as dt]
             [com.billpiel.guildsman.shape :as sh])
-  (:import [com.billpiel.guildsman.tensor PTensor]
+  (:import [com.billpiel.guildsman.tensor PTensor TensorRef]
            [com.billpiel.guildsman TensorNI]))
 
 (def global-scope (atom nil))
 (def ^:dynamic *scope* {:type :global})
 
-;; does this work?
+(def state (atom {:handles {}
+                  :scopes {}
+                  :delete []}))
+
 (defn PTensor?
   [v]
   (and (instance? java.lang.Object v)
-       (satisfies? PTensor v)))
-
-#_(PTensor? ttt)
-
-#_(satisfies? PTensor {})
-
-#_(def ttt (TensorRef. 1 2 3 4))
-
-(instance? java.lang.Object ttt)
-
-(defn- tnda->vecs
-  [t]
-  (if (PTensorNDArray? t)
-    (mapv ->vecs t)
-    t))
+       (satisfies? tsr/PTensor v)))
 
 (defn set-global-scope! [])
 
-(defn mk-default-scope []
-  {:type :default
-   :parent *scope*
-   :tensors []})
+(defn- mk-id []
+  (-> (gensym "tensor-scope")
+      name
+      keyword))
 
-(defn mk-conversion-scope []
-  {:type :conversion
-   :parent *scope*})
+(defn mk-scope [ty]
+  {:type ty
+   :id (mk-id)
+   :parent (dissoc *scope*
+                   :parent)})
+
+(defn tensor-valid?
+  [t])
 
 (defn escalate-tensors!
   [v])
 
 (defn delete-tensor!
   [t]
-  (when (.valid? t)
-    (TensorNI/delete (.handle t))
-    (.invalidate! t))
+  (when (tensor-valid? t)
+    (TensorNI/delete (tsr/handle t)))
   t)
 
 (defn delete-tensors!
   [tensors]
-  (doseq [^PTensorNDArray t tensors]
+  (doseq [t tensors]
     (delete-tensor! t))
   [])
 
@@ -60,11 +53,9 @@
         ty (:type sc)]
     (case ty
         nil (throw (Exception. "No tensor scope has been set."))
-        :default sc
         :global (or @global-scope
                     (throw (Exception. "No global tensor scope has been set.")))
-        :conversion (assoc sc :tensors nil)
-        (throw (Exception. (str "Unknown tensor scope type: " ty))))))
+        sc)))
 
 (defn delete-tensors-in-scope!
   [{ty :type :keys [tensors]}]
@@ -83,57 +74,42 @@
     (delete-tensor! t)
     r))
 
-(defn manage-tensors!*
+(defn walk-tensors
   [f v]
-  (cond (PTensorNDArray? v) (f v)
+  (cond (PTensor? v) (f v)
         
         (sequential? v)
         (->> v
-             (map (partial manage-tensors!* f))
+             (map (partial walk-tensors f))
              (into (empty v)))
 
         (map? v)
         (into {}
               (for [[k v'] v]
-                [(manage-tensors!* f k) (manage-tensors!* f v')]))
+                [(walk-tensors f k) (walk-tensors f v')]))
 
         :else v))
-
-(defn xfer-mgmt-of-tensors!
-  [nested from to]
-  (let [{ty :type ts :tensors} (get-scope)
-        f (case ty
-            :default (partial swap! ts conj)
-            :conversion convert-tensor)]
-    (manage-tensors!* f v)))
 
 (defmacro with-this-scope
   [scope & body]
   `(binding [*scope* scope]
      (let [return# (do ~@body)]
-       (escalate-tensors! scope return#)
-       (delete-tensors-in-scope! scope)
+       (walk-escalate-tensors! scope return#)
+       (close-scope! scope)
        return#)))
 
-(defmacro with-default-scope
+(defmacro with-scope
   [& body]
-  `(with-this-scope (mk-default-scope)
+  `(with-this-scope (mk-scope :standard)
      ~@body))
 
 (defmacro with-conversion-scope
   [& body]
-  `(with-this-scope (mk-conversion-scope)
+  `(with-this-scope (mk-scope :conversion)
      ~@body))
 
-(defn hnd->tensor-ref ^TensorRef
-  [v]
-  )
-
-(defn value->tensor-ref ^TensorRef
-  [v]
-  )
-
-(defn deref-handle
-  [hnd]
-  
-  )
+(defmacro with-scope-containing
+  [tensors & body]
+  `(with-this-scope (mk-scope :standard)
+     (add-all-to-scope tensors)
+     ~@body))

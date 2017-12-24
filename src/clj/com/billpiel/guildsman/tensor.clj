@@ -6,19 +6,11 @@
   (handle [this])
   (dtype [this])
   (shape [this])
-  (valid-v [this])
-  (invalidate! [this]))
+  (convert [this]))
 
-(defrecord TensorRef [handle dtype shape valid-v])
+(defrecord TensorRef [handle dtype shape])
 
-(extend TensorRef
-  PTensor
-  {:handle (fn [this] (.handle this))
-   :dtype  (fn [this] (.dtype this))
-   :shape (fn [this] (.shape this))
-   :valid? (fn [this] @(.valid-v this))
-   :invalidate! (fn [this] (vreset! (:valid-v this)
-                                    false))})
+
 
 (defn- tnda-dec-shape [shape]
   (cons (-> shape first dec)
@@ -45,25 +37,23 @@
       dt/uint-kw (.get b idx))))
 
 (defprotocol PTensorNDArray
-  (size [this])
-  (invalidate! [this])
-  (valid? [this]))
+  (size [this]))
 
 (deftype TensorNDArray [^java.nio.ByteBuffer b
                         ^long handle
-                        ref-id
                         ^clojure.lang.Keyword dtype
                         byte-size
                         shape
-                        ^java.lang.Boolean whole?
-                        ^clojure.lang.Volatile valid?-v]
+                        ^java.lang.Boolean whole?]
 
   PTensorNDArray
   (size [this] (apply * byte-size shape))
-  (invalidate! [this]
-    (locking valid?-v
-      (vreset! valid?-v false)))
-  (valid? [this] @valid?-v)
+
+  PTensor
+  (handle [this] (.handle this))
+  (dtype [this] (.dtype this))
+  (shape [this] (.shape this))
+  (convert [this] (throw (Exception. "NOT IMPLEMENTED"))) ;; TODO
 
   clojure.lang.Sequential ;; so sequential? returns `true`
   
@@ -85,12 +75,10 @@
                                       (tnda-top-size byte-size)
                                       (tnda-slice-buffer b))
                                  handle
-                                 ref-id
                                  dtype
                                  byte-size
                                  (tnda-dec-shape shape)
-                                 false
-                                 valid?-v)))
+                                 false)))
   (next [this] (seq (.more this)))
   (seq [this] (if (>= 0 (.count this))
                 nil
@@ -98,24 +86,19 @@
 
   clojure.lang.Indexed
   (nth [this idx]
-    (locking valid?-v
-      (when-not (valid? this)
-        (throw (Exception. "The tensor backing this structure is no longer valid.")))
-      (if (= (count shape) 1)
-        (tnda-get-by-type b (* idx byte-size) dtype)
-        (TensorNDArray. (if (= idx 0)
-                          b
-                          (->> shape
-                               (tnda-top-size byte-size)
-                               (* idx)
-                               (tnda-slice-buffer b)))
-                        handle
-                        ref-id
-                        dtype
-                        byte-size
-                        (rest shape)
-                        false
-                        valid?-v))))
+    (if (= (count shape) 1)
+      (tnda-get-by-type b (* idx byte-size) dtype)
+      (TensorNDArray. (if (= idx 0)
+                        b
+                        (->> shape
+                             (tnda-top-size byte-size)
+                             (* idx)
+                             (tnda-slice-buffer b)))
+                      handle
+                      dtype
+                      byte-size
+                      (rest shape)
+                      false)))
   
   clojure.lang.ILookup
   (valAt [this k] (.nth this k)))
@@ -155,17 +138,15 @@
    :handle handle})
 
 (defn- mk-tensor-ndarray
-  [handle ref-id {:keys [kw byte-size]} shape]
+  [handle {:keys [kw byte-size]} shape]
   (let [bb (.order (com.billpiel.guildsman.TensorNI/buffer handle)
                    (java.nio.ByteOrder/nativeOrder))]
     (TensorNDArray. bb
                     handle
-                    ref-id
                     kw
                     byte-size
                     shape
-                    true
-                    (volatile! true))))
+                    true)))
 
 (defn- mk-tensor-value
   [handle ref-id dtype shape]
@@ -228,8 +209,7 @@
                                                                              (to-array v)))]
     (TensorRef. handle
                 kw
-                shape
-                (volatile! true))))
+                shape)))
 
 #_(defn create-ref-from-handle ^TensorRef [handle]
   (let [dtype (get-data-type-by-handle handle)
@@ -249,8 +229,7 @@
         shape (get-shape-by-handle handle)]
     (TensorRef. handle
                 dtype
-                shape
-                (volatile! true))))
+                shape)))
 
 #_(defn create-ref-from-ref ^TensorRef
   [^TensorRef {:keys [handle dtype shape]}]
@@ -276,3 +255,11 @@
       (if (= dtype dt/string-kw)
         (to-array dst)
         dst))))
+
+
+(extend TensorRef
+  PTensor
+  {:handle (fn [this] (.handle this))
+   :dtype  (fn [this] (.dtype this))
+   :shape (fn [this] (.shape this))
+   :convert (fn [this] (throw (Exception. "NOT IMPLEMENTED")))}) ;; TODO
