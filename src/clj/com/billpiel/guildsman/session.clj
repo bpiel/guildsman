@@ -83,7 +83,7 @@
 ;; TODO use Graph doSync
 (defn run-req->handles
   [^Session s ^RunRequest req]
-  (tsc/with-default-scope
+  (tsc/with-scope
     (let [{:keys [fetch targets feed return-meta options]} req
           g (:graph s)
           fetch-pairs (->handles-idx-pairs fetch g)

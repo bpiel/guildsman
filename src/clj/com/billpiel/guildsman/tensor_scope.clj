@@ -17,6 +17,11 @@
   (and (instance? java.lang.Object v)
        (satisfies? tsr/PValueProvider v)))
 
+(defn ->handle
+  [v]
+  (when (PValueProvider? v)
+    (tsr/getHandle v)))
+
 (defn set-global-scope! [])
 
 (defn- mk-id []
@@ -30,21 +35,12 @@
    :parent (dissoc *scope*
                    :parent)})
 
-(defn escalate-tensors!
-  [v])
-
 (defn delete-tensor!
   [t]
   (when-let [hnd (tsr/getHandle t)]
     (TensorNI/delete hnd)))
 
-(defn delete-tensors!
-  [tensors]
-  (doseq [t tensors]
-    (delete-tensor! t))
-  [])
-
-(defn- get-scope [& [scope]]
+(defn get-scope [& [scope]]
   (let [sc (or scope *scope*)
         ty (:type sc)]
     (case ty
@@ -69,33 +65,96 @@
 
         :else v))
 
-(defn walk-add-to-scope!
+(defn convert-if-tensor [v]
+  (if (->handle v)
+    (tsr/->clj v)
+    v))
+
+(defn walk-convert-tensors [v] (walk-tensors convert-if-tensor v))
+
+(def conj-set (fnil conj #{}))
+
+(defn- add-to-scope**
+  [scope-id state {:keys [handle]}]
+  (-> state
+      (update-in [:handles handle]
+                 conj-set
+                 scope-id)
+      (update-in [:scopes scope-id]
+                 conj-set
+                 handle)))
+
+(defn add-to-scope*
+  [state scope-id tensors]
+  (reduce (partial add-to-scope** scope-id)
+          state
+          tensors))
+
+(defn add-to-scope!
   [{ty :type id :id} v]
-  (when (= ty :standard)))
+  (when (= ty :standard)
+    (->> v
+         (filter ->handle)
+         (swap! add-to-scope* id))))
 
 (defn process-return
   [{ty :type} v]
   (case ty
-        nil (throw (Exception. "TODO throw exception only if handle returned"))
-        :standard v
-        :conversion (throw (Exception. "TODO walk-convert to clj"))))
+    nil (when-not (some->> v (filter ->handle) empty?)
+          (throw (Exception. "No parent tensor scope. Cannot return native tensor value without a tensor scope." )))
+    :standard v
+    :conversion (walk-convert-tensors v)))
 
-(defn close-scope! [scope]
-  (throw (Exception. "NOT IMPLEMENTED")))
+(defn- remove-scope-from-hnds
+  [state-handles scope-id hnds]
+  (reduce (fn [agg hnd] (update agg hnd disj scope-id))
+          state-handles
+          hnds))
+
+(defn- mark-deletable-hnds
+  [{:keys [handles] :as state} hnds]
+  (let [deletable (->> hnds
+                       (select-keys handles)
+                       (filter (comp empty? second))
+                       (mapv first))]
+    (-> state
+        (update :handles (partial apply dissoc) deletable)
+        (assoc :delete deletable))))
+
+(defn- delete-marked-hnds!
+  [{:keys [delete] :as state}]
+  (doseq [t delete]
+    (delete-tensor! t)))
+
+(defn- close-scope*
+  [state id]
+  (if-let [hnds (some-> state :scopes id not-empty)]
+    (-> state
+        (update :scopes dissoc id)
+        (update :handles remove-scope-from-hnds id hnds)
+        (mark-deletable-hnds hnds))
+    state))
+
+(defn- close-scope!
+  [{ty :type id :id}]
+  (when (= ty :standard)
+    (-> state
+        (swap! close-scope* id)
+        delete-marked-hnds!)))
 
 (defmacro with-this-scope
   [scope & body]
-  `(binding [*scope* scope]
+  `(binding [*scope* ~scope]
      (try
-       (let [parent (some-> scope
-                            :parent
-                            get-scope)
-             return# (-> (do ~@body))]
-         (when parent
-           (walk-add-to-scope! parent return#))
-         (process-return parent return#))
+       (let [parent# (some-> ~scope
+                             :parent
+                             get-scope)
+             return# (do ~@body)]
+         (when parent#
+           (walk-add-to-scope! parent# return#))
+         (process-return parent# return#))
        (finally
-         (close-scope! scope)))))
+         (close-scope! ~scope)))))
 
 (defmacro with-scope
   [& body]
@@ -110,5 +169,5 @@
 (defmacro with-scope-containing
   [tensors & body]
   `(with-this-scope (mk-scope :standard)
-     (walk-add-to-scope! (get-scope) tensors)
+     (walk-add-to-scope! (get-scope) ~tensors)
      ~@body))
