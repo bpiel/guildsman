@@ -206,3 +206,5 @@
 
 
 (g/produce (o/add [1] [2]))
+
+(g/produce (o/add 1 2))

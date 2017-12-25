@@ -38,15 +38,17 @@
       keyword))
 
 (defn mk-scope [ty]
-  {:type ty
-   :id (mk-id)
-   :parent (dissoc *scope*
-                   :parent)})
+  (let [r {:type ty
+           :id (mk-id)
+           :parent (dissoc *scope*
+                           :parent)}]
+    (clojure.pprint/pprint r)
+    (clojure.stacktrace/print-stack-trace (Exception. "WHAT?"))    
+    r))
 
 (defn delete-tensor!
-  [t]
-  (when-let [hnd (tsr/getHandle t)]
-    (TensorNI/delete hnd)))
+  [hnd]
+  (TensorNI/delete hnd))
 
 (defn get-scope [& [scope]]
   (let [sc (or scope *scope*)
@@ -98,19 +100,27 @@
           tensors))
 
 (defn add-to-scope!
-  [{ty :type id :id} v]
-  (case ty
-    :standard (->> v
-                   find-natives
-                   (swap! state add-to-scope* id))
-    nil :????????
-    :NO-OP)
-  v)
+  ([v]
+   (add-to-scope! (get-scope) v))
+  ([{ty :type id :id} v]
+   (case ty
+     :standard (some->> v
+                        find-natives
+                        not-empty
+                        (swap! state add-to-scope* id))
+     nil (when (->> v
+                    find-natives
+                    not-empty)
+           (throw (Exception. "No tensor scope. Cannot create native tensor value without a tensor scope." ))
+           )
+     :NO-OP)
+   v))
 
 (defn process-return
   [{ty :type} v]
   (case ty
-    nil (when-not (some->> v (filter ->handle) empty?)
+    nil (if-not (some->> v find-natives empty?)
+          v
           (throw (Exception. "No parent tensor scope. Cannot return native tensor value without a tensor scope." )))
     :standard v
     :conversion (walk-convert-tensors v)))
@@ -154,17 +164,17 @@
 
 (defmacro with-this-scope
   [scope & body]
-  `(binding [*scope* ~scope]
-     (try
-       (let [parent# (some-> ~scope
-                             :parent
-                             get-scope)
-             return# (do ~@body)]
-         (when parent#
-           (add-to-scope! parent# return#))
-         (process-return parent# return#))
-       (finally
-         (close-scope! ~scope)))))
+  `(let [scope# ~scope]
+     (binding [*scope* scope#]
+       (try
+         (let [parent# (some-> scope#
+                               :parent
+                               get-scope)
+               return# (do ~@body)]
+           (add-to-scope! parent# return#)
+           (process-return parent# return#))
+         (finally
+           (close-scope! scope#))))))
 
 (defmacro with-scope
   [& body]
@@ -179,17 +189,19 @@
 (defmacro with-scope-containing
   [tensors & body]
   `(with-this-scope (mk-scope :standard)
-     (walk-add-to-scope! (get-scope) ~tensors)
+     (add-to-scope! (get-scope) ~tensors)
      ~@body))
 
 (defn get-tensor-by-value ^PValueProvider
   [v]
-  (->> v
-       tsr/create-from-value
-       (add-to-scope! (get-scope))))
+  (with-scope
+    (-> v
+        tsr/create-from-value
+        add-to-scope!)))
 
 (defn get-tensor-by-handle ^PValueProvider
-  [v]
-  (->> v
-       tsr/create-from-handle
-       (add-to-scope! (get-scope))))
+  [hnd]
+  (with-scope
+    (-> hnd
+        tsr/create-from-handle
+        add-to-scope!)))
