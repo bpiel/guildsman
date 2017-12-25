@@ -4,6 +4,7 @@
             [com.billpiel.guildsman.builder :as bdr]
             [com.billpiel.guildsman.session :as sess]
             #_[com.billpiel.guildsman.tensor-mgr :as tm]
+            [com.billpiel.guildsman.tensor :as tsr]
             [com.billpiel.guildsman.op-node :as opn]
             [com.billpiel.guildsman.workspace2 :as ws2]
             [com.billpiel.guildsman.util :as ut]
@@ -172,11 +173,11 @@ In the example below, both `graph` and `session` will be closed upon
 
 (defn fetch [^Session session plan & [feed]]
   (-> (fetch->tensor session plan feed)
-      :value))
+      tsr/getValue))
 
 (defn fetch-all [^Session session plans & [feed targets]]
   (->> (fetch-all->tensors session plans feed targets)
-       (map :value)))
+       (map tsr/getValue)))
 
 (defn fetch-map [^Session session plans & [feed targets]]
   (let [g (:graph session)]

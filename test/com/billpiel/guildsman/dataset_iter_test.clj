@@ -203,3 +203,6 @@
  (g/ws-status ws-mnist1))
 
 (g/ws-train-test ws-mnist1)
+
+
+(g/produce (o/add [1] [2]))

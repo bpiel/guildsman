@@ -74,7 +74,7 @@
                    (throw (Exception. (str "No node found to feed: " k))))
                  [(-> v
                       (dt/maybe-convert-whatever dtype)
-                      tm/get-tensor-ref-by-value)
+                      tsc/get-tensor-by-value)
                   handle
                   ;; TODO don't hard code 0
                   0])))
@@ -91,7 +91,7 @@
           fetch-idxs (map second fetch-pairs)
           outputs (long-array (vec
                                (take (count fetch)
-                                     (repeatedly #(:handle (tm/get-tensor-ref-by-value 0))))))
+                                     (repeatedly #(:handle (tsc/get-tensor-by-value 0))))))
           [in-tsrs in-ops in-idx] (feed-> g feed)
           _ (def in-tsrs1 (vec in-tsrs))
           maybe-meta (com.billpiel.guildsman.SessionNI/run
@@ -115,7 +115,7 @@
 (defn run-req->tensors
   [^Session s ^RunRequest req]
   (let [handles (run-req->handles s req)]
-    (mapv tm/get-tensor-ref-by-handle
+    (mapv tsc/get-tensor-by-handle
           handles)))
 
 (defn fetch-all->tensors [^Session session plans & [feed targets]]

@@ -1,6 +1,5 @@
 (ns com.billpiel.guildsman.graph
   (:require [com.billpiel.guildsman.common]
-            [com.billpiel.guildsman.tensor :as tsr]
             [com.billpiel.guildsman.util :as util])
   (:import [com.billpiel.guildsman.common GraphRef Graph Op]))
 

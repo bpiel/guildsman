@@ -22,6 +22,14 @@
   (when (PValueProvider? v)
     (tsr/getHandle v)))
 
+(defn find-natives
+  [v]
+  (->> v
+       (tree-seq #(and (coll? %)
+                       (not (PValueProvider? %)))
+                 seq)
+       (filter ->handle)))
+
 (defn set-global-scope! [])
 
 (defn- mk-id []
@@ -45,8 +53,7 @@
         ty (:type sc)]
     (case ty
         nil (throw (Exception. "No tensor scope has been set."))
-        :global (or @global-scope
-                    (throw (Exception. "No global tensor scope has been set.")))
+        :global @global-scope
         sc)))
 
 (defn walk-tensors
@@ -92,10 +99,13 @@
 
 (defn add-to-scope!
   [{ty :type id :id} v]
-  (when (= ty :standard)
-    (->> v
-         (filter ->handle)
-         (swap! add-to-scope* id))))
+  (case ty
+    :standard (->> v
+                   find-natives
+                   (swap! state add-to-scope* id))
+    nil :????????
+    :NO-OP)
+  v)
 
 (defn process-return
   [{ty :type} v]
@@ -135,7 +145,7 @@
         (mark-deletable-hnds hnds))
     state))
 
-(defn- close-scope!
+(defn close-scope!
   [{ty :type id :id}]
   (when (= ty :standard)
     (-> state
@@ -151,7 +161,7 @@
                              get-scope)
              return# (do ~@body)]
          (when parent#
-           (walk-add-to-scope! parent# return#))
+           (add-to-scope! parent# return#))
          (process-return parent# return#))
        (finally
          (close-scope! ~scope)))))
@@ -171,3 +181,15 @@
   `(with-this-scope (mk-scope :standard)
      (walk-add-to-scope! (get-scope) ~tensors)
      ~@body))
+
+(defn get-tensor-by-value ^PValueProvider
+  [v]
+  (->> v
+       tsr/create-from-value
+       (add-to-scope! (get-scope))))
+
+(defn get-tensor-by-handle ^PValueProvider
+  [v]
+  (->> v
+       tsr/create-from-handle
+       (add-to-scope! (get-scope))))

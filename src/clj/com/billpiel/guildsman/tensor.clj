@@ -66,7 +66,7 @@
                 shape
                 value)))
 
-(defn create-ref-from-value ^Tensor [v]
+(defn create-from-value ^Tensor [v]
   (let [shape (sh/shape-of-seq v)
         shape-arr (long-array shape)
         {:keys [kw native byte-size to-bytes-fn] :as dtype} (dt/data-type-of-whatever v)
@@ -103,7 +103,7 @@
                                  dtype
                                  shape))))
 
-(defn create-ref-from-handle ^Tensor [handle]
+(defn create-from-handle ^Tensor [handle]
   (let [dtype (get-data-type-by-handle handle)
         shape (get-shape-by-handle handle)]
     (Tensor. handle

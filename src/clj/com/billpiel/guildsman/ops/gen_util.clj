@@ -2,6 +2,7 @@
   (:require [com.billpiel.guildsman.data-type :as dt]
             [com.billpiel.guildsman.shape :as sh]
             [com.billpiel.guildsman.tensor :as tsr]
+            [com.billpiel.guildsman.tensor-scope :as tsc]
             [flatland.protobuf.core :as pr])
   (:import [org.tensorflow.framework OpDef OpList]))
 
@@ -19,7 +20,7 @@
   (let [value' (dt/HACK-string?->bytes value)]
     (try
       (condp = def-type ;; TODO move this logic to data_type ns????
-        :tensor (:handle (tsr/create-ref-from-value value')) ;; TODO!!
+        :tensor (tsr/getHandle (tsc/get-tensor-by-value value')) ;; TODO!!
         :type (if (keyword? value')
                 (dt/->tf-attr-val :int64 (-> value' dt/kw->dt :native))
                 (dt/->tf-attr-val :int64 value'))
