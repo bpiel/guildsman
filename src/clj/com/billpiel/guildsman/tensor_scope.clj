@@ -12,6 +12,8 @@
                   :scopes {}
                   :delete []}))
 
+#_ (clojure.pprint/pprint @state)
+
 (defn PValueProvider?
   [v]
   (and (instance? java.lang.Object v)
@@ -42,8 +44,8 @@
            :id (mk-id)
            :parent (dissoc *scope*
                            :parent)}]
-    (clojure.pprint/pprint r)
-    (clojure.stacktrace/print-stack-trace (Exception. "WHAT?"))    
+    #_(clojure.pprint/pprint r)
+    #_(clojure.stacktrace/print-stack-trace (Exception. "WHAT?"))    
     r))
 
 (defn delete-tensor!
@@ -119,9 +121,6 @@
 (defn process-return
   [{ty :type} v]
   (case ty
-    nil (if-not (some->> v find-natives empty?)
-          v
-          (throw (Exception. "No parent tensor scope. Cannot return native tensor value without a tensor scope." )))
     :standard v
     :conversion (walk-convert-tensors v)))
 
@@ -170,9 +169,10 @@
          (let [parent# (some-> scope#
                                :parent
                                get-scope)
-               return# (do ~@body)]
+               return# (->> (do ~@body)
+                            (process-return scope#))]
            (add-to-scope! parent# return#)
-           (process-return parent# return#))
+           return#)
          (finally
            (close-scope! scope#))))))
 

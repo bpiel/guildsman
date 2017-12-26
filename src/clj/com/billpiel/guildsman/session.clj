@@ -81,42 +81,42 @@
       [[] [] []])))
 
 ;; TODO use Graph doSync
-(defn run-req->handles
+(defn- run-req->handles
   [^Session s ^RunRequest req]
-  (tsc/with-scope
-    (let [{:keys [fetch targets feed return-meta options]} req
-          g (:graph s)
-          fetch-pairs (->handles-idx-pairs fetch g)
-          fetch-handles (map first fetch-pairs)
-          fetch-idxs (map second fetch-pairs)
-          outputs (long-array (vec
-                               (take (count fetch)
-                                     (repeatedly #(:handle (tsc/get-tensor-by-value 0))))))
-          [in-tsrs in-ops in-idx] (feed-> g feed)
-          _ (def in-tsrs1 (vec in-tsrs))
-          maybe-meta (com.billpiel.guildsman.SessionNI/run
-                       (:handle s) 
-                       options
-                       (long-array (map :handle in-tsrs)) ;; inputTensorHandles
-                       (long-array in-ops)     ;; inputOpHandles
-                       (int-array in-idx)      ;; inputOpIndices
-                       (long-array fetch-handles) ;; outputOpHandles
-                       (int-array fetch-idxs)     ;; outputOpIndices
-                       (long-array (->handles targets g))
-                       ;; targetOpHandles
-                       return-meta
-                       outputs)]
-#_      (doseq [t in-tsrs]
-        (tm/release-tensor-ref t))
-      outputs
-      #_    {:output-handles outputs
-             :meta-data maybe-meta})))
+  (let [{:keys [fetch targets feed return-meta options]} req
+        g (:graph s)
+        fetch-pairs (->handles-idx-pairs fetch g)
+        fetch-handles (map first fetch-pairs)
+        fetch-idxs (map second fetch-pairs)
+        outputs (long-array (vec
+                             (take (count fetch)
+                                   (repeatedly #(:handle (tsc/get-tensor-by-value 0))))))
+        [in-tsrs in-ops in-idx] (feed-> g feed)
+        _ (def in-tsrs1 (vec in-tsrs))
+        maybe-meta (com.billpiel.guildsman.SessionNI/run
+                     (:handle s) 
+                     options
+                     (long-array (map :handle in-tsrs)) ;; inputTensorHandles
+                     (long-array in-ops)     ;; inputOpHandles
+                     (int-array in-idx)      ;; inputOpIndices
+                     (long-array fetch-handles) ;; outputOpHandles
+                     (int-array fetch-idxs)     ;; outputOpIndices
+                     (long-array (->handles targets g))
+                     ;; targetOpHandles
+                     return-meta
+                     outputs)]
+    #_      (doseq [t in-tsrs]
+              (tm/release-tensor-ref t))
+    outputs
+    #_    {:output-handles outputs
+           :meta-data maybe-meta}))
 
 (defn run-req->tensors
   [^Session s ^RunRequest req]
-  (let [handles (run-req->handles s req)]
-    (mapv tsc/get-tensor-by-handle
-          handles)))
+  (tsc/with-scope  
+    (let [handles (run-req->handles s req)]
+      (mapv tsc/get-tensor-by-handle
+            handles))))
 
 (defn fetch-all->tensors [^Session session plans & [feed targets]]
   (->> (mk-run-req plans targets feed)
