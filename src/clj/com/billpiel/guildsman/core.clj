@@ -3,7 +3,6 @@
             [com.billpiel.guildsman.graph :as gr]
             [com.billpiel.guildsman.builder :as bdr]
             [com.billpiel.guildsman.session :as sess]
-            #_[com.billpiel.guildsman.tensor-mgr :as tm]
             [com.billpiel.guildsman.tensor :as tsr]
             [com.billpiel.guildsman.op-node :as opn]
             [com.billpiel.guildsman.workspace2 :as ws2]

@@ -205,8 +205,16 @@
 
 (g/ws-train-test ws-mnist1)
 
+(tsc/set-global-conversion-scope!)
+
+(tsc/set-global-standard-scope!)
+
+(tsc/set-global-scope! nil)
+
+(def x1 (g/produce (o/add [1] [2])))
+
 (tsc/with-conversion-scope
   (g/produce (o/add [1] [2])))
 
-(tsc/with-conversion-scope
+(tsc/with-scope
   (g/produce (o/identity-tf 22)))

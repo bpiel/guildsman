@@ -2,6 +2,8 @@
   (:require [com.billpiel.guildsman.data-type :as dt]
             [com.billpiel.guildsman.shape :as sh]))
 
+(def deleted (atom #{}))
+
 (defn get-shape-by-handle [handle]
   (-> handle com.billpiel.guildsman.TensorNI/shape dt/md-array->vecs))
 
@@ -35,36 +37,7 @@
   {:type :variant
    :handle handle})
 
-#_(defn create-ref-from-value ^TensorRef [v]
-  (let [shape (sh/shape-of-seq v)
-        shape-arr (long-array shape)
-        {:keys [kw native byte-size to-bytes-fn] :as dtype} (dt/data-type-of-whatever v)
-        handle (cond (nil? kw) ;; TODO TEMP byte array becomes string
-                     (com.billpiel.guildsman.TensorNI/allocateScalarBytes v)
-
-                     (not= kw dt/string-kw)
-                     (let [handle (com.billpiel.guildsman.TensorNI/allocate native
-                                                                            shape-arr
-                                                                            (apply * byte-size shape))]
-                       (com.billpiel.guildsman.TensorNI/setValue handle (dt/seq->md-array v)) ;; TODO more efficient?
-                       handle)
-
-                     (sh/scalar? shape)
-                     (com.billpiel.guildsman.TensorNI/allocateScalarBytes (to-bytes-fn v))
-
-                     :else
-                     (com.billpiel.guildsman.TensorNI/allocateNonScalarBytes shape-arr
-                                                                             (to-array v)
-                                                                             #_(to-array
-                                                                              (map #(.getBytes % "UTF-8")
-                                                                                   v))))
-        ref-id (gensym "tref")
-        value (mk-tensor-value handle ref-id dtype shape)]
-    (TensorRef. handle
-                ref-id
-                kw
-                shape
-                value)))
+(defrecord Tensor [handle dtype shape])
 
 (defn create-from-value ^Tensor [v]
   (let [shape (sh/shape-of-seq v)
@@ -86,6 +59,9 @@
                      :else
                      (com.billpiel.guildsman.TensorNI/allocateNonScalarBytes shape-arr
                                                                              (to-array v)))]
+    (swap! deleted disj handle)
+    (clojure.pprint/pprint handle)
+    (clojure.stacktrace/print-stack-trace (Exception. "create-from-value"))
     (Tensor. handle
              kw
              shape)))
@@ -106,6 +82,9 @@
 (defn create-from-handle ^Tensor [handle]
   (let [dtype (get-data-type-by-handle handle)
         shape (get-shape-by-handle handle)]
+    (swap! deleted disj handle)
+    (clojure.pprint/pprint handle)
+    (clojure.stacktrace/print-stack-trace (Exception. "create-from-handle"))
     (Tensor. handle
              dtype
              shape)))
@@ -291,7 +270,7 @@
    :getValue (fn [this] (.value this))
    :->clj (fn [this] this)})
 
-(defrecord Tensor [handle dtype shape])
+
 
 (defn- tensor-get-value
   [^Tensor {:keys [handle dtype shape]}]
@@ -301,12 +280,25 @@
       (get-scalar-value handle (:kw dtype))
       (mk-tensor-ndarray handle dtype shape))))
 
+
+(defn PValueProvider?
+  [v]
+  (and (instance? java.lang.Object v)
+       (satisfies? PValueProvider v)))
+
+(defn tensor->clj*
+  [v]
+  (if (PValueProvider? v)
+    (->clj v)
+    v))
+
 (defn- tensor->clj
   [^Tensor {:keys [handle dtype shape] :as t}]
-  (CljValue.
-   dtype
-   shape
-   (tensor-get-value t)))
+  (CljValue. dtype
+             shape
+             (-> t
+                 tensor-get-value
+                 tensor->clj*)))
 
 (extend Tensor
   PValueProvider
@@ -315,3 +307,4 @@
    :getShape (fn [this] (.shape this))
    :getValue (fn [this] (tensor-get-value this))
    :->clj (fn [this] (tensor->clj this))})
+

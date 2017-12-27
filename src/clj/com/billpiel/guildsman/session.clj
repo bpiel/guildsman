@@ -5,7 +5,6 @@
             [com.billpiel.guildsman.macros :as mcro]
             [com.billpiel.guildsman.util :as util]
             [com.billpiel.guildsman.special-utils :as sput]
-            [com.billpiel.guildsman.tensor-mgr :as tm]
             [com.billpiel.guildsman.tensor-scope :as tsc]
             [com.billpiel.guildsman.builder :as bdr]
             [com.billpiel.guildsman.data-type :as dt])
