@@ -59,7 +59,7 @@
 #_  (clojure.pprint/pprint hnd)
 #_  (clojure.stacktrace/print-stack-trace (Exception. "WHAT?"))
 #_  (throw-when-deleted hnd "CANNOT DELETE. Already deleted.")
-  (swap! tsr/deleted conj hnd)
+#_  (swap! tsr/deleted conj hnd)
   (TensorNI/delete hnd))
 
 (defn- delete-marked-hnds!
