@@ -104,8 +104,6 @@
                      ;; targetOpHandles
                      return-meta
                      outputs)]
-    #_      (doseq [t in-tsrs]
-              (tm/release-tensor-ref t))
     outputs
     #_    {:output-handles outputs
            :meta-data maybe-meta}))

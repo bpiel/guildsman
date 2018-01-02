@@ -64,19 +64,6 @@
              kw
              shape)))
 
-#_(defn create-ref-from-handle ^TensorRef [handle]
-  (let [dtype (get-data-type-by-handle handle)
-        shape (get-shape-by-handle handle)
-        ref-id (gensym "tref")]
-    (TensorRef. handle
-                ref-id
-                dtype
-                shape
-                (mk-tensor-value handle
-                                 ref-id
-                                 dtype
-                                 shape))))
-
 (defn create-from-handle ^Tensor [handle]
   (let [dtype (get-data-type-by-handle handle)
         shape (get-shape-by-handle handle)]
@@ -85,32 +72,10 @@
              dtype
              shape)))
 
-#_(defn create-ref-from-ref ^TensorRef
-  [^TensorRef {:keys [handle dtype shape]}]
-  (TensorRef. handle
-              (gensym "tref")
-              dtype
-              shape
-              (mk-tensor-value handle
-                               (dt/kw->dt dtype)
-                               shape)))
-
 (defn zeros-array-by-dtype
   [shape dtype-kw]
   (sh/zeros-array-by-fn shape
    (:array-fn (dt/kw->dt dtype-kw))))
-
-#_(defn get-value
-  [{:keys [handle dtype shape] :as t}]
-  (if (sh/scalar? shape)
-    (get-scalar-value t)
-    (let [dst (zeros-array-by-dtype shape dtype)]
-      (com.billpiel.guildsman.TensorNI/readNDArray handle dst)
-      (if (= dtype dt/string-kw)
-        (to-array dst)
-        dst))))
-
-
 
 (defprotocol PValueProvider
   (getHandle [this])
@@ -166,16 +131,6 @@
       dt/int-kw (.getInt b idx)
       dt/long-kw (.getLong b idx)
       dt/uint-kw (.get b idx))))
-
-#_(def t1 (TensorNDArray. (java.nio.ByteBuffer/wrap (byte-array [0 0 0 1 0 0 0 2 0 0 0 3 0 0 0 4]))
-                        0
-                        dt/int-kw
-                        4
-                        [2 2]
-                        [0 0]
-                        [2 2]))
-
-t1
 
 (deftype TensorNDArray [^java.nio.ByteBuffer b
                         ^long handle
