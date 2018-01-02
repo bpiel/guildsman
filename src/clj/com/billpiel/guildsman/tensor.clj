@@ -271,8 +271,6 @@ t1
    :getValue (fn [this] (.value this))
    :->clj (fn [this] this)})
 
-
-
 (defn- tensor-get-value
   [^Tensor {:keys [handle dtype shape]}]
   (if (nil? dtype)

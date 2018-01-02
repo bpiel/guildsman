@@ -49,17 +49,8 @@
         (update :handles (partial apply dissoc) deletable)
         (assoc :delete deletable))))
 
-#_(defn throw-when-deleted
-  [hnd msg]
-  (when (@tsr/deleted hnd)
-    (throw (Exception. (str msg hnd)))))
-
 (defn- delete-tensor!
   [hnd]
-#_  (clojure.pprint/pprint hnd)
-#_  (clojure.stacktrace/print-stack-trace (Exception. "WHAT?"))
-#_  (throw-when-deleted hnd "CANNOT DELETE. Already deleted.")
-#_  (swap! tsr/deleted conj hnd)
   (TensorNI/delete hnd))
 
 (defn- delete-marked-hnds!
@@ -87,10 +78,7 @@
 
 (defn close-scope!
   [{ty :type id :id :as scope}]
-#_  (println "CLOSING")
-#_  (println scope)
   (when (= ty :standard)
-#_    (clojure.pprint/pprint @state)
     (-> state
         (swap! close-scope* id)
         delete-marked-hnds!)))
@@ -166,11 +154,6 @@
   ([v]
    (add-to-scope! (get-scope) v))
   ([{ty :type id :id :as scope} v]
-#_   (when-let [hnds (->> v find-natives (keep ->handle) not-empty)]
-     (println scope)
-     (clojure.pprint/pprint hnds)
-     (doseq [hnd hnds]
-       (throw-when-deleted hnd "CANNOT ADD. Already deleted.")))
    (case ty
      :standard (do (some->> v
                             find-natives
