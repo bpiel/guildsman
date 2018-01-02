@@ -4,6 +4,7 @@
             [com.billpiel.guildsman.op-node :as opn]
             [com.billpiel.guildsman.op-build :as obld]
             [com.billpiel.guildsman.graph :as gr]
+            [com.billpiel.guildsman.tensor-scope :as tsc]
             [com.billpiel.guildsman.util :as util]
             [com.billpiel.guildsman.macros :as mcro]
             [com.billpiel.guildsman.data-type :as dt]
@@ -105,6 +106,8 @@
 
 (defn build->graph
   [^Graph g plan]
-  (fns/with-fn-builder g build->graph
-    (apply-plan-to-graph g plan))
+  (tsc/with-scope
+    (fns/with-fn-builder g build->graph
+      (apply-plan-to-graph g plan)))
   g)
+

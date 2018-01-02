@@ -2,6 +2,7 @@
   (:require [clojure.core.async :as a]
             [com.billpiel.guildsman.util :as ut]
             [com.billpiel.guildsman.special-utils :as sput]
+            [com.billpiel.guildsman.tensor-scope :as tsc]
             [com.billpiel.guildsman.ops.basic :as o]
             [com.billpiel.guildsman.ops.composite :as c]))
 
@@ -500,37 +501,38 @@
   `(fn [~'ws-cfg]
      (fn [~'_ ~'{:keys [wf-in wf-out] :as ws}] ;; TODO get ws earlier/above???
        (a/thread
-         (let [~'init (set-init-wf-state! ~'wf-out)]
-           (try
-             (loop [~'stack (list)
-                    ~'current nil
-                    ~'todo (list :workflow)
-                    ~'state ~'init]
-               #_           (clojure.pprint/pprint ~'current)
-               (let [~'result (case ~'current
-                                nil nil
-                                ~@(render-loop-cases
-                                   (:forms   
-                                    (render-workflow wf-def ws-cfg))))]
-                 (let [[~'stack ~'current ~'todo ~'state] (--wf-loop ~'result
-                                                                     ~'stack
-                                                                     ~'current
-                                                                     ~'todo
-                                                                     ~'state)]
-                   #_(Thread/sleep 100)
-                   (set-wf-state! ~'wf-out ~'state)
-                   (cond (-> ~'wf-in deref :interrupt?)
-                         (do (set-interrupted-wf-state! ~'wf-out)
-                             false)
+         (tsc/with-scope
+           (let [~'init (set-init-wf-state! ~'wf-out)]
+             (try
+               (loop [~'stack (list)
+                      ~'current nil
+                      ~'todo (list :workflow)
+                      ~'state ~'init]
+                 #_           (clojure.pprint/pprint ~'current)
+                 (let [~'result (case ~'current
+                                  nil nil
+                                  ~@(render-loop-cases
+                                     (:forms   
+                                      (render-workflow wf-def ws-cfg))))]
+                   (let [[~'stack ~'current ~'todo ~'state] (--wf-loop ~'result
+                                                                       ~'stack
+                                                                       ~'current
+                                                                       ~'todo
+                                                                       ~'state)]
+                     #_(Thread/sleep 100)
+                     (set-wf-state! ~'wf-out ~'state)
+                     (cond (-> ~'wf-in deref :interrupt?)
+                           (do (set-interrupted-wf-state! ~'wf-out)
+                               false)
 
-                         (nil? ~'current)
-                         (do (set-done-wf-state! ~'wf-out)
-                             true)
+                           (nil? ~'current)
+                           (do (set-done-wf-state! ~'wf-out)
+                               true)
 
-                         :else (recur ~'stack ~'current ~'todo ~'state)))))
-             (catch Exception ~'e
-               (set-ex-wf-state! ~'wf-out ~'e)
-               false)))))))
+                           :else (recur ~'stack ~'current ~'todo ~'state)))))
+               (catch Exception ~'e
+                 (set-ex-wf-state! ~'wf-out ~'e)
+                 false))))))))
 
 
 
@@ -561,8 +563,10 @@
     (->> (for [[pk pv] (dissoc modes :-compiled)
                [mk {:keys [fetch]}] pv
                f fetch]
-           (let [f-id-str (:id f)]
-             [[pk :fetched mk f-id-str] (get-in fetched-raw [mk f-id-str])]))
+           (let [f-id-str (:id f)
+                 fetched (get-in fetched-raw [mk f-id-str])]
+             (tsc/add-to-scope! fetched) ;; assume we're in a scope created for this purpose
+             [[pk :fetched mk f-id-str] fetched]))
          (reduce (fn [agg [path v]]
                    (assoc-in agg path v))
                  interval)

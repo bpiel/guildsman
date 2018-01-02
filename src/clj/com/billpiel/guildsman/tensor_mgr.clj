@@ -2,7 +2,7 @@
   (:require [com.billpiel.guildsman.tensor :as tsr]
             [com.billpiel.guildsman.data-type :as dt]
             [com.billpiel.guildsman.shape :as sh])
-  (:import [com.billpiel.guildsman.tensor TensorRef TensorNDArray]))
+  (:import [com.billpiel.guildsman.tensor TensorNDArray]))
 
 ;; This is crazy, but maybe not terrible?
 

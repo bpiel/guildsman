@@ -5,7 +5,7 @@
             [com.billpiel.guildsman.macros :as mcro]
             [com.billpiel.guildsman.util :as util]
             [com.billpiel.guildsman.special-utils :as sput]
-            [com.billpiel.guildsman.tensor-mgr :as tm]
+            [com.billpiel.guildsman.tensor-scope :as tsc]
             [com.billpiel.guildsman.builder :as bdr]
             [com.billpiel.guildsman.data-type :as dt])
   (:import [com.billpiel.guildsman.common Graph]))
@@ -73,14 +73,14 @@
                    (throw (Exception. (str "No node found to feed: " k))))
                  [(-> v
                       (dt/maybe-convert-whatever dtype)
-                      tm/get-tensor-ref-by-value)
+                      tsc/get-tensor-by-value)
                   handle
                   ;; TODO don't hard code 0
                   0])))
       [[] [] []])))
 
 ;; TODO use Graph doSync
-(defn run-req->handles
+(defn- run-req->handles
   [^Session s ^RunRequest req]
   (let [{:keys [fetch targets feed return-meta options]} req
         g (:graph s)
@@ -89,7 +89,7 @@
         fetch-idxs (map second fetch-pairs)
         outputs (long-array (vec
                              (take (count fetch)
-                                   (repeatedly #(:handle (tm/get-tensor-ref-by-value 0)))))) ;; TODO release
+                                   (repeatedly #(:handle (tsc/get-tensor-by-value 0))))))
         [in-tsrs in-ops in-idx] (feed-> g feed)
         _ (def in-tsrs1 (vec in-tsrs))
         maybe-meta (com.billpiel.guildsman.SessionNI/run
@@ -104,17 +104,16 @@
                      ;; targetOpHandles
                      return-meta
                      outputs)]
-    (doseq [t in-tsrs]
-      (tm/release-tensor-ref t))
     outputs
     #_    {:output-handles outputs
            :meta-data maybe-meta}))
 
 (defn run-req->tensors
   [^Session s ^RunRequest req]
-  (let [handles (run-req->handles s req)]
-    (mapv tm/get-tensor-ref-by-handle
-          handles)))
+  (tsc/with-scope  
+    (let [handles (run-req->handles s req)]
+      (mapv tsc/get-tensor-by-handle
+            handles))))
 
 (defn fetch-all->tensors [^Session session plans & [feed targets]]
   (->> (mk-run-req plans targets feed)

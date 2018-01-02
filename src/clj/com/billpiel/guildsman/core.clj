@@ -3,12 +3,13 @@
             [com.billpiel.guildsman.graph :as gr]
             [com.billpiel.guildsman.builder :as bdr]
             [com.billpiel.guildsman.session :as sess]
-            [com.billpiel.guildsman.tensor-mgr :as tm]
+            [com.billpiel.guildsman.tensor :as tsr]
             [com.billpiel.guildsman.op-node :as opn]
             [com.billpiel.guildsman.workspace2 :as ws2]
             [com.billpiel.guildsman.util :as ut]
             [com.billpiel.guildsman.special-utils :as sput]
             [com.billpiel.guildsman.ops.composite :as c]
+            [com.billpiel.guildsman.tensor-scope :as tsc]
             com.billpiel.guildsman.gradients
             com.billpiel.guildsman.grad-desc-opt
             com.billpiel.guildsman.gradients-clj
@@ -47,6 +48,19 @@
   [& body]
   `(ut/id$->> ~@body))
 
+(defmacro with-tensor-scope
+  [& body]
+  `(tsc/with-scope ~@body))
+
+(defmacro with-tensor-conversion-scope
+  [& body]
+  `(tsc/with-conversion-scope ~@body))
+
+(defmacro with-tensor-scope-containing
+  [tensors & body]
+  `(tsc/with-scope-containing ~tensors ~@body))
+
+
 (defmulti close
   "Close a Graph or Session defrecord."
   (fn [v] (type v)))
@@ -84,10 +98,10 @@ In the example below, both `graph` and `session` will be closed upon
   [bindings & body]
   (with-close-let* bindings body))
 
-(defn tensor->value [tensor]
+#_(defn tensor->value [tensor]
   (:value tensor))
 
-(defn delete-tensor->value [tensor]
+#_(defn delete-tensor->value [tensor]
   (let [r (tensor->value tensor)]
     (tm/release-tensor-ref tensor)    
     r))
@@ -172,11 +186,11 @@ In the example below, both `graph` and `session` will be closed upon
 
 (defn fetch [^Session session plan & [feed]]
   (-> (fetch->tensor session plan feed)
-      :value))
+      tsr/getValue))
 
 (defn fetch-all [^Session session plans & [feed targets]]
   (->> (fetch-all->tensors session plans feed targets)
-       (map :value)))
+       (map tsr/getValue)))
 
 (defn fetch-map [^Session session plans & [feed targets]]
   (let [g (:graph session)]
@@ -516,8 +530,9 @@ provided an existing Graph defrecord and feed map."
 
 (defn gm-plugin-interval-post-async-form
   [hook-frms ws-cfg _]
-  `(do (future (let [~'state (ws2/--wf-deliver-fetched ~'state)
-                     ~@(ws2/mk-default-form-bindings hook-frms)]))
+  `(do (future (tsc/with-scope
+                 (let [~'state (ws2/--wf-deliver-fetched ~'state)
+                       ~@(ws2/mk-default-form-bindings hook-frms)])))
        nil))
 
 

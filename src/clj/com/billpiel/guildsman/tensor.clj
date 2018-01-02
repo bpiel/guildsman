@@ -2,115 +2,12 @@
   (:require [com.billpiel.guildsman.data-type :as dt]
             [com.billpiel.guildsman.shape :as sh]))
 
-(defrecord TensorRef [handle id dtype shape value])
-
-(defn- tnda-dec-shape [shape]
-  (cons (-> shape first dec)
-        (rest shape)))
-
-(defn- tnda-top-size [byte-size shape]
-  (apply * byte-size (rest shape)))
-
-(defn- tnda-slice-buffer
-  [^java.nio.ByteBuffer b pos]
-  (locking b
-    (.position b pos)
-    (.order (.slice b)
-            (java.nio.ByteOrder/nativeOrder))))
-
-(defn- tnda-get-by-type
-  [^java.nio.ByteBuffer b idx ^clojure.lang.Keyword dtype]
-  (locking b
-    (condp = dtype
-      dt/float-kw (.getFloat b idx)
-      dt/double-kw (.getDouble b idx)
-      dt/int-kw (.getInt b idx)
-      dt/long-kw (.getLong b idx)
-      dt/uint-kw (.get b idx))))
-
-
-
-(defprotocol PTensorNDArray
-  (size [this])
-  (invalidate! [this])
-  (valid? [this]))
-
-(deftype TensorNDArray [^java.nio.ByteBuffer b
-                        ^long handle
-                        ref-id
-                        ^clojure.lang.Keyword dtype
-                        byte-size
-                        shape
-                        ^java.lang.Boolean whole?
-                        ^clojure.lang.Volatile valid?-v]
-
-  PTensorNDArray
-  (size [this] (apply * byte-size shape))
-  (invalidate! [this]
-    (locking valid?-v
-      (vreset! valid?-v false)))
-  (valid? [this] @valid?-v)
-
-  clojure.lang.Sequential ;; so sequential? returns `true`
-  
-  clojure.lang.Counted
-  (count [this] (or (first (.shape this))
-                    1))
-
-  clojure.lang.ISeq
-  (cons [this v] nil)
-  (empty [this] nil)
-  ;; TODO make good
-  (equiv [this other] (and (seq? other)
-                           (= (-> this seq hash)
-                              (-> other seq hash))))
-  (first [this] (.nth this 0))
-  (more [this] (if (>= 0 (.count this))
-                 nil
-                 (TensorNDArray. (->> shape
-                                      (tnda-top-size byte-size)
-                                      (tnda-slice-buffer b))
-                                 handle
-                                 ref-id
-                                 dtype
-                                 byte-size
-                                 (tnda-dec-shape shape)
-                                 false
-                                 valid?-v)))
-  (next [this] (seq (.more this)))
-  (seq [this] (if (>= 0 (.count this))
-                nil
-                this))
-
-  clojure.lang.Indexed
-  (nth [this idx]
-    (locking valid?-v
-      (when-not (valid? this)
-        (throw (Exception. "The tensor backing this structure is no longer valid.")))
-      (if (= (count shape) 1)
-        (tnda-get-by-type b (* idx byte-size) dtype)
-        (TensorNDArray. (if (= idx 0)
-                          b
-                          (->> shape
-                               (tnda-top-size byte-size)
-                               (* idx)
-                               (tnda-slice-buffer b)))
-                        handle
-                        ref-id
-                        dtype
-                        byte-size
-                        (rest shape)
-                        false
-                        valid?-v))))
-  
-  clojure.lang.ILookup
-  (valAt [this k] (.nth this k)))
+#_(def deleted (atom #{}))
 
 (defn get-shape-by-handle [handle]
   (-> handle com.billpiel.guildsman.TensorNI/shape dt/md-array->vecs))
 
 (defn get-data-type-by-handle [handle]
-#_  (clojure.pprint/pprint (-> handle com.billpiel.guildsman.TensorNI/dtype))
   (-> handle com.billpiel.guildsman.TensorNI/dtype dt/native->dt))
 
 (defmulti get-scalar-value (fn [handle dtype] dtype))
@@ -140,28 +37,9 @@
   {:type :variant
    :handle handle})
 
-(defn- mk-tensor-ndarray
-  [handle ref-id {:keys [kw byte-size]} shape]
-  (let [bb (.order (com.billpiel.guildsman.TensorNI/buffer handle)
-                   (java.nio.ByteOrder/nativeOrder))]
-    (TensorNDArray. bb
-                    handle
-                    ref-id
-                    kw
-                    byte-size
-                    shape
-                    true
-                    (volatile! true))))
+(defrecord Tensor [handle dtype shape])
 
-(defn- mk-tensor-value
-  [handle ref-id dtype shape]
-  (if (nil? dtype)
-    :UNKNOWN-TYPE
-    (if (sh/scalar? shape)
-      (get-scalar-value handle (:kw dtype))
-      (mk-tensor-ndarray handle ref-id dtype shape))))
-
-(defn create-ref-from-value ^TensorRef [v]
+(defn create-from-value ^Tensor [v]
   (let [shape (sh/shape-of-seq v)
         shape-arr (long-array shape)
         {:keys [kw native byte-size to-bytes-fn] :as dtype} (dt/data-type-of-whatever v)
@@ -180,52 +58,207 @@
 
                      :else
                      (com.billpiel.guildsman.TensorNI/allocateNonScalarBytes shape-arr
-                                                                             (to-array v)
-                                                                             #_(to-array
-                                                                              (map #(.getBytes % "UTF-8")
-                                                                                   v))))
-        ref-id (gensym "tref")
-        value (mk-tensor-value handle ref-id dtype shape)]
-    (TensorRef. handle
-                ref-id
-                kw
-                shape
-                value)))
+                                                                             (to-array v)))]
+#_    (swap! deleted disj handle)
+    (Tensor. handle
+             kw
+             shape)))
 
-(defn create-ref-from-handle ^TensorRef [handle]
+(defn create-from-handle ^Tensor [handle]
   (let [dtype (get-data-type-by-handle handle)
-        shape (get-shape-by-handle handle)
-        ref-id (gensym "tref")]
-    (TensorRef. handle
-                ref-id
-                dtype
-                shape
-                (mk-tensor-value handle
-                                 ref-id
-                                 dtype
-                                 shape))))
-
-(defn create-ref-from-ref ^TensorRef
-  [^TensorRef {:keys [handle dtype shape]}]
-  (TensorRef. handle
-              (gensym "tref")
-              dtype
-              shape
-              (mk-tensor-value handle
-                               (dt/kw->dt dtype)
-                               shape)))
+        shape (get-shape-by-handle handle)]
+#_    (swap! deleted disj handle)
+    (Tensor. handle
+             dtype
+             shape)))
 
 (defn zeros-array-by-dtype
   [shape dtype-kw]
   (sh/zeros-array-by-fn shape
    (:array-fn (dt/kw->dt dtype-kw))))
 
-(defn get-value
-  [{:keys [handle dtype shape] :as t}]
-  (if (sh/scalar? shape)
-    (get-scalar-value t)
-    (let [dst (zeros-array-by-dtype shape dtype)]
-      (com.billpiel.guildsman.TensorNI/readNDArray handle dst)
-      (if (= dtype dt/string-kw)
-        (to-array dst)
-        dst))))
+(defprotocol PValueProvider
+  (getHandle [this])
+  (getDType [this])
+  (getShape [this])
+  (getByteSize [this])
+  (getValue [this])
+  (->clj [this]))
+
+;; TODO more efficient?
+(defn- ->nested-vecs
+  [v]
+  (if (coll? v)
+    (mapv ->nested-vecs v)
+    v))
+
+(defn- tnda-dec-shape [shape]
+  (cons (-> shape first dec)
+        (rest shape)))
+
+(defn- tnda-inc-begin [begin root-shape shape & [addend]]
+  (let [idx (- (count root-shape)
+               (count shape))
+        a' (or addend 1)]
+    (-> begin
+        vec
+        (update idx + a'))))
+
+(defn- tnda-calc-idx*
+  [[idx size] [shape begin]]
+  (let [size' (* size shape)]
+    [(+ idx (* begin size'))
+     size']))
+
+(defn- tnda-calc-idx
+  [root-shape size begin]
+  (->> (interleave (-> root-shape
+                       (conj 1)
+                       rest
+                       reverse)
+                   (reverse begin))
+       (partition 2)
+       (reduce tnda-calc-idx*
+               [0 size])
+       first))
+
+(defn- tnda-get-by-type
+  [^clojure.lang.Keyword dtype ^java.nio.ByteBuffer b idx]
+  (locking b
+    (condp = dtype
+      dt/float-kw (.getFloat b idx)
+      dt/double-kw (.getDouble b idx)
+      dt/int-kw (.getInt b idx)
+      dt/long-kw (.getLong b idx)
+      dt/uint-kw (.get b idx))))
+
+(deftype TensorNDArray [^java.nio.ByteBuffer b
+                        ^long handle
+                        ^clojure.lang.Keyword dtype
+                        byte-size
+                        shape
+                        begin
+                        root-shape]
+
+  PValueProvider
+  (getHandle [this] (.handle this))
+  (getDType [this] (.dtype this))
+  (getShape [this] (.shape this))
+  (getByteSize [this] (apply * byte-size shape))
+  (getValue [this] this)
+  (->clj [this] (->nested-vecs this))
+
+  clojure.lang.Sequential ;; so sequential? returns `true`
+  
+  clojure.lang.Counted
+  (count [this] (or (first (.shape this))
+                    1))
+
+  clojure.lang.ISeq
+  (cons [this v] nil)
+  (empty [this] nil)
+  ;; TODO make good
+  (equiv [this other] (and (seq? other)
+                           (= (-> this seq hash)
+                              (-> other seq hash))))
+  (first [this] (.nth this 0))
+  (more [this] (if (>= 0 (.count this))
+                 nil
+                 (TensorNDArray. (.order (.asReadOnlyBuffer b)
+                                         (java.nio.ByteOrder/nativeOrder))
+                                 handle
+                                 dtype
+                                 byte-size
+                                 (tnda-dec-shape shape)
+                                 (tnda-inc-begin begin root-shape shape)
+                                 root-shape)))
+  (next [this] (seq (.more this)))
+  (seq [this] (if (>= 0 (.count this))
+                nil
+                this))
+
+  clojure.lang.Indexed
+  (nth [this idx]
+    (let [begin' (tnda-inc-begin begin
+                                 root-shape
+                                 shape
+                                 idx)]
+      (if (= (count shape) 1)
+        (->> begin'
+             (tnda-calc-idx root-shape byte-size)
+             (tnda-get-by-type dtype b))
+        (TensorNDArray. (.order (.asReadOnlyBuffer b)
+                                (java.nio.ByteOrder/nativeOrder))
+                        handle
+                        dtype
+                        byte-size
+                        (rest shape)
+                        begin'
+                        root-shape))))
+  
+  clojure.lang.ILookup
+  (valAt [this k] (.nth this k)))
+
+
+
+
+(defn- mk-tensor-ndarray
+  [handle {:keys [kw byte-size]} shape]
+  (let [bb (.order (com.billpiel.guildsman.TensorNI/buffer handle)
+                   (java.nio.ByteOrder/nativeOrder))]
+    (TensorNDArray. bb
+                    handle
+                    kw
+                    byte-size
+                    shape
+                    (-> (count shape)
+                        (repeat 0)
+                        vec)
+                    shape)))
+
+(defrecord CljValue [dtype shape value])
+
+(extend CljValue
+  PValueProvider
+  {:getHandle (fn [this] nil)
+   :getDType  (fn [this] (.dtype this))
+   :getShape (fn [this] (.shape this))
+   :getValue (fn [this] (.value this))
+   :->clj (fn [this] this)})
+
+(defn- tensor-get-value
+  [^Tensor {:keys [handle dtype shape]}]
+  (if (nil? dtype)
+    :UNKNOWN-TYPE
+    (if (sh/scalar? shape)
+      (get-scalar-value handle (:kw dtype))
+      (mk-tensor-ndarray handle dtype shape))))
+
+
+(defn PValueProvider?
+  [v]
+  (and (instance? java.lang.Object v)
+       (satisfies? PValueProvider v)))
+
+(defn tensor->clj*
+  [v]
+  (if (PValueProvider? v)
+    (->clj v)
+    v))
+
+(defn- tensor->clj
+  [^Tensor {:keys [handle dtype shape] :as t}]
+  (CljValue. dtype
+             shape
+             (-> t
+                 tensor-get-value
+                 tensor->clj*)))
+
+(extend Tensor
+  PValueProvider
+  {:getHandle (fn [this] (.handle this))
+   :getDType  (fn [this] (.dtype this))
+   :getShape (fn [this] (.shape this))
+   :getValue (fn [this] (tensor-get-value this))
+   :->clj (fn [this] (tensor->clj this))})
+

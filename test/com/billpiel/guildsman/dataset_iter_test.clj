@@ -6,6 +6,7 @@
             [com.billpiel.guildsman.data-type :as dt]
             [com.billpiel.guildsman.dev :as dev]
             [com.billpiel.guildsman.packages :as pkg]
+            [com.billpiel.guildsman.tensor-scope :as tsc]
             [flatland.protobuf.core :as pr])
   (:import [org.tensorflow.framework AttrValue OpDef]
            [com.billpiel.guildsman FunctionNI]))
@@ -203,3 +204,17 @@
  (g/ws-status ws-mnist1))
 
 (g/ws-train-test ws-mnist1)
+
+(tsc/set-global-conversion-scope!)
+
+(tsc/set-global-standard-scope!)
+
+(tsc/set-global-scope! nil)
+
+(def x1 (g/produce (o/add [1] [2])))
+
+(tsc/with-conversion-scope
+  (g/produce (o/add [1] [2])))
+
+(tsc/with-scope
+  (g/produce (o/identity-tf 22)))
