@@ -146,7 +146,7 @@
      size']))
 
 (defn- tnda-calc-idx
-  [root-shape begin]
+  [root-shape size begin]
   (->> (interleave (-> root-shape
                        (conj 1)
                        rest
@@ -154,7 +154,7 @@
                    (reverse begin))
        (partition 2)
        (reduce tnda-calc-idx*
-               [0 1])
+               [0 size])
        first))
 
 (defn- tnda-get-by-type
@@ -167,13 +167,15 @@
       dt/long-kw (.getLong b idx)
       dt/uint-kw (.get b idx))))
 
-#_(def t1 (TensorNDArray. (java.nio.ByteBuffer/wrap (byte-array [1 2 3 4]))
+#_(def t1 (TensorNDArray. (java.nio.ByteBuffer/wrap (byte-array [0 0 0 1 0 0 0 2 0 0 0 3 0 0 0 4]))
                         0
-                        dt/uint-kw
-                        1
+                        dt/int-kw
+                        4
                         [2 2]
                         [0 0]
                         [2 2]))
+
+t1
 
 (deftype TensorNDArray [^java.nio.ByteBuffer b
                         ^long handle
@@ -184,12 +186,12 @@
                         root-shape]
 
   PValueProvider
-    (getHandle [this] (.handle this))
-    (getDType [this] (.dtype this))
-    (getShape [this] (.shape this))
-    (getByteSize [this] (apply * byte-size shape))
-    (getValue [this] this)
-    (->clj [this] (->nested-vecs this))
+  (getHandle [this] (.handle this))
+  (getDType [this] (.dtype this))
+  (getShape [this] (.shape this))
+  (getByteSize [this] (apply * byte-size shape))
+  (getValue [this] this)
+  (->clj [this] (->nested-vecs this))
 
   clojure.lang.Sequential ;; so sequential? returns `true`
   
@@ -207,7 +209,8 @@
   (first [this] (.nth this 0))
   (more [this] (if (>= 0 (.count this))
                  nil
-                 (TensorNDArray. (.asReadOnlyBuffer b)
+                 (TensorNDArray. (.order (.asReadOnlyBuffer b)
+                                         (java.nio.ByteOrder/nativeOrder))
                                  handle
                                  dtype
                                  byte-size
@@ -227,9 +230,10 @@
                                  idx)]
       (if (= (count shape) 1)
         (->> begin'
-             (tnda-calc-idx root-shape)
+             (tnda-calc-idx root-shape byte-size)
              (tnda-get-by-type dtype b))
-        (TensorNDArray. (.asReadOnlyBuffer b)
+        (TensorNDArray. (.order (.asReadOnlyBuffer b)
+                                (java.nio.ByteOrder/nativeOrder))
                         handle
                         dtype
                         byte-size
@@ -239,6 +243,7 @@
   
   clojure.lang.ILookup
   (valAt [this k] (.nth this k)))
+
 
 
 
