@@ -22,6 +22,75 @@
 
 ;; TODO multimethods and protocols???
 
+(defprotocol PDType
+  (getDType [this])
+  (array? [this]))
+
+(def float-array-type (.getClass (float-array 0)))
+
+(extend-protocol PDType
+
+  java.lang.Float
+  (getDType [this] float-kw)
+  (array? [this] false)
+
+  java.lang.Double 
+  (getDType [this] double-kw)
+  (array? [this] false)
+
+  java.lang.Integer 
+  (getDType [this] int-kw)
+  (array? [this] false)
+
+  java.lang.Byte
+  (getDType [this] uint-kw)
+  (array? [this] false)
+
+  java.lang.Long
+  (getDType [this] long-kw)
+  (array? [this] false)
+
+  java.lang.Boolean
+  (getDType [this] bool-kw)
+  (array? [this] false))
+
+(extend-type (.getClass (byte-array 0))
+  PDType
+  (getDType [this] string-kw)
+  (array? [this] false))
+
+(extend-type (.getClass (float-array 0))
+  PDType
+  (getDType [this] float-kw)
+  (array? [this] true))
+
+(extend-type (.getClass (double-array 0))
+  PDType
+  (getDType [this] double-kw)
+  (array? [this] true))
+
+(extend-type (.getClass (int-array 0))
+  PDType
+  (getDType [this] int-kw)
+  (array? [this] true))
+
+(extend-type (.getClass (long-array 0))
+  PDType
+  (getDType [this] long-kw)
+  (array? [this] true))
+
+(extend-type (.getClass (boolean-array 0))
+  PDType
+  (getDType [this] bool-kw)
+  (array? [this] true))
+
+(extend-type (.getClass (to-array []))
+  PDType
+  (getDType [this]
+    (when-let [f (first this)]
+      (getDType f)))
+  (array? [this] true))
+
 (defn is-type?-fn
   [t]
   #(= (type %) t))
@@ -95,11 +164,9 @@
 
 ;; this is crazy
 (def data-types
-  [{:kw :float 
+  [{:kw float-kw
     :native 1 
     :byte-size 4 
-    :scalar? (is-type?-fn java.lang.Float) ;; (float? 1.0) => true  UH OH!
-    :array? (is-type?-fn (type (float-array 0)))
     :scalar java.lang.Float 
     :array (type (float-array 0)) 
     :scalar-fn float 
@@ -110,8 +177,6 @@
    {:kw :double 
     :native 2 
     :byte-size 8 
-    :scalar? double? 
-    :array? (is-type?-fn (type (double-array 0)))
     :scalar java.lang.Double 
     :array (type (double-array 0)) 
     :scalar-fn double 
@@ -121,8 +186,6 @@
    {:kw :int32 
     :native 3 
     :byte-size 4 
-    :scalar? (is-type?-fn java.lang.Integer) 
-    :array? (is-type?-fn (type (int-array 0)))
     :scalar java.lang.Integer
     :scalar-fn int
     :array-fn int-array
@@ -133,12 +196,9 @@
    {:kw :uint8 
     :native 4  
     :byte-size 1
-    :scalar? (constantly false)  
-    :array? (constantly false)
     :scalar nil
     :scalar-fn byte
     :array-fn nil}
-
    {:kw :string 
     :native 7  
     :byte-size nil
@@ -147,8 +207,6 @@
                                (flatten v)
                                [v])]
                       (apply + (map count v'))))
-    :scalar? (is-type?-fn (type (byte-array 0)))  
-    :array? (constantly false)
     :scalar (type (byte-array 0))
     :scalar-fn byte-array
     :array-fn (fn [v]
@@ -165,8 +223,6 @@
    {:kw :int64 
     :native 9  
     :byte-size 8 
-    :scalar? int?  
-    :array? (is-type?-fn (type (long-array 0)))
     :scalar java.lang.Long
     :scalar-fn long
     :array-fn long-array
@@ -174,8 +230,6 @@
    {:kw :bool 
     :native 10  
     :byte-size 1 
-    :scalar? boolean?
-    :array? (is-type?-fn (type (boolean-array 0)))
     :scalar java.lang.Boolean
     :scalar-fn boolean
     :array-fn boolean-array
@@ -217,22 +271,13 @@
         (for [dt data-types]
           [(:pb-attr-key dt) dt])))
 
-(defn is-of-data-type?
-  [o dt]
-  (if-let [f (:scalar? dt)]
-    (f o)
-    false))
-
-(defn is-array-of-data-type?
-  [o dt]
-  (if-let [f (:array? dt)]
-    (f o)
-    false))
-
 (defn data-type-of
   [o]
-  (first (filter (partial is-of-data-type? o)
-                 data-types)))
+  (try
+    (kw->dt
+     (getDType o))
+    (catch Exception e
+      nil)))
 
 (defn data-type-of-seq
   [a]
@@ -247,18 +292,11 @@
 
 (defn data-type-of-array
   [a]
-  (first (filter (partial is-array-of-data-type? a)
-                 data-types)))
-
-(defn scalar-array? [a] (-> a data-type-of-array nil? not))
-
-(def some-other-array-types #{(type (to-array [] ))})
-
-(defn some-other-array? [a] (-> a type some-other-array-types nil? not))
-
-(defn array? [a] (or (scalar-array? a)
-                     (some-other-array? a)))
-
+  (try
+    (when (array? a)
+      (data-type-of a))
+    (catch Exception e
+      nil)))
 
 (defn seq->array
   [s]
