@@ -23,154 +23,164 @@
 
 (t/deftest sub-abs
   (t/is (= 2.0
-           (let [x (c/vari :x 0.)
-                 loss (->> (o/sub x 2.)
-                           o/abs)
-                 opt (c/grad-desc-opt :opt 0.5 loss)
-                 sess (g/build->session opt)]
-             (g/run-global-vars-init sess)
-             (g/run-all sess (repeat 4 opt))
-             (g/produce sess x)))))
+           (g/with-tensor-scope
+             (let [x (c/vari :x 0.)
+                   loss (->> (o/sub x 2.)
+                             o/abs)
+                   opt (c/grad-desc-opt :opt 0.5 loss)
+                   sess (g/build->session opt)]
+               (g/run-global-vars-init sess)
+               (g/run-all sess (repeat 4 opt))
+               (g/produce sess x))))))
 
 (t/deftest add-var-const
-  (let [init 10.
-        x (c/vari :x init)
-        loss (o/add x 0.)
-        opt (c/grad-desc-opt :opt 0.5 loss)
-        sess (g/build->session opt)
-        _ (g/run-global-vars-init sess)
-        loss-init (g/produce sess loss)]
-    (g/run sess opt)
-    (t/is (> init
-             (g/produce sess x)))
-    (t/is (> loss-init
-             (g/produce sess loss)))))
+  (g/with-tensor-scope
+    (let [init 10.
+          x (c/vari :x init)
+          loss (o/add x 0.)
+          opt (c/grad-desc-opt :opt 0.5 loss)
+          sess (g/build->session opt)
+          _ (g/run-global-vars-init sess)
+          loss-init (g/produce sess loss)]
+      (g/run sess opt)
+      (t/is (> init
+               (g/produce sess x)))
+      (t/is (> loss-init
+               (g/produce sess loss))))))
 
 (t/deftest add-var-var
-  (let [init-a 10.
-        init-b -3.
-        a (c/vari :a init-a)
-        b (c/vari :b init-b)
-        loss (o/add a b)
-        opt (c/grad-desc-opt :opt 0.5 loss)
-        sess (g/build->session opt)
-        _ (g/run-global-vars-init sess)
-        loss-init (g/produce sess loss)]
-    (g/run sess opt)
-    (t/is (> init-a
-             (g/produce sess a)))
-    (t/is (> init-b
-             (g/produce sess b)))
-    (t/is (> loss-init
-             (g/produce sess loss)))))
+  (g/with-tensor-scope
+    (let [init-a 10.
+          init-b -3.
+          a (c/vari :a init-a)
+          b (c/vari :b init-b)
+          loss (o/add a b)
+          opt (c/grad-desc-opt :opt 0.5 loss)
+          sess (g/build->session opt)
+          _ (g/run-global-vars-init sess)
+          loss-init (g/produce sess loss)]
+      (g/run sess opt)
+      (t/is (> init-a
+               (g/produce sess a)))
+      (t/is (> init-b
+               (g/produce sess b)))
+      (t/is (> loss-init
+               (g/produce sess loss))))))
 
 (t/deftest bias-add-var-var
-  (let [init-a [[10.]]
-        init-b [-3.]
-        a (c/vari :a init-a)
-        b (c/vari :b init-b)
-        loss (o/bias-add a b)
-        opt (c/grad-desc-opt :opt 0.5 loss)
-        sess (g/build->session opt)
-        _ (g/run-global-vars-init sess)
-        loss-init (g/produce sess loss)]
-    (g/run sess opt)
-    (t/is (ndvec-less-than? (g/produce sess a)
-                            init-a))
-    (t/is (ndvec-less-than? (g/produce sess b)
-                            init-b))
-    (t/is (ndvec-less-than? (g/produce sess loss)
-                            loss-init))))
+  (g/with-tensor-scope
+    (let [init-a [[10.]]
+          init-b [-3.]
+          a (c/vari :a init-a)
+          b (c/vari :b init-b)
+          loss (o/bias-add a b)
+          opt (c/grad-desc-opt :opt 0.5 loss)
+          sess (g/build->session opt)
+          _ (g/run-global-vars-init sess)
+          loss-init (g/produce sess loss)]
+      (g/run sess opt)
+      (t/is (ndvec-less-than? (g/produce sess a)
+                              init-a))
+      (t/is (ndvec-less-than? (g/produce sess b)
+                              init-b))
+      (t/is (ndvec-less-than? (g/produce sess loss)
+                              loss-init)))))
 
 (t/deftest add-var-ph
-  (let [a-init [1. 2. 3.]
-        feed {:b [4. 5. 6.]}
-        a (c/vari :a a-init)
-        b (o/placeholder :b
-                         dt/float-kw
-                         [3])
-        loss (o/add a b)
-        opt (c/grad-desc-opt :opt 0.5 loss)
-        sess (g/build->session opt)
-        _ (g/run-global-vars-init sess)
-        loss-init (g/produce sess loss feed)]
-    (g/run sess opt feed )
-    (t/is (ndvec-less-than? (g/produce sess a feed)
-                            a-init))
-    (t/is (ndvec-less-than? (g/produce sess loss feed)
-                            loss-init))))
+  (g/with-tensor-scope
+    (let [a-init [1. 2. 3.]
+          feed {:b [4. 5. 6.]}
+          a (c/vari :a a-init)
+          b (o/placeholder :b
+                           dt/float-kw
+                           [3])
+          loss (o/add a b)
+          opt (c/grad-desc-opt :opt 0.5 loss)
+          sess (g/build->session opt)
+          _ (g/run-global-vars-init sess)
+          loss-init (g/produce sess loss feed)]
+      (g/run sess opt feed )
+      (t/is (ndvec-less-than? (g/produce sess a feed)
+                              a-init))
+      (t/is (ndvec-less-than? (g/produce sess loss feed)
+                              loss-init)))))
 
 (t/deftest add-var-ph-1
-  (let [a-init [[1. 2. 3.]]
-        feed {:b [[4. 5. 6.]]}
-        a (c/vari :a a-init)
-        b (o/placeholder :b
-                         dt/float-kw
-                         [-1 3])
-        loss (o/add a b)
-        opt (c/grad-desc-opt :opt 0.5 loss)
-        sess (g/build->session opt)
-        _ (g/run-global-vars-init sess)
-        loss-init (g/produce sess loss feed)]
-    (g/run sess opt feed)
-    (t/is (ndvec-less-than? (g/produce sess a feed)
-                            a-init))
-    (t/is (ndvec-less-than? (g/produce sess loss feed)
-                            loss-init))))
+  (g/with-tensor-scope
+    (let [a-init [[1. 2. 3.]]
+          feed {:b [[4. 5. 6.]]}
+          a (c/vari :a a-init)
+          b (o/placeholder :b
+                           dt/float-kw
+                           [-1 3])
+          loss (o/add a b)
+          opt (c/grad-desc-opt :opt 0.5 loss)
+          sess (g/build->session opt)
+          _ (g/run-global-vars-init sess)
+          loss-init (g/produce sess loss feed)]
+      (g/run sess opt feed)
+      (t/is (ndvec-less-than? (g/produce sess a feed)
+                              a-init))
+      (t/is (ndvec-less-than? (g/produce sess loss feed)
+                              loss-init)))))
 
 (t/deftest mat-mul-var-const
-  (let [init-a [[1. 2. 3.]]
-        a (c/vari :a init-a)
-        loss (o/mat-mul a [[1.] [1.] [1.]])
-        opt (c/grad-desc-opt :opt 0.5 loss)
-        sess (g/build->session opt)
-        _ (g/run-global-vars-init sess)
-        loss-init (g/produce sess loss)]
-    (g/run sess opt)
-    (t/is (ndvec-less-than? (g/produce sess a)
-                            init-a))
-    (t/is (ndvec-less-than? (g/produce sess loss)
-                            loss-init))))
+  (g/with-tensor-scope
+    (let [init-a [[1. 2. 3.]]
+          a (c/vari :a init-a)
+          loss (o/mat-mul a [[1.] [1.] [1.]])
+          opt (c/grad-desc-opt :opt 0.5 loss)
+          sess (g/build->session opt)
+          _ (g/run-global-vars-init sess)
+          loss-init (g/produce sess loss)]
+      (g/run sess opt)
+      (t/is (ndvec-less-than? (g/produce sess a)
+                              init-a))
+      (t/is (ndvec-less-than? (g/produce sess loss)
+                              loss-init)))))
 
 (t/deftest mat-mul-var-var
-  (let [init-a [[1. 2. 3.]]
-        init-b [[1.] [1.] [1.]]
-        a (c/vari :a init-a)
-        b (c/vari :b init-b)
-        loss (o/mat-mul a b)
-        opt (c/grad-desc-opt :opt 0.5 loss)
-        sess (g/build->session opt)
-        _ (g/run-global-vars-init sess)
-        loss-init (g/produce sess loss)]
-    (g/run sess opt)
-    (t/is (ndvec-less-than? (g/produce sess loss)
-                            loss-init))))
+  (g/with-tensor-scope
+    (let [init-a [[1. 2. 3.]]
+          init-b [[1.] [1.] [1.]]
+          a (c/vari :a init-a)
+          b (c/vari :b init-b)
+          loss (o/mat-mul a b)
+          opt (c/grad-desc-opt :opt 0.5 loss)
+          sess (g/build->session opt)
+          _ (g/run-global-vars-init sess)
+          loss-init (g/produce sess loss)]
+      (g/run sess opt)
+      (t/is (ndvec-less-than? (g/produce sess loss)
+                              loss-init)))))
 
 (t/deftest sin
-  (let [init-a 10.
-        a (c/vari :a init-a)
-        loss (o/sin a)
-        opt (c/grad-desc-opt :opt 0.5 loss)
-        sess (g/build->session opt)
-        _ (g/run-global-vars-init sess)
-        loss-init (g/produce sess loss)]
-    (g/run sess opt)
-    (t/is (> loss-init
-             (g/produce sess loss)))))
+  (g/with-tensor-scope  
+    (let [init-a 10.
+          a (c/vari :a init-a)
+          loss (o/sin a)
+          opt (c/grad-desc-opt :opt 0.5 loss)
+          sess (g/build->session opt)
+          _ (g/run-global-vars-init sess)
+          loss-init (g/produce sess loss)]
+      (g/run sess opt)
+      (t/is (> loss-init
+               (g/produce sess loss))))))
 
 (t/deftest mean-var-const
-  (let [init-a [[1. 2. 3.]]
-        a (c/vari :a init-a)
-        loss (o/mean a [0 1])
-        opt (c/grad-desc-opt :opt 0.5 loss)
-        sess (g/build->session opt)
-        _ (g/run-global-vars-init sess)
-        loss-init (g/produce sess loss)]
-    (g/run sess opt)
-    (t/is (ndvec-less-than? (g/produce sess a)
-                            init-a))
-    (t/is (< (g/produce sess loss)
-             loss-init))))
+  (g/with-tensor-conversion-scope
+    (let [init-a [[1. 2. 3.]]
+          a (c/vari :a init-a)
+          loss (o/mean a [0 1])
+          opt (c/grad-desc-opt :opt 0.5 loss)
+          sess (g/build->session opt)
+          _ (g/run-global-vars-init sess)
+          loss-init (g/produce sess loss)]
+      (g/run sess opt)
+      (t/is (ndvec-less-than? (g/produce sess a)
+                              init-a))
+      (t/is (< (g/produce sess loss)
+               loss-init)))))
 
 (t/deftest sigmoid
   (let [init-a 1.
@@ -227,24 +237,25 @@
              loss-init))))
 
 (t/deftest conv-2d
-  (let [input-init [[[[1.] [2.] [3.]]
-                     [[4.] [5.] [6.]]
-                     [[7.] [8.] [9.]]]]
-        input (c/vari :input input-init)
-        kernel-init [[[[0.1]] [[0.2]]]
-                     [[[0.3]] [[0.4]]]]
-        kernel (c/vari :kernel kernel-init)
-        loss (o/conv-2d {:strides [1 1 1 1]
-                         :padding "SAME"
-                         :data_format "NHWC"}
-                        input kernel)
-        opt (c/grad-desc-opt :opt 0.5 loss)
-        sess (g/build->session opt)
-        _ (g/run-global-vars-init sess)
-        loss-init (g/produce sess loss)]
-    (g/run sess opt)
-    (t/is (ndvec-less-than? (g/produce sess loss)
-                            loss-init))))
+  (g/with-tensor-scope
+    (let [input-init [[[[1.] [2.] [3.]]
+                       [[4.] [5.] [6.]]
+                       [[7.] [8.] [9.]]]]
+          input (c/vari :input input-init)
+          kernel-init [[[[0.1]] [[0.2]]]
+                       [[[0.3]] [[0.4]]]]
+          kernel (c/vari :kernel kernel-init)
+          loss (o/conv-2d {:strides [1 1 1 1]
+                           :padding "SAME"
+                           :data_format "NHWC"}
+                          input kernel)
+          opt (c/grad-desc-opt :opt 0.5 loss)
+          sess (g/build->session opt)
+          _ (g/run-global-vars-init sess)
+          loss-init (g/produce sess loss)]
+      (g/run sess opt)
+      (t/is (ndvec-less-than? (g/produce sess loss)
+                              loss-init)))))
 
 (t/deftest max-pool-v2
   (let [input-init [[[[1. 2.]
@@ -266,18 +277,19 @@
                             loss-init))))
 
 (t/deftest reshape-var-const
-  (let [init-a [1. 2. 3. 4.]
-        a (c/vari :a init-a)
-        loss (o/reshape a [2 2])
-        opt (c/grad-desc-opt :opt 0.5 loss)
-        sess (g/build->session opt)
-        _ (g/run-global-vars-init sess)
-        loss-init (solidify (g/produce sess loss))]
-    (g/run sess opt)
-    (t/is (ndvec-less-than? (g/produce sess a)
-                            init-a))
-    (t/is (ndvec-less-than? (g/produce sess loss)
-                            loss-init))))
+  (g/with-tensor-conversion-scope
+    (let [init-a [1. 2. 3. 4.]
+          a (c/vari :a init-a)
+          loss (o/reshape a [2 2])
+          opt (c/grad-desc-opt :opt 0.5 loss)
+          sess (g/build->session opt)
+          _ (g/run-global-vars-init sess)
+          loss-init (identity #_solidify (g/produce sess loss))]
+      (g/run sess opt)
+      (t/is (ndvec-less-than? (g/produce sess a)
+                              init-a))
+      (t/is (ndvec-less-than? (g/produce sess loss)
+                              loss-init)))))
 
 
 (t/deftest dense-layer

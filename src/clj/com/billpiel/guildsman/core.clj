@@ -9,6 +9,7 @@
             [com.billpiel.guildsman.util :as ut]
             [com.billpiel.guildsman.special-utils :as sput]
             [com.billpiel.guildsman.ops.composite :as c]
+            [com.billpiel.guildsman.tensor-scope :as tsc]
             com.billpiel.guildsman.gradients
             com.billpiel.guildsman.grad-desc-opt
             com.billpiel.guildsman.gradients-clj
@@ -46,6 +47,19 @@
 (defmacro id$->>
   [& body]
   `(ut/id$->> ~@body))
+
+(defmacro with-tensor-scope
+  [& body]
+  `(tsc/with-scope ~@body))
+
+(defmacro with-tensor-conversion-scope
+  [& body]
+  `(tsc/with-conversion-scope ~@body))
+
+(defmacro with-tensor-scope-containing
+  [tensors & body]
+  `(tsc/with-scope-containing ~tensors ~@body))
+
 
 (defmulti close
   "Close a Graph or Session defrecord."
@@ -516,8 +530,9 @@ provided an existing Graph defrecord and feed map."
 
 (defn gm-plugin-interval-post-async-form
   [hook-frms ws-cfg _]
-  `(do (future (let [~'state (ws2/--wf-deliver-fetched ~'state)
-                     ~@(ws2/mk-default-form-bindings hook-frms)]))
+  `(do (future (tsc/with-scope
+                 (let [~'state (ws2/--wf-deliver-fetched ~'state)
+                       ~@(ws2/mk-default-form-bindings hook-frms)])))
        nil))
 
 

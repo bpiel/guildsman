@@ -2,7 +2,7 @@
   (:require [com.billpiel.guildsman.data-type :as dt]
             [com.billpiel.guildsman.shape :as sh]))
 
-(def deleted (atom #{}))
+#_(def deleted (atom #{}))
 
 (defn get-shape-by-handle [handle]
   (-> handle com.billpiel.guildsman.TensorNI/shape dt/md-array->vecs))
@@ -59,9 +59,7 @@
                      :else
                      (com.billpiel.guildsman.TensorNI/allocateNonScalarBytes shape-arr
                                                                              (to-array v)))]
-    (swap! deleted disj handle)
-    (clojure.pprint/pprint handle)
-    (clojure.stacktrace/print-stack-trace (Exception. "create-from-value"))
+#_    (swap! deleted disj handle)
     (Tensor. handle
              kw
              shape)))
@@ -82,9 +80,7 @@
 (defn create-from-handle ^Tensor [handle]
   (let [dtype (get-data-type-by-handle handle)
         shape (get-shape-by-handle handle)]
-    (swap! deleted disj handle)
-    (clojure.pprint/pprint handle)
-    (clojure.stacktrace/print-stack-trace (Exception. "create-from-handle"))
+#_    (swap! deleted disj handle)
     (Tensor. handle
              dtype
              shape)))

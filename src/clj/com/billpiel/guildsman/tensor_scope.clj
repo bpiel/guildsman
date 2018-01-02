@@ -5,14 +5,15 @@
   (:import [com.billpiel.guildsman.tensor PValueProvider]
            [com.billpiel.guildsman TensorNI]))
 
+;; TODO use ThreadLocal instead of dyn scope to avoid future-conveyor
+
 (def global-scope (atom nil))
 (def ^:dynamic *scope* {:type :global})
 
-(def state (atom {:handles {}
-                  :scopes {}
-                  :delete []}))
-
-#_ (clojure.pprint/pprint @state)
+;; TODO move to tensor.clj??? -- I forget why -- volatile valid flags?
+(defonce state (atom {:handles {}
+                      :scopes {}
+                      :delete []}))
 
 (defn PValueProvider?
   [v]
@@ -48,16 +49,16 @@
         (update :handles (partial apply dissoc) deletable)
         (assoc :delete deletable))))
 
-(defn throw-when-deleted
+#_(defn throw-when-deleted
   [hnd msg]
   (when (@tsr/deleted hnd)
     (throw (Exception. (str msg hnd)))))
 
 (defn- delete-tensor!
   [hnd]
-  (clojure.pprint/pprint hnd)
-  (clojure.stacktrace/print-stack-trace (Exception. "WHAT?"))
-  (throw-when-deleted hnd "CANNOT DELETE. Already deleted.")
+#_  (clojure.pprint/pprint hnd)
+#_  (clojure.stacktrace/print-stack-trace (Exception. "WHAT?"))
+#_  (throw-when-deleted hnd "CANNOT DELETE. Already deleted.")
   (swap! tsr/deleted conj hnd)
   (TensorNI/delete hnd))
 
@@ -86,10 +87,10 @@
 
 (defn close-scope!
   [{ty :type id :id :as scope}]
-  (println "CLOSING")
-  (println scope)
+#_  (println "CLOSING")
+#_  (println scope)
   (when (= ty :standard)
-    (clojure.pprint/pprint @state)
+#_    (clojure.pprint/pprint @state)
     (-> state
         (swap! close-scope* id)
         delete-marked-hnds!)))
@@ -165,7 +166,7 @@
   ([v]
    (add-to-scope! (get-scope) v))
   ([{ty :type id :id :as scope} v]
-   (when-let [hnds (->> v find-natives (keep ->handle) not-empty)]
+#_   (when-let [hnds (->> v find-natives (keep ->handle) not-empty)]
      (println scope)
      (clojure.pprint/pprint hnds)
      (doseq [hnd hnds]
@@ -215,7 +216,6 @@
 (defn get-tensor-by-value ^PValueProvider
   [v]
   (with-scope
-    (clojure.pprint/pprint *scope*)
     (-> v
         tsr/create-from-value
         add-to-scope!)))
@@ -223,7 +223,6 @@
 (defn get-tensor-by-handle ^PValueProvider
   [hnd]
   (with-scope
-    (clojure.pprint/pprint *scope*)
     (-> hnd
         tsr/create-from-handle
         add-to-scope!)))
