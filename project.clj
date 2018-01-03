@@ -17,6 +17,7 @@
                  [org.clojars.ghaskins/protobuf "3.3.1-1"]
 
                  ;; web app
+                 [com.google.guava/guava "21.0"] ;; dependency problems w/ piggieback
                  [org.clojure/clojurescript "1.9.908"]
                  [aleph "0.4.3"]
                  [ring/ring-core "1.5.1"] 
@@ -30,6 +31,7 @@
                  [re-com "2.1.0"]
                  [re-frisk "0.4.5"]
                  [com.taoensso/timbre "4.8.0"]
+                 [org.eclipse.elk/org.eclipse.elk.alg.layered "0.3.0" :exclusions [com.google.guava/guava]]
 
                  ;; move to dev deps later
                  [binaryage/devtools "0.9.4"]

@@ -33,16 +33,17 @@
 (defn setup-cyto
   [cy]
   (println "START setup-cyto")
-  (let [xc-api (.expandCollapse cy (clj->js {:layoutBy {:name "dagre"
-                                                        :nodeSep 600
-                                                        :rankSep 100}
-                                             :fisheye false
-                                             :animate true
-                                             :undoable false
-                                             :cueEnabled false}))]
-    (.collapseAll xc-api)
-    (.on cy "tap" "node" (partial on-click-node xc-api))
-    (println "DONE setup-cyto")))
+  (println "DONE setup-cyto")
+  #_  (let [xc-api (.expandCollapse cy (clj->js {:layoutBy {:name "dagre"
+                                                            :nodeSep 600
+                                                            :rankSep 100}
+                                                 :fisheye false
+                                                 :animate true
+                                                 :undoable false
+                                                 :cueEnabled false}))]
+        (.collapseAll xc-api)
+        (.on cy "tap" "node" (partial on-click-node xc-api))
+        (println "DONE setup-cyto")))
 
 (defn cyto-state->cyto-gen-map
   [{:keys [id value]}]

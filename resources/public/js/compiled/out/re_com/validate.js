@@ -18,23 +18,23 @@ return goog.string.truncate([cljs.core.str.cljs$core$IFn$_invoke$arity$1(obj)].j
  * Sends a message to the DeV Tools console as an error. Returns false to indicate 'error' condition
  */
 re_com.validate.log_error = (function re_com$validate$log_error(var_args){
-var args__11234__auto__ = [];
-var len__11227__auto___13436 = arguments.length;
-var i__11228__auto___13437 = (0);
+var args__64045__auto__ = [];
+var len__64038__auto___65284 = arguments.length;
+var i__64039__auto___65285 = (0);
 while(true){
-if((i__11228__auto___13437 < len__11227__auto___13436)){
-args__11234__auto__.push((arguments[i__11228__auto___13437]));
+if((i__64039__auto___65285 < len__64038__auto___65284)){
+args__64045__auto__.push((arguments[i__64039__auto___65285]));
 
-var G__13438 = (i__11228__auto___13437 + (1));
-i__11228__auto___13437 = G__13438;
+var G__65286 = (i__64039__auto___65285 + (1));
+i__64039__auto___65285 = G__65286;
 continue;
 } else {
 }
 break;
 }
 
-var argseq__11235__auto__ = ((((0) < args__11234__auto__.length))?(new cljs.core.IndexedSeq(args__11234__auto__.slice((0)),(0),null)):null);
-return re_com.validate.log_error.cljs$core$IFn$_invoke$arity$variadic(argseq__11235__auto__);
+var argseq__64046__auto__ = ((((0) < args__64045__auto__.length))?(new cljs.core.IndexedSeq(args__64045__auto__.slice((0)),(0),null)):null);
+return re_com.validate.log_error.cljs$core$IFn$_invoke$arity$variadic(argseq__64046__auto__);
 });
 
 re_com.validate.log_error.cljs$core$IFn$_invoke$arity$variadic = (function (args){
@@ -45,31 +45,31 @@ return false;
 
 re_com.validate.log_error.cljs$lang$maxFixedArity = (0);
 
-re_com.validate.log_error.cljs$lang$applyTo = (function (seq13435){
-return re_com.validate.log_error.cljs$core$IFn$_invoke$arity$variadic(cljs.core.seq.call(null,seq13435));
+re_com.validate.log_error.cljs$lang$applyTo = (function (seq65283){
+return re_com.validate.log_error.cljs$core$IFn$_invoke$arity$variadic(cljs.core.seq.call(null,seq65283));
 });
 
 /**
  * Sends a message to the DeV Tools console as an warning. Returns true to indicate 'not and error' condition
  */
 re_com.validate.log_warning = (function re_com$validate$log_warning(var_args){
-var args__11234__auto__ = [];
-var len__11227__auto___13440 = arguments.length;
-var i__11228__auto___13441 = (0);
+var args__64045__auto__ = [];
+var len__64038__auto___65288 = arguments.length;
+var i__64039__auto___65289 = (0);
 while(true){
-if((i__11228__auto___13441 < len__11227__auto___13440)){
-args__11234__auto__.push((arguments[i__11228__auto___13441]));
+if((i__64039__auto___65289 < len__64038__auto___65288)){
+args__64045__auto__.push((arguments[i__64039__auto___65289]));
 
-var G__13442 = (i__11228__auto___13441 + (1));
-i__11228__auto___13441 = G__13442;
+var G__65290 = (i__64039__auto___65289 + (1));
+i__64039__auto___65289 = G__65290;
 continue;
 } else {
 }
 break;
 }
 
-var argseq__11235__auto__ = ((((0) < args__11234__auto__.length))?(new cljs.core.IndexedSeq(args__11234__auto__.slice((0)),(0),null)):null);
-return re_com.validate.log_warning.cljs$core$IFn$_invoke$arity$variadic(argseq__11235__auto__);
+var argseq__64046__auto__ = ((((0) < args__64045__auto__.length))?(new cljs.core.IndexedSeq(args__64045__auto__.slice((0)),(0),null)):null);
+return re_com.validate.log_warning.cljs$core$IFn$_invoke$arity$variadic(argseq__64046__auto__);
 });
 
 re_com.validate.log_warning.cljs$core$IFn$_invoke$arity$variadic = (function (args){
@@ -80,8 +80,8 @@ return true;
 
 re_com.validate.log_warning.cljs$lang$maxFixedArity = (0);
 
-re_com.validate.log_warning.cljs$lang$applyTo = (function (seq13439){
-return re_com.validate.log_warning.cljs$core$IFn$_invoke$arity$variadic(cljs.core.seq.call(null,seq13439));
+re_com.validate.log_warning.cljs$lang$applyTo = (function (seq65287){
+return re_com.validate.log_warning.cljs$core$IFn$_invoke$arity$variadic(cljs.core.seq.call(null,seq65287));
 });
 
 re_com.validate.hash_map_with_name_keys = (function re_com$validate$hash_map_with_name_keys(v){
@@ -97,9 +97,9 @@ return new cljs.core.PersistentArrayMap(null, 3, [new cljs.core.Keyword(null,"ar
  * returns true if every passed-args is value. Otherwise log the problem and return false
  */
 re_com.validate.arg_names_valid_QMARK_ = (function re_com$validate$arg_names_valid_QMARK_(defined_args,passed_args){
-var or__9950__auto__ = clojure.set.superset_QMARK_.call(null,defined_args,passed_args);
-if(cljs.core.truth_(or__9950__auto__)){
-return or__9950__auto__;
+var or__62761__auto__ = clojure.set.superset_QMARK_.call(null,defined_args,passed_args);
+if(cljs.core.truth_(or__62761__auto__)){
+return or__62761__auto__;
 } else {
 var missing_args = cljs.core.remove.call(null,defined_args,passed_args);
 return re_com.validate.log_error.call(null,"Invalid argument(s): ",missing_args);
@@ -109,9 +109,9 @@ return re_com.validate.log_error.call(null,"Invalid argument(s): ",missing_args)
  * returns true if all the required args are supplied. Otherwise log the error and return false
  */
 re_com.validate.required_args_passed_QMARK_ = (function re_com$validate$required_args_passed_QMARK_(required_args,passed_args){
-var or__9950__auto__ = clojure.set.superset_QMARK_.call(null,passed_args,required_args);
-if(cljs.core.truth_(or__9950__auto__)){
-return or__9950__auto__;
+var or__62761__auto__ = clojure.set.superset_QMARK_.call(null,passed_args,required_args);
+if(cljs.core.truth_(or__62761__auto__)){
+return or__62761__auto__;
 } else {
 var missing_args = cljs.core.remove.call(null,passed_args,required_args);
 return re_com.validate.log_error.call(null,"Missing required argument(s): ",missing_args);
@@ -130,10 +130,10 @@ return re_com.validate.log_error.call(null,"Missing required argument(s): ",miss
  *                                       :message - use this string in the message of the warning/error
  */
 re_com.validate.validate_fns_pass_QMARK_ = (function re_com$validate$validate_fns_pass_QMARK_(args_with_validators,passed_args,component_name){
-var validate_arg = (function (p__13443){
-var vec__13444 = p__13443;
-var _ = cljs.core.nth.call(null,vec__13444,(0),null);
-var v_arg_def = cljs.core.nth.call(null,vec__13444,(1),null);
+var validate_arg = (function (p__65291){
+var vec__65292 = p__65291;
+var _ = cljs.core.nth.call(null,vec__65292,(0),null);
+var v_arg_def = cljs.core.nth.call(null,vec__65292,(1),null);
 var arg_name = new cljs.core.Keyword(null,"name","name",1843675177).cljs$core$IFn$_invoke$arity$1(v_arg_def);
 var arg_val = re_com.util.deref_or_value_peek.call(null,arg_name.call(null,passed_args));
 var required_QMARK_ = new cljs.core.Keyword(null,"required","required",1807647006).cljs$core$IFn$_invoke$arity$1(v_arg_def);
@@ -167,23 +167,23 @@ return cljs.core.every_QMARK_.call(null,cljs.core.true_QMARK_,cljs.core.map.call
  * Normally used for a call to the {:pre...} at the beginning of a function
  */
 re_com.validate.validate_args = (function re_com$validate$validate_args(var_args){
-var args__11234__auto__ = [];
-var len__11227__auto___13450 = arguments.length;
-var i__11228__auto___13451 = (0);
+var args__64045__auto__ = [];
+var len__64038__auto___65298 = arguments.length;
+var i__64039__auto___65299 = (0);
 while(true){
-if((i__11228__auto___13451 < len__11227__auto___13450)){
-args__11234__auto__.push((arguments[i__11228__auto___13451]));
+if((i__64039__auto___65299 < len__64038__auto___65298)){
+args__64045__auto__.push((arguments[i__64039__auto___65299]));
 
-var G__13452 = (i__11228__auto___13451 + (1));
-i__11228__auto___13451 = G__13452;
+var G__65300 = (i__64039__auto___65299 + (1));
+i__64039__auto___65299 = G__65300;
 continue;
 } else {
 }
 break;
 }
 
-var argseq__11235__auto__ = ((((2) < args__11234__auto__.length))?(new cljs.core.IndexedSeq(args__11234__auto__.slice((2)),(0),null)):null);
-return re_com.validate.validate_args.cljs$core$IFn$_invoke$arity$variadic((arguments[(0)]),(arguments[(1)]),argseq__11235__auto__);
+var argseq__64046__auto__ = ((((2) < args__64045__auto__.length))?(new cljs.core.IndexedSeq(args__64045__auto__.slice((2)),(0),null)):null);
+return re_com.validate.validate_args.cljs$core$IFn$_invoke$arity$variadic((arguments[(0)]),(arguments[(1)]),argseq__64046__auto__);
 });
 
 re_com.validate.validate_args.cljs$core$IFn$_invoke$arity$variadic = (function (arg_defs,passed_args,component_name){
@@ -191,28 +191,28 @@ if(!(goog.DEBUG)){
 return true;
 } else {
 var passed_arg_keys = cljs.core.set.call(null,cljs.core.keys.call(null,passed_args));
-var and__9938__auto__ = re_com.validate.arg_names_valid_QMARK_.call(null,new cljs.core.Keyword(null,"arg-names","arg-names",1632831252).cljs$core$IFn$_invoke$arity$1(arg_defs),passed_arg_keys);
-if(cljs.core.truth_(and__9938__auto__)){
-var and__9938__auto____$1 = re_com.validate.required_args_passed_QMARK_.call(null,new cljs.core.Keyword(null,"required-args","required-args",1225806985).cljs$core$IFn$_invoke$arity$1(arg_defs),passed_arg_keys);
-if(cljs.core.truth_(and__9938__auto____$1)){
+var and__62749__auto__ = re_com.validate.arg_names_valid_QMARK_.call(null,new cljs.core.Keyword(null,"arg-names","arg-names",1632831252).cljs$core$IFn$_invoke$arity$1(arg_defs),passed_arg_keys);
+if(cljs.core.truth_(and__62749__auto__)){
+var and__62749__auto____$1 = re_com.validate.required_args_passed_QMARK_.call(null,new cljs.core.Keyword(null,"required-args","required-args",1225806985).cljs$core$IFn$_invoke$arity$1(arg_defs),passed_arg_keys);
+if(cljs.core.truth_(and__62749__auto____$1)){
 return re_com.validate.validate_fns_pass_QMARK_.call(null,new cljs.core.Keyword(null,"validated-args","validated-args",278814533).cljs$core$IFn$_invoke$arity$1(arg_defs),passed_args,cljs.core.first.call(null,component_name));
 } else {
-return and__9938__auto____$1;
+return and__62749__auto____$1;
 }
 } else {
-return and__9938__auto__;
+return and__62749__auto__;
 }
 }
 });
 
 re_com.validate.validate_args.cljs$lang$maxFixedArity = (2);
 
-re_com.validate.validate_args.cljs$lang$applyTo = (function (seq13447){
-var G__13448 = cljs.core.first.call(null,seq13447);
-var seq13447__$1 = cljs.core.next.call(null,seq13447);
-var G__13449 = cljs.core.first.call(null,seq13447__$1);
-var seq13447__$2 = cljs.core.next.call(null,seq13447__$1);
-return re_com.validate.validate_args.cljs$core$IFn$_invoke$arity$variadic(G__13448,G__13449,seq13447__$2);
+re_com.validate.validate_args.cljs$lang$applyTo = (function (seq65295){
+var G__65296 = cljs.core.first.call(null,seq65295);
+var seq65295__$1 = cljs.core.next.call(null,seq65295);
+var G__65297 = cljs.core.first.call(null,seq65295__$1);
+var seq65295__$2 = cljs.core.next.call(null,seq65295__$1);
+return re_com.validate.validate_args.cljs$core$IFn$_invoke$arity$variadic(G__65296,G__65297,seq65295__$2);
 });
 
 re_com.validate.justify_options = new cljs.core.PersistentVector(null, 5, 5, cljs.core.PersistentVector.EMPTY_NODE, [new cljs.core.Keyword(null,"start","start",-355208981),new cljs.core.Keyword(null,"end","end",-268185958),new cljs.core.Keyword(null,"center","center",-748944368),new cljs.core.Keyword(null,"between","between",1131099276),new cljs.core.Keyword(null,"around","around",-265975553)], null);
@@ -230,9 +230,9 @@ re_com.validate.position_options = new cljs.core.PersistentVector(null, 12, 5, c
  */
 re_com.validate.validate_arg_against_set = (function re_com$validate$validate_arg_against_set(arg,arg_name,valid_set){
 var arg__$1 = re_com.util.deref_or_value_peek.call(null,arg);
-var or__9950__auto__ = cljs.core.not_EQ_.call(null,cljs.core.some.call(null,cljs.core.PersistentHashSet.createAsIfByAssoc([arg__$1]),valid_set),null);
-if(or__9950__auto__){
-return or__9950__auto__;
+var or__62761__auto__ = cljs.core.not_EQ_.call(null,cljs.core.some.call(null,cljs.core.PersistentHashSet.createAsIfByAssoc([arg__$1]),valid_set),null);
+if(or__62761__auto__){
+return or__62761__auto__;
 } else {
 return ["Invalid ",cljs.core.str.cljs$core$IFn$_invoke$arity$1(arg_name),". Expected one of ",cljs.core.str.cljs$core$IFn$_invoke$arity$1(valid_set),". Got '",cljs.core.str.cljs$core$IFn$_invoke$arity$1(re_com.validate.left_string.call(null,arg__$1,(40))),"'"].join('');
 }
@@ -271,8 +271,8 @@ return re_com.validate.validate_arg_against_set.call(null,arg,":position",re_com
  * Given a vector or list of codes, create a [:span] hiccup vector containing a comma separated list of the codes
  */
 re_com.validate.make_code_list = (function re_com$validate$make_code_list(codes){
-return cljs.core.into.call(null,new cljs.core.PersistentVector(null, 1, 5, cljs.core.PersistentVector.EMPTY_NODE, [new cljs.core.Keyword(null,"span","span",1394872991)], null),cljs.core.interpose.call(null,", ",cljs.core.map.call(null,(function (p1__13453_SHARP_){
-return (new cljs.core.PersistentVector(null,2,(5),cljs.core.PersistentVector.EMPTY_NODE,[new cljs.core.Keyword(null,"code","code",1586293142),[cljs.core.str.cljs$core$IFn$_invoke$arity$1(p1__13453_SHARP_)].join('')],null));
+return cljs.core.into.call(null,new cljs.core.PersistentVector(null, 1, 5, cljs.core.PersistentVector.EMPTY_NODE, [new cljs.core.Keyword(null,"span","span",1394872991)], null),cljs.core.interpose.call(null,", ",cljs.core.map.call(null,(function (p1__65301_SHARP_){
+return (new cljs.core.PersistentVector(null,2,(5),cljs.core.PersistentVector.EMPTY_NODE,[new cljs.core.Keyword(null,"code","code",1586293142),[cljs.core.str.cljs$core$IFn$_invoke$arity$1(p1__65301_SHARP_)].join('')],null));
 }),codes)));
 });
 re_com.validate.justify_options_list = re_com.validate.make_code_list.call(null,re_com.validate.justify_options);
@@ -314,17 +314,17 @@ if(!(goog.DEBUG)){
 return true;
 } else {
 var arg__$1 = re_com.util.deref_or_value_peek.call(null,arg);
-var and__9938__auto__ = cljs.core.map_QMARK_.call(null,arg__$1);
-if(and__9938__auto__){
+var and__62749__auto__ = cljs.core.map_QMARK_.call(null,arg__$1);
+if(and__62749__auto__){
 var arg_keys = cljs.core.keys.call(null,arg__$1);
-var or__9950__auto__ = clojure.set.superset_QMARK_.call(null,re_com.validate.css_styles,arg_keys);
-if(cljs.core.truth_(or__9950__auto__)){
-return or__9950__auto__;
+var or__62761__auto__ = clojure.set.superset_QMARK_.call(null,re_com.validate.css_styles,arg_keys);
+if(cljs.core.truth_(or__62761__auto__)){
+return or__62761__auto__;
 } else {
 return new cljs.core.PersistentArrayMap(null, 2, [new cljs.core.Keyword(null,"status","status",-1997798413),new cljs.core.Keyword(null,"warning","warning",-1685650671),new cljs.core.Keyword(null,"message","message",-406056002),["Unknown CSS style(s): ",cljs.core.str.cljs$core$IFn$_invoke$arity$1(cljs.core.remove.call(null,re_com.validate.css_styles,arg_keys))].join('')], null);
 }
 } else {
-return and__9938__auto__;
+return and__62749__auto__;
 }
 }
 });
@@ -334,13 +334,13 @@ return and__9938__auto__;
 re_com.validate.extension_attribute_QMARK_ = (function re_com$validate$extension_attribute_QMARK_(attr){
 var attr__$1 = cljs.core.name.call(null,attr);
 var ext_QMARK_ = ((function (attr__$1){
-return (function (p1__13454_SHARP_){
-return (cljs.core._EQ_.call(null,attr__$1.indexOf(p1__13454_SHARP_),(0))) && ((cljs.core.count.call(null,attr__$1) > cljs.core.count.call(null,p1__13454_SHARP_)));
+return (function (p1__65302_SHARP_){
+return (cljs.core._EQ_.call(null,attr__$1.indexOf(p1__65302_SHARP_),(0))) && ((cljs.core.count.call(null,attr__$1) > cljs.core.count.call(null,p1__65302_SHARP_)));
 });})(attr__$1))
 ;
 return cljs.core.some.call(null,cljs.core.comp.call(null,ext_QMARK_,((function (attr__$1,ext_QMARK_){
-return (function (p1__13455_SHARP_){
-return [cljs.core.str.cljs$core$IFn$_invoke$arity$1(p1__13455_SHARP_),"-"].join('');
+return (function (p1__65303_SHARP_){
+return [cljs.core.str.cljs$core$IFn$_invoke$arity$1(p1__65303_SHARP_),"-"].join('');
 });})(attr__$1,ext_QMARK_))
 ,cljs.core.name),re_com.validate.extension_attrs);
 });
@@ -348,12 +348,12 @@ return [cljs.core.str.cljs$core$IFn$_invoke$arity$1(p1__13455_SHARP_),"-"].join(
  * Returns the subset of HTML attributes contained in the passed argument that are not valid HTML attributes.
  */
 re_com.validate.invalid_html_attrs = (function re_com$validate$invalid_html_attrs(attrs){
-return cljs.core.remove.call(null,(function (p1__13456_SHARP_){
-var or__9950__auto__ = re_com.validate.html_attrs.call(null,p1__13456_SHARP_);
-if(cljs.core.truth_(or__9950__auto__)){
-return or__9950__auto__;
+return cljs.core.remove.call(null,(function (p1__65304_SHARP_){
+var or__62761__auto__ = re_com.validate.html_attrs.call(null,p1__65304_SHARP_);
+if(cljs.core.truth_(or__62761__auto__)){
+return or__62761__auto__;
 } else {
-return re_com.validate.extension_attribute_QMARK_.call(null,p1__13456_SHARP_);
+return re_com.validate.extension_attribute_QMARK_.call(null,p1__65304_SHARP_);
 }
 }),attrs);
 });
@@ -368,28 +368,28 @@ if(!(goog.DEBUG)){
 return true;
 } else {
 var arg__$1 = re_com.util.deref_or_value_peek.call(null,arg);
-var and__9938__auto__ = cljs.core.map_QMARK_.call(null,arg__$1);
-if(and__9938__auto__){
+var and__62749__auto__ = cljs.core.map_QMARK_.call(null,arg__$1);
+if(and__62749__auto__){
 var arg_keys = cljs.core.set.call(null,cljs.core.keys.call(null,arg__$1));
 var contains_class_QMARK_ = cljs.core.contains_QMARK_.call(null,arg_keys,new cljs.core.Keyword(null,"class","class",-2030961996));
 var contains_style_QMARK_ = cljs.core.contains_QMARK_.call(null,arg_keys,new cljs.core.Keyword(null,"style","style",-496642736));
-var result = ((contains_class_QMARK_)?":class not allowed in :attr argument":((contains_style_QMARK_)?":style not allowed in :attr argument":(function (){var temp__6738__auto__ = cljs.core.not_empty.call(null,re_com.validate.invalid_html_attrs.call(null,arg_keys));
-if(cljs.core.truth_(temp__6738__auto__)){
-var invalid = temp__6738__auto__;
+var result = ((contains_class_QMARK_)?":class not allowed in :attr argument":((contains_style_QMARK_)?":style not allowed in :attr argument":(function (){var temp__5457__auto__ = cljs.core.not_empty.call(null,re_com.validate.invalid_html_attrs.call(null,arg_keys));
+if(cljs.core.truth_(temp__5457__auto__)){
+var invalid = temp__5457__auto__;
 return ["Unknown HTML attribute(s): ",cljs.core.str.cljs$core$IFn$_invoke$arity$1(invalid)].join('');
 } else {
 return null;
 }
 })()
 ));
-var or__9950__auto__ = (result == null);
-if(or__9950__auto__){
-return or__9950__auto__;
+var or__62761__auto__ = (result == null);
+if(or__62761__auto__){
+return or__62761__auto__;
 } else {
 return new cljs.core.PersistentArrayMap(null, 2, [new cljs.core.Keyword(null,"status","status",-1997798413),(((contains_class_QMARK_) || (contains_style_QMARK_))?new cljs.core.Keyword(null,"error","error",-978969032):new cljs.core.Keyword(null,"warning","warning",-1685650671)),new cljs.core.Keyword(null,"message","message",-406056002),result], null);
 }
 } else {
-return and__9938__auto__;
+return and__62749__auto__;
 }
 }
 });
@@ -427,4 +427,4 @@ re_com.validate.set_or_atom_QMARK_ = (function re_com$validate$set_or_atom_QMARK
 return cljs.core.set_QMARK_.call(null,re_com.util.deref_or_value_peek.call(null,arg));
 });
 
-//# sourceMappingURL=validate.js.map?rel=1506917865255
+//# sourceMappingURL=validate.js.map?rel=1514950323393

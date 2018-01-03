@@ -1,5 +1,6 @@
 (ns com.billpiel.guildsman.dev
-  (:require [clojure.core.async :as a]
+  (:require [com.billpiel.guildsman.elk :as elk]
+            [clojure.core.async :as a]
             [com.billpiel.guildsman.core :as g]
             [com.billpiel.guildsman.scope :as sc]
             [com.billpiel.guildsman.shape :as sh]
@@ -131,8 +132,9 @@
 (defn mk-graph-def
   [^Graph g]
   (let [nodes (-> g :state deref :id->node vals)]
-    {:nodes (distinct (mapcat mk-node-defs nodes))
-     :edges (mapcat mk-edge-defs nodes)}))
+    (elk/layout-graph-elements
+     {:nodes (distinct (mapcat mk-node-defs nodes))
+      :edges (mapcat mk-edge-defs nodes)})))
 
 (defn mk-cyto
   [elements]
