@@ -200,10 +200,34 @@
      ;; TODO train-test should reset log
      :workflows {:train-test {:driver g/default-train-test-wf}}}))
 
+
+
 (clojure.pprint/pprint 
  (g/ws-status ws-mnist1))
 
 (g/ws-train-test ws-mnist1)
+
+
+(g/def-workspace ws-dummy
+  (g/let+ [r (o/add (o/sub 10. 4.)
+                    (o/mul 2. 5.))
+           r2 (com.billpiel.guildsman.scope/with-push-id-scope :scope1
+                (o/add (o/sub 10. 4.)
+                       (o/mul 2. 5.)))
+           r3 (o/add r r2)]
+    
+    {:plugins [dev/plugin g/gm-plugin]
+     :plans [r3]
+     :duration [:steps 100] ;; TODO ?? [:epochs 1] [:secs 10]
+     :interval [:steps 10]
+     :modes {:train {:step [r]
+                     ::dev/summaries [r]}
+             :test {::dev/summaries [r]}}
+     ;; TODO train-test should reset log
+     :workflows {:train-test {:driver g/default-train-test-wf}}}))
+
+(g/ws-train-test ws-dummy)
+
 
 (tsc/set-global-conversion-scope!)
 
@@ -218,3 +242,43 @@
 
 (tsc/with-scope
   (g/produce (o/identity-tf 22)))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

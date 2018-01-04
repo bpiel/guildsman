@@ -32,20 +32,22 @@
                  [re-frisk "0.4.5"]
                  [com.taoensso/timbre "4.8.0"]
                  [org.eclipse.elk/org.eclipse.elk.alg.layered "0.3.0" :exclusions [com.google.guava/guava]]
+                 [org.eclipse.elk/org.eclipse.elk.alg.graphviz.layouter "0.3.0" :exclusions [com.google.guava/guava]]
+
 
                  ;; move to dev deps later
                  [binaryage/devtools "0.9.4"]
                  [com.cemerick/piggieback "0.2.2-20150424.212437-1"]
                  [figwheel-sidecar "0.5.13"]]
 
- ; :hooks [leiningen.cljsbuild]
+                                        ; :hooks [leiningen.cljsbuild]
   
   :profiles
   {:dev
    {:dependencies []
     :repl-options {:nrepl-middleware [cemerick.piggieback/wrap-cljs-repl]}
     :plugins      [[lein-figwheel "0.5.13"]]
-;    :prep-tasks [["cljsbuild" "once" "main"] "javac" "compile"]
+                                        ;    :prep-tasks [["cljsbuild" "once" "main"] "javac" "compile"]
     }}
 
   :cljsbuild

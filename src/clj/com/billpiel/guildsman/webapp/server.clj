@@ -174,6 +174,9 @@
     (catch Exception e
       (log/error e "EXCEPTION while trying to stop http server"))))
 
+#_ (clojure.pprint/pprint @view-chan-thread-ex)
+
 #_ (stop-server)
 
 #_(start-server)
+
