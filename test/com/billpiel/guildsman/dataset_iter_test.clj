@@ -218,3 +218,7 @@
 
 (tsc/with-scope
   (g/produce (o/identity-tf 22)))
+
+(tsc/with-conversion-scope
+  (g/produce (o/iterator {:output-types [dt/float-kw]
+                          :output-shapes [[1]]})))

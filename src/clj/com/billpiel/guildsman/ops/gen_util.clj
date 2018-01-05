@@ -42,11 +42,22 @@
                                    (str def-type)
                                    (.getMessage e))))))))
 
+(defn snake->kebab
+  [s]
+  (clojure.string/replace s #"_" "-"))
+
+;; TODO get rid of this later
+(defn- find-attr-value
+  [attr-name plan-attrs]
+  (or ((keyword attr-name) plan-attrs)
+      ((keyword (snake->kebab attr-name)) plan-attrs)
+      nil))
+
 (defn convert-attrs*
   [plan-attrs
    {attr-name :name attr-type :type default-value :default-value :as attr-def}]
   (let [dt-kw (keyword attr-type)
-        value ((keyword attr-name) plan-attrs)]
+        value (find-attr-value attr-name plan-attrs)]
     (try
       [attr-name
        (if-not (nil? value)

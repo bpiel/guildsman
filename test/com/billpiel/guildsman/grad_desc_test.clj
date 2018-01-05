@@ -251,7 +251,7 @@
           kernel (c/vari :kernel kernel-init)
           loss (o/conv-2d {:strides [1 1 1 1]
                            :padding "SAME"
-                           :data_format "NHWC"}
+                           :data-format "NHWC"}
                           input kernel)
           opt (c/grad-desc-opt :opt 0.5 loss)
           sess (g/build->session opt)
@@ -269,7 +269,7 @@
                         [3. 4.]]]]
           input (c/vari :input input-init)
           loss  (o/max-pool-v2 {:padding "VALID"
-                                :data_format "NHWC"}
+                                :data-format "NHWC"}
                                input
                                [1 1 2 1]
                                [1 1 1 1])
