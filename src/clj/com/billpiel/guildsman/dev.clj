@@ -232,10 +232,10 @@
 
 (defn assoc-gv-layout-data
   [elements]
-  (let [id->xy (get-layout-data2 elements)]
+  (let [id->xy (get-layout-data elements)]
     (update elements :nodes
             (partial keep
-                     (partial assoc-gv-layout-data*2
+                     (partial assoc-gv-layout-data*
                               id->xy)))))
 
 #_(clojure.pprint/pprint  (assoc-gv-layout-data {:nodes nodes1 :edges edges1}))
