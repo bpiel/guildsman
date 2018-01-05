@@ -37,20 +37,20 @@ return null;
 re_frame.trace.next_id = (function re_frame$trace$next_id(){
 return cljs.core.swap_BANG_.call(null,re_frame.trace.id,cljs.core.inc);
 });
-re_frame.trace.start_trace = (function re_frame$trace$start_trace(p__18807){
-var map__18808 = p__18807;
-var map__18808__$1 = ((((!((map__18808 == null)))?((((map__18808.cljs$lang$protocol_mask$partition0$ & (64))) || ((cljs.core.PROTOCOL_SENTINEL === map__18808.cljs$core$ISeq$)))?true:false):false))?cljs.core.apply.call(null,cljs.core.hash_map,map__18808):map__18808);
-var operation = cljs.core.get.call(null,map__18808__$1,new cljs.core.Keyword(null,"operation","operation",-1267664310));
-var op_type = cljs.core.get.call(null,map__18808__$1,new cljs.core.Keyword(null,"op-type","op-type",-1636141668));
-var tags = cljs.core.get.call(null,map__18808__$1,new cljs.core.Keyword(null,"tags","tags",1771418977));
-var child_of = cljs.core.get.call(null,map__18808__$1,new cljs.core.Keyword(null,"child-of","child-of",-903376662));
-return new cljs.core.PersistentArrayMap(null, 6, [new cljs.core.Keyword(null,"id","id",-1388402092),re_frame.trace.next_id.call(null),new cljs.core.Keyword(null,"operation","operation",-1267664310),operation,new cljs.core.Keyword(null,"op-type","op-type",-1636141668),op_type,new cljs.core.Keyword(null,"tags","tags",1771418977),tags,new cljs.core.Keyword(null,"child-of","child-of",-903376662),(function (){var or__9950__auto__ = child_of;
-if(cljs.core.truth_(or__9950__auto__)){
-return or__9950__auto__;
+re_frame.trace.start_trace = (function re_frame$trace$start_trace(p__82225){
+var map__82226 = p__82225;
+var map__82226__$1 = ((((!((map__82226 == null)))?((((map__82226.cljs$lang$protocol_mask$partition0$ & (64))) || ((cljs.core.PROTOCOL_SENTINEL === map__82226.cljs$core$ISeq$)))?true:false):false))?cljs.core.apply.call(null,cljs.core.hash_map,map__82226):map__82226);
+var operation = cljs.core.get.call(null,map__82226__$1,new cljs.core.Keyword(null,"operation","operation",-1267664310));
+var op_type = cljs.core.get.call(null,map__82226__$1,new cljs.core.Keyword(null,"op-type","op-type",-1636141668));
+var tags = cljs.core.get.call(null,map__82226__$1,new cljs.core.Keyword(null,"tags","tags",1771418977));
+var child_of = cljs.core.get.call(null,map__82226__$1,new cljs.core.Keyword(null,"child-of","child-of",-903376662));
+return new cljs.core.PersistentArrayMap(null, 6, [new cljs.core.Keyword(null,"id","id",-1388402092),re_frame.trace.next_id.call(null),new cljs.core.Keyword(null,"operation","operation",-1267664310),operation,new cljs.core.Keyword(null,"op-type","op-type",-1636141668),op_type,new cljs.core.Keyword(null,"tags","tags",1771418977),tags,new cljs.core.Keyword(null,"child-of","child-of",-903376662),(function (){var or__74901__auto__ = child_of;
+if(cljs.core.truth_(or__74901__auto__)){
+return or__74901__auto__;
 } else {
 return new cljs.core.Keyword(null,"id","id",-1388402092).cljs$core$IFn$_invoke$arity$1(re_frame.trace._STAR_current_trace_STAR_);
 }
 })(),new cljs.core.Keyword(null,"start","start",-355208981),re_frame.interop.now.call(null)], null);
 });
 
-//# sourceMappingURL=trace.js.map?rel=1506917870511
+//# sourceMappingURL=trace.js.map?rel=1515122952174

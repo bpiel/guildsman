@@ -33,7 +33,7 @@
 (defn setup-cyto
   [cy]
   (println "START setup-cyto")
-  (let [xc-api (.expandCollapse cy (clj->js {:layoutBy {:name "dagre"
+#_  (let [xc-api (.expandCollapse cy (clj->js {:layoutBy {:name "dagre"
                                                         :nodeSep 600
                                                         :rankSep 100}
                                              :fisheye false

@@ -1,5 +1,6 @@
 (ns com.billpiel.guildsman.dev
-  (:require [clojure.core.async :as a]
+  (:require [com.billpiel.guildsman.graphviz :as gv]
+            [clojure.core.async :as a]
             [com.billpiel.guildsman.core :as g]
             [com.billpiel.guildsman.scope :as sc]
             [com.billpiel.guildsman.shape :as sh]
@@ -134,6 +135,113 @@
     {:nodes (distinct (mapcat mk-node-defs nodes))
      :edges (mapcat mk-edge-defs nodes)}))
 
+;; CYTO > LIBGV ======================
+
+#_(def nodes1 (:nodes $s/*))
+
+#_(clojure.pprint/pprint nodes1)
+
+#_(def edges1 (:edges $s/*))
+
+#_(clojure.pprint/pprint edges1)
+
+(defn process-node
+  [{:keys [data]}]
+  (-> data
+      (dissoc :parent)
+      (assoc :subgraph (:parent data))))
+
+(defn process-node2
+  [{:keys [subgraph] :as n}]
+  (if subgraph
+    (update n :subgraph #(str "cluster_" %))
+    n))
+
+(defn process-subgraph
+  [sg]
+  (-> sg
+      process-node2
+      (update :id #(str "cluster_" %))))
+
+(defn parse-gv-node-pos
+  [pos]
+  (try
+    (let [[x y] (mapv ut/->double
+                      (clojure.string/split pos #","))]
+      {:x (* 2 x)
+       :y (* 2 y)})
+    (catch Exception e
+      (clojure.pprint/pprint pos)
+      {})))
+
+(defn get-layout-data
+  [{:keys [nodes edges]}]
+  (let [n' (map process-node nodes)
+        sg-ids (->> n'
+                    (keep :subgraph)
+                    set)
+        n'' (->> n'
+                 (remove #(-> % :id sg-ids))
+                 (mapv process-node2))
+        sgs (->> n'
+                 (filter #(-> % :id sg-ids))
+                 (mapv process-subgraph))
+        g1 (gv/mk-empty-digraph "g1" {})]
+    (doseq [sg sgs]
+      (gv/add-subgraph g1 sg))
+    (doseq [node n'']
+      (gv/add-node g1 node))
+    (doseq [e edges]
+      (gv/add-edge g1 (:data e)))
+    (gv/layout g1 "dot")
+    (gv/render-result g1 "dot")
+    (gv/refresh-props g1)
+    (->> (for [{:keys [id props]} (-> g1 :state deref :nodes vals)]
+           (when props
+             [id (parse-gv-node-pos (props "pos"))]))
+         (into {}))))
+
+(defn get-layout-data2
+  [{:keys [nodes edges]}]
+  (let [n' (map process-node nodes)
+        n'' (->> n'
+                 (remove :subgraph))
+        g1 (gv/mk-empty-digraph "g1" {})]
+    (doseq [node n'']
+      (gv/add-node g1 node))
+    (doseq [e edges]
+      (gv/add-edge g1 (:data e)))
+    (gv/layout g1 "dot")
+    (gv/render-result g1 "dot")
+    (gv/refresh-props g1)
+    (->> (for [{:keys [id props]} (-> g1 :state deref :nodes vals)]
+           (when props
+             [id (parse-gv-node-pos (props "pos"))]))
+         (into {}))))
+
+(defn assoc-gv-layout-data*
+  [id->xy {:keys [data] :as node}]
+  (if-let [xy (-> data :id id->xy)]
+    (assoc node :position xy)
+    node))
+
+(defn assoc-gv-layout-data*2
+  [id->xy {:keys [data] :as node}]
+  (when-let [xy (-> data :id id->xy)]
+    (assoc node :position xy)))
+
+(defn assoc-gv-layout-data
+  [elements]
+  (let [id->xy (get-layout-data2 elements)]
+    (update elements :nodes
+            (partial keep
+                     (partial assoc-gv-layout-data*2
+                              id->xy)))))
+
+#_(clojure.pprint/pprint  (assoc-gv-layout-data {:nodes nodes1 :edges edges1}))
+
+;; END -- CYTO > LIBGV ======================
+
 (defn mk-cyto
   [elements]
   {:layout {:name "preset"}
@@ -176,7 +284,8 @@
                     }}
            {:selector ":selected"
             :style {:background-color "lightblue"}}]      
-   :elements (filter-cyto elements)})
+   :elements (assoc-gv-layout-data (filter-cyto elements))
+})
 
 ;; END CYTO ==========================================
 

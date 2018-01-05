@@ -14,6 +14,14 @@
        (catch Exception e
          nil)))
 
+(defn ->double
+  [v]
+  (try (cond (double? v) v
+             (integer? v) (double v)
+             (string? v) (Double/parseDouble v))
+       (catch Exception e
+         nil)))
+
 (defn ceil-quot
   [a b]
   (int (+ (quot a b)

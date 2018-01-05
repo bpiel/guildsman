@@ -77,8 +77,8 @@ return re_frame.registrar.register_handler.call(null,re_frame.cofx.kind,id,handl
  * to the event handler at call time.
  */
 re_frame.cofx.inject_cofx = (function re_frame$cofx$inject_cofx(var_args){
-var G__19035 = arguments.length;
-switch (G__19035) {
+var G__82453 = arguments.length;
+switch (G__82453) {
 case 1:
 return re_frame.cofx.inject_cofx.cljs$core$IFn$_invoke$arity$1((arguments[(0)]));
 
@@ -95,9 +95,9 @@ throw (new Error(["Invalid arity: ",cljs.core.str.cljs$core$IFn$_invoke$arity$1(
 
 re_frame.cofx.inject_cofx.cljs$core$IFn$_invoke$arity$1 = (function (id){
 return re_frame.interceptor.__GT_interceptor.call(null,new cljs.core.Keyword(null,"id","id",-1388402092),new cljs.core.Keyword(null,"coeffects","coeffects",497912985),new cljs.core.Keyword(null,"before","before",-1633692388),(function re_frame$cofx$coeffects_before(context){
-var temp__6736__auto__ = re_frame.registrar.get_handler.call(null,re_frame.cofx.kind,id);
-if(cljs.core.truth_(temp__6736__auto__)){
-var handler = temp__6736__auto__;
+var temp__5455__auto__ = re_frame.registrar.get_handler.call(null,re_frame.cofx.kind,id);
+if(cljs.core.truth_(temp__5455__auto__)){
+var handler = temp__5455__auto__;
 return cljs.core.update.call(null,context,new cljs.core.Keyword(null,"coeffects","coeffects",497912985),handler);
 } else {
 return re_frame.loggers.console.call(null,new cljs.core.Keyword(null,"error","error",-978969032),"No cofx handler registered for \"",id,"\"");
@@ -107,9 +107,9 @@ return re_frame.loggers.console.call(null,new cljs.core.Keyword(null,"error","er
 
 re_frame.cofx.inject_cofx.cljs$core$IFn$_invoke$arity$2 = (function (id,value){
 return re_frame.interceptor.__GT_interceptor.call(null,new cljs.core.Keyword(null,"id","id",-1388402092),new cljs.core.Keyword(null,"coeffects","coeffects",497912985),new cljs.core.Keyword(null,"before","before",-1633692388),(function re_frame$cofx$coeffects_before(context){
-var temp__6736__auto__ = re_frame.registrar.get_handler.call(null,re_frame.cofx.kind,id);
-if(cljs.core.truth_(temp__6736__auto__)){
-var handler = temp__6736__auto__;
+var temp__5455__auto__ = re_frame.registrar.get_handler.call(null,re_frame.cofx.kind,id);
+if(cljs.core.truth_(temp__5455__auto__)){
+var handler = temp__5455__auto__;
 return cljs.core.update.call(null,context,new cljs.core.Keyword(null,"coeffects","coeffects",497912985),handler,value);
 } else {
 return re_frame.loggers.console.call(null,new cljs.core.Keyword(null,"error","error",-978969032),"No cofx handler registered for \"",id,"\"");
@@ -124,4 +124,4 @@ return cljs.core.assoc.call(null,coeffects,new cljs.core.Keyword(null,"db","db",
 }));
 re_frame.cofx.inject_db = re_frame.cofx.inject_cofx.call(null,new cljs.core.Keyword(null,"db","db",993250759));
 
-//# sourceMappingURL=cofx.js.map?rel=1506917870773
+//# sourceMappingURL=cofx.js.map?rel=1515122952544

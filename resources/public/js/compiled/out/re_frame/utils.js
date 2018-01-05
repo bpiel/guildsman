@@ -8,18 +8,18 @@ goog.require('re_frame.loggers');
  *   will not be present in the new structure.
  *   The key thing is that 'm' remains identical? to istelf if the path was never present
  */
-re_frame.utils.dissoc_in = (function re_frame$utils$dissoc_in(m,p__18826){
-var vec__18827 = p__18826;
-var seq__18828 = cljs.core.seq.call(null,vec__18827);
-var first__18829 = cljs.core.first.call(null,seq__18828);
-var seq__18828__$1 = cljs.core.next.call(null,seq__18828);
-var k = first__18829;
-var ks = seq__18828__$1;
-var keys = vec__18827;
+re_frame.utils.dissoc_in = (function re_frame$utils$dissoc_in(m,p__82244){
+var vec__82245 = p__82244;
+var seq__82246 = cljs.core.seq.call(null,vec__82245);
+var first__82247 = cljs.core.first.call(null,seq__82246);
+var seq__82246__$1 = cljs.core.next.call(null,seq__82246);
+var k = first__82247;
+var ks = seq__82246__$1;
+var keys = vec__82245;
 if(ks){
-var temp__6736__auto__ = cljs.core.get.call(null,m,k);
-if(cljs.core.truth_(temp__6736__auto__)){
-var nextmap = temp__6736__auto__;
+var temp__5455__auto__ = cljs.core.get.call(null,m,k);
+if(cljs.core.truth_(temp__5455__auto__)){
+var nextmap = temp__5455__auto__;
 var newmap = re_frame.utils.dissoc_in.call(null,nextmap,ks);
 if(cljs.core.seq.call(null,newmap)){
 return cljs.core.assoc.call(null,m,k,newmap);
@@ -41,4 +41,4 @@ return re_frame.loggers.console.call(null,new cljs.core.Keyword(null,"error","er
 }
 });
 
-//# sourceMappingURL=utils.js.map?rel=1506917870547
+//# sourceMappingURL=utils.js.map?rel=1515122952217
