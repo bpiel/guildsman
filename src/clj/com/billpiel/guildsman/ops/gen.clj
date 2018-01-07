@@ -4,6 +4,7 @@
             [com.billpiel.guildsman.ops.gen-config :as cfg]
             [com.billpiel.guildsman.ops.gen-util :as ogu]
             [com.billpiel.guildsman.util :as ut]
+            [com.billpiel.guildsman.dx :as dx]
             clojure.pprint))
 
 (def assoc-meta-to-op? (atom false))
@@ -69,6 +70,59 @@
      (with-out-str
        (clojure.pprint/pprint op-def)))))
 
+#_ ((clojure.pprint/pprint (-> cfg/op-list :op (get 25)))
+
+    (def op-def1 (-> cfg/op-list :op (get 25)))
+
+    (defn kv->dx-subsection
+      [[k v]]
+      (into [k]
+            (if (sequential? v)
+              (mapv (fn [attr]
+                      [(:name attr)
+                       (mapv vec
+                             (dissoc attr :name))]) 
+                    v)
+              [v])))
+
+    (println (dx/dx (into [(op-def1 :summary)
+                           (op-def1 :description)
+                           (into ['Outputs]
+                                 (mapv (fn [attr]
+                                         [(:name attr)
+                                          (mapv vec
+                                                (dissoc attr :name))]) 
+                                       (op-def1 :output-arg)))
+                           (into ['Attributes]
+                                 (mapv (fn [attr]
+                                         [(:name attr)
+                                          (mapv vec
+                                                (dissoc attr :name))]) 
+                                       (op-def1 :attr)))
+                           (into ['Inputs]
+                                 (mapv (fn [attr]
+                                         [(:name attr)
+                                          (mapv vec
+                                                (dissoc attr :name))]) 
+                                       (op-def1 :input-arg)))]
+                          (mapv kv->dx-subsection
+                                (dissoc op-def1
+                                        :name
+                                        :summary
+                                        :description
+                                        :output-arg
+                                        :attr
+                                        :input-arg)))))
+
+    (println (dx/dx [(op-def1 :summary)
+                     (op-def1 :description)
+                     ['Attributes [["ha" "ho"]]]])))
+
+
+(defn op-def->fn-docs
+  [op-def])
+
+
 (defn dyn-defn-op [op-def]
   (let [fn-name-sym (get-op-fn-name-sym op-def)]
     (ogu/dyn-defn
@@ -91,3 +145,30 @@
       (catch Exception e
         (clojure.pprint/pprint op-def)
         (throw e)))))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

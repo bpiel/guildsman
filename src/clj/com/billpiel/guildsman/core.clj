@@ -7,6 +7,7 @@
             [com.billpiel.guildsman.op-node :as opn]
             [com.billpiel.guildsman.workspace2 :as ws2]
             [com.billpiel.guildsman.util :as ut]
+            [com.billpiel.guildsman.dx :as dx]
             [com.billpiel.guildsman.special-utils :as sput]
             [com.billpiel.guildsman.ops.composite :as c]
             [com.billpiel.guildsman.tensor-scope :as tsc]
@@ -199,19 +200,20 @@ In the example below, both `graph` and `session` will be closed upon
                  plans)
             (fetch-all session plans feed targets))))
 
+;; TODO rename!!
 (defn exec
-  {:doc (ut/dx
+  {:doc (dx/dx
          '["`exec` creates a new Session defrecord, builds plan and
 runs the root of plan. Returns the new session. It can optionally be
 provided an existing Graph defrecord and feed map."
            [Returns "the session"]
            [Args
-            [graph "Optional. A Graph defrecord."]
-            [plan "The Plan."]
-            [feed "Optional. It is a map. Keys are either plans or
+            [[graph "Optional. A Graph defrecord."]
+             [plan "The Plan."]
+             [feed "Optional. It is a map. Keys are either plans or
              keywords that correspond to pre-built nodes. Values will
              override the values of their respective nodes. This is
-             typically used to provide values for placeholder nodes."]]])}
+             typically used to provide values for placeholder nodes."]]]])}
   ([plan]
    (-> plan
        build->graph

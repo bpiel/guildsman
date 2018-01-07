@@ -475,7 +475,9 @@
           doc)))
 
 (defn dx-remove-extra-lines [s]
-  (clojure.string/replace s #"\n\n+" "\n\n"))
+  (-> s
+      (clojure.string/replace #"\n\n+" "\n\n")
+      (clojure.string/replace #"\<x\>" "")))
 
 (defn dx
   [doc & [width indent]]
