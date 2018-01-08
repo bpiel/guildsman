@@ -265,7 +265,6 @@
         (for [op-def (:op op-list)]
           [(:name op-def) op-def])))
 
-
 (def proc-op-list-by-name
   (into {}
         (for [op-def (:op op-list)]

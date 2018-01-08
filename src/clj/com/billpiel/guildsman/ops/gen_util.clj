@@ -3,6 +3,7 @@
             [com.billpiel.guildsman.shape :as sh]
             [com.billpiel.guildsman.tensor :as tsr]
             [com.billpiel.guildsman.tensor-scope :as tsc]
+            [com.billpiel.guildsman.util :as ut]
             [flatland.protobuf.core :as pr])
   (:import [org.tensorflow.framework OpDef OpList]))
 
@@ -42,15 +43,11 @@
                                    (str def-type)
                                    (.getMessage e))))))))
 
-(defn snake->kebab
-  [s]
-  (clojure.string/replace s #"_" "-"))
-
 ;; TODO get rid of this later
 (defn- find-attr-value
   [attr-name plan-attrs]
   (or ((keyword attr-name) plan-attrs)
-      ((keyword (snake->kebab attr-name)) plan-attrs)
+      ((keyword (ut/snake->kebab attr-name)) plan-attrs)
       nil))
 
 (defn convert-attrs*

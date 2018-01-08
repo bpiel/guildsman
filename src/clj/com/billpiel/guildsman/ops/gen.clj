@@ -70,11 +70,7 @@
      (with-out-str
        (clojure.pprint/pprint op-def)))))
 
-#_ ((clojure.pprint/pprint (-> cfg/op-list :op (get 25)))
-
-    (def op-def1 (-> cfg/op-list :op (get 25)))
-
-    (defn kv->dx-subsection
+(defn kv->dx-subsection
       [[k v]]
       (into [k]
             (if (sequential? v)
@@ -85,42 +81,38 @@
                     v)
               [v])))
 
-    (println (dx/dx (into [(op-def1 :summary)
-                           (op-def1 :description)
-                           (into ['Outputs]
-                                 (mapv (fn [attr]
-                                         [(:name attr)
-                                          (mapv vec
-                                                (dissoc attr :name))]) 
-                                       (op-def1 :output-arg)))
-                           (into ['Attributes]
-                                 (mapv (fn [attr]
-                                         [(:name attr)
-                                          (mapv vec
-                                                (dissoc attr :name))]) 
-                                       (op-def1 :attr)))
-                           (into ['Inputs]
-                                 (mapv (fn [attr]
-                                         [(:name attr)
-                                          (mapv vec
-                                                (dissoc attr :name))]) 
-                                       (op-def1 :input-arg)))]
-                          (mapv kv->dx-subsection
-                                (dissoc op-def1
-                                        :name
-                                        :summary
-                                        :description
-                                        :output-arg
-                                        :attr
-                                        :input-arg)))))
-
-    (println (dx/dx [(op-def1 :summary)
-                     (op-def1 :description)
-                     ['Attributes [["ha" "ho"]]]])))
-
-
 (defn op-def->fn-docs
-  [op-def])
+  [op-def]
+  (dx/dx (into [(op-def :summary)
+                (op-def :description)
+                (into ['Outputs]
+                      (mapv (fn [attr]
+                              [(:name attr)
+                               (mapv vec
+                                     (dissoc attr :name))]) 
+                            (op-def :output-arg)))
+                (when-let [v (op-def :attr)]
+                  (into ['Attributes]
+                        (mapv (fn [attr]
+                                [(-> attr :name ut/snake->kebab )
+                                 (mapv vec
+                                       (dissoc attr :name))]) 
+                              v)))
+                (when-let [v (op-def :input-arg)]
+                  (into ['Inputs]
+                        (mapv (fn [attr]
+                                [(:name attr)
+                                 (mapv vec
+                                       (dissoc attr :name))]) 
+                              v)))]
+               (mapv kv->dx-subsection
+                     (dissoc op-def
+                             :name
+                             :summary
+                             :description
+                             :output-arg
+                             :attr
+                             :input-arg)))))
 
 
 (defn dyn-defn-op [op-def]
@@ -130,7 +122,8 @@
      (inject-finalizer
       (get-op-fn-body fn-name-sym op-def))
      (str "\n"
-          (pretty-op-def op-def)))))
+          #_ (pretty-op-def op-def)
+          (op-def->fn-docs op-def)))))
 
 (defn dyn-def-op-fns [op-def]
   (let [op (cfg/op-def-processor op-def)]
@@ -145,30 +138,3 @@
       (catch Exception e
         (clojure.pprint/pprint op-def)
         (throw e)))))
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

@@ -20,6 +20,10 @@
           (if (zero? (mod a b))
             0 1))))
 
+(defn snake->kebab
+  [s]
+  (clojure.string/replace s #"_" "-"))
+
 (defn visit-post
   [f branch? children make-node root]
   (if (branch? root)

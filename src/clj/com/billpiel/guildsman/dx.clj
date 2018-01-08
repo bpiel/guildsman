@@ -1,5 +1,7 @@
 (ns com.billpiel.guildsman.dx
   (:require [com.billpiel.guildsman.util :as ut]
+            [com.billpiel.guildsman.data-type :as dt]
+            [com.billpiel.guildsman.ops.gen-util :as ogu]
    [clojure.walk :as walk]))
 
 (defn- spacer [n] (apply str (repeat n " ")))
@@ -20,7 +22,7 @@
               (< col' indent) (recur (conj agg (spacer (- indent col')))
                                      body
                                      indent)
-              (> hc width) (recur (conj agg "\n" head "\n")
+              (> (+ hc indent) width) (recur (conj agg "\n" head "\n")
                                   tail
                                   0)
               (> (+ hc col') width) (recur (conj agg "\n")
@@ -49,16 +51,23 @@
          flatten
          (apply str $)))
 
+(defn- PersistentProtocolBufferMap->str
+  [doc]
+  (try
+    (-> doc ogu/node-def-attr-> str)
+    (catch Exception e
+      (str doc))))
+
 (defn- dx->str
   [doc]
-  (println "vvvvvvvvvvvvvvv")
-  (clojure.pprint/pprint doc)
   (cond (string? doc) doc
         (keyword? doc) (name doc)
         (symbol? doc) (name doc)
         (number? doc) (str doc)
         (boolean? doc) (str doc)
-        (map? doc) (with-out-str (clojure.pprint/pprint doc))
+        (= (type doc) flatland.protobuf.PersistentProtocolBufferMap) (PersistentProtocolBufferMap->str doc)
+        (map? doc) (do (clojure.pprint/pprint (type doc))
+                       (with-out-str (clojure.pprint/pprint doc)))
         :else nil))
 
 (defn dx-get-left-col-width
@@ -117,8 +126,6 @@
 
 (defn dx-stack-element
   [width indent col doc]
-  (println "================")
-  (clojure.pprint/pprint doc)
   (let [doc' (dx->str doc)]
     (cond (string? doc') (dx-stack-text width indent col doc')
           (vector? doc) (dx-section width indent doc)
@@ -144,6 +151,6 @@
                    :col 0
                    :inter-lines? true})
        flatten
-       (apply str "\n")
+       (apply str)
        dx-remove-extra-lines))
 

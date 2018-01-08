@@ -33,7 +33,6 @@
                                    (o/unpack {:num 1 :axis 0})
                                    (c/cast-tf g/dt-int))])})
 
-
 (pkg/register-pkg! :bpiel/mnist-train-60k-features-file
                    {:name "..."
                     :pkgs [:deps]
