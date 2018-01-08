@@ -92,7 +92,7 @@
          (o/bias-add bias)
          ((partial mk-activation-plan activation)))]))
 
-(ut/defn-comp-macro-op dense
+(sput/defn-comp-macro-op dense
   {:doc "Densely-connected layer class.
 
 This layer implements the operation:
@@ -143,7 +143,7 @@ outputs = activation(inputs.kernel + bias)
   (let [[keep-prob x] inputs]
     [(dropout* g id keep-prob x args)]))
 
-(ut/defn-comp-macro-op dropout
+(sput/defn-comp-macro-op dropout
   {:doc
    "Returns a dropout plan.
 

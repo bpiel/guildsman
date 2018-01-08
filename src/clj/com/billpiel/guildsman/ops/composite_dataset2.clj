@@ -37,7 +37,7 @@
                                       dataset (cast-tf dt/long-kw n))
                     dataset)]))
 
-(ut/defn-comp-macro-op repeat-ds
+(sput/defn-comp-macro-op repeat-ds
   {:doc ""
    :id :repeat-ds
    :attrs {fields "field names"
@@ -57,7 +57,7 @@
                                     dataset (cast-tf dt/long-kw n))
                     dataset)]))
 
-(ut/defn-comp-macro-op take-ds
+(sput/defn-comp-macro-op take-ds
   {:doc ""
    :id :take-ds
    :attrs {fields "field names"
@@ -132,7 +132,7 @@
                         size)))])
 
 
-(ut/defn-comp-macro-op remix-ds
+(sput/defn-comp-macro-op remix-ds
   {:doc ""
    :id :remix-ds ;; TODO why is :id mandatory? how is it used?
    :attrs {fields ""}
@@ -173,7 +173,7 @@
          (ut/append-collections [:dataset-iter-inits])
          ut/build-eagerly)]))
 
-(ut/defn-comp-macro-op dsi-plug
+(sput/defn-comp-macro-op dsi-plug
   {:doc
    "Dataset iterator plug. Plugs into dsi-socket..... Usually used in
    a workspace's :mode->:iter"
@@ -218,7 +218,7 @@
            :shape s})
         (partition 3 fields)))
 
-(ut/defn-comp-macro-op dsi-socket
+(sput/defn-comp-macro-op dsi-socket
   {:doc "Dataset Iterator Socket......"
    :id :dsi-socket
    :attrs {fields "vector containing series of field triples (name, type, shape)"}}
@@ -246,7 +246,7 @@
     [(o/assign socket plug-hnd)
      plug-init]))
 
-(ut/defn-comp-macro-op dsi-connector
+(sput/defn-comp-macro-op dsi-connector
   {:doc "Dataset Iterator Connector. Used internally by workflows..."
    :id :dsi-connector
    :inputs [[socket "dsi socket"]
@@ -274,7 +274,7 @@
       [{:name nil :type dt/string-kw :shape []}]
       size)]))
 
-(ut/defn-comp-macro-op fixed-length-record-ds
+(sput/defn-comp-macro-op fixed-length-record-ds
   {:doc ""
    :id :fixed-length-record-ds
    :attrs {size ""
@@ -318,7 +318,7 @@
                    ds-size)]))
 
 
-(ut/defn-comp-macro-op map-ds
+(sput/defn-comp-macro-op map-ds
   {:doc ""
    :id :map-ds
    :attrs {fields ""}
@@ -356,7 +356,7 @@
                  (tensor-slice-ds-ds-fields-prop fields inputs)
                  (tensor-slice-ds-ds-size-prop inputs))])
 
-(ut/defn-comp-macro-op tensor-slice-ds
+(sput/defn-comp-macro-op tensor-slice-ds
   {:doc ""
    :id :tensor-slice-ds
    :attrs {fields "field names"}

@@ -5,6 +5,7 @@
             [com.billpiel.guildsman.op-node :as opn]
             [com.billpiel.guildsman.ops.gen-util :as ogu]
             [com.billpiel.guildsman.util :as ut]
+            [com.billpiel.guildsman.special-utils :as sput]
             [com.billpiel.guildsman.scope :as sc]
             [com.billpiel.guildsman.macros :as mc]
             [com.billpiel.guildsman.util :as ut]
@@ -94,7 +95,7 @@
   [^Graph g {:keys [id pkg] :as args}]
   [(pkg/get-plan pkg)])
 
-(ut/defn-comp-macro-op pkg-plan
+(sput/defn-comp-macro-op pkg-plan
   {:doc "package plan"
    :id :pkg-plan
    :inputs [[pkg-kw "A keyword that identifies a plan package."]]}
@@ -109,7 +110,7 @@
   [(o/c (pkg/get-asset-as-files pkg)
          dt/string-kw)])
 
-(ut/defn-comp-macro-op asset-as-files
+(sput/defn-comp-macro-op asset-as-files
   {:doc ""
    :id :pkg-asset-as-files
    :inputs [[pkg-kw "A keyword that identifies a plan package."]]}

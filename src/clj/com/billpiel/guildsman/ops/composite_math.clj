@@ -16,7 +16,7 @@
           input-tensor
           (reduction-dims input-tensor axis)))
 
-(ut/defn-comp-op reduce-mean
+(sput/defn-comp-op reduce-mean
   {:doc "Computes the mean of elements across dimensions of a tensor.
 
   Reduces `input` along the dimensions given in `axis`.  Unless
@@ -38,7 +38,7 @@
           input
           (reduction-dims input axis)))
 
-(ut/defn-comp-op reduce-sum
+(sput/defn-comp-op reduce-sum
   {:doc "Computes the sum of elements across dimensions of a tensor.
 
   Reduces `input` along the dimensions given in `axis`.
@@ -70,7 +70,7 @@
                  :DstT dest-type}
                 x)]))
 
-(ut/defn-comp-macro-op cast-tf
+(sput/defn-comp-macro-op cast-tf
   {:doc "Casts a tensor to a new type."
    :id :cast
    :inputs [[dest-type "The type to convert to."]

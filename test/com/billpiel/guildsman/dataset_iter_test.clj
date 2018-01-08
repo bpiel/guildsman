@@ -199,6 +199,8 @@
      ;; TODO train-test should reset log
      :workflows {:train-test {:driver g/default-train-test-wf}}}))
 
+
+
 (clojure.pprint/pprint 
  (g/ws-status ws-mnist1))
 
