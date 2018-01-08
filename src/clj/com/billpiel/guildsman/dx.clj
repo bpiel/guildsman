@@ -79,8 +79,7 @@
        (apply max 0)))
 
 (defn dx-remove-extra-lines [s]
-  (-> s
-      (clojure.string/replace #"\n\n+" "\n\n")))
+  (clojure.string/replace s #"\n\n+" "\n\n"))
 
 (declare dx-stack)
 

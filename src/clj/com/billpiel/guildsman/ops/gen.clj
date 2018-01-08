@@ -99,12 +99,7 @@
                                        (dissoc attr :name))]) 
                               v)))
                 (when-let [v (op-def :input-arg)]
-                  (into ['Inputs]
-                        (mapv (fn [attr]
-                                [(:name attr)
-                                 (mapv vec
-                                       (dissoc attr :name))]) 
-                              v)))]
+                  (kv->dx-subsection ['Inputs v]))]
                (mapv kv->dx-subsection
                      (dissoc op-def
                              :name
@@ -122,7 +117,6 @@
      (inject-finalizer
       (get-op-fn-body fn-name-sym op-def))
      (str "\n"
-          #_ (pretty-op-def op-def)
           (op-def->fn-docs op-def)))))
 
 (defn dyn-def-op-fns [op-def]
