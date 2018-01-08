@@ -195,7 +195,13 @@
                                                 #_[:epochs 1]
                                                 :epoch-size 100} 
                                                [:bpiel/mnist-test-10k-features
-                                                :bpiel/mnist-test-10k-labels])}}}
+                                                :bpiel/mnist-test-10k-labels])}}
+             :predict {
+                       :iters {socket (c/dsi-plug {:batch-size -1
+                                                   #_[:epochs 1]
+                                                   :epoch-size 100} 
+                                                  [:bpiel/mnist-test-10k-features
+                                                   :bpiel/mnist-test-10k-labels])}}}
      ;; TODO train-test should reset log
      :workflows {:train-test {:driver g/default-train-test-wf}}}))
 

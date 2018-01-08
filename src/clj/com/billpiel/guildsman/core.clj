@@ -666,6 +666,8 @@ provided an existing Graph defrecord and feed map."
    :require-span-completable {:inline #'gm-plugin-setup-require-span-completable}
    :require-span-repeatable {:inline #'gm-plugin-setup-require-span-repeatable}
    :query-steps {:inline #'gm-plugin-setup-query-steps}
+   :wait-take-input {} ;; TODO
+   :put-output {} ;; TODO
    :close-graph {:main #'gm-plugin-setup-close-graph}
    :close-session {:main #'gm-plugin-setup-close-session}})
 
@@ -712,6 +714,28 @@ provided an existing Graph defrecord and feed map."
                assoc
                :doc "A default implementation of a train-test workflow....TODO"
                :source src)))
+
+(defn- mk-default-predict-wf-def
+  [{:keys [restore-varis] :as ws-cfg}]
+  [:block {:type :workflow
+           ;; TODO unlimited steps?
+           :span {:steps 0}}
+   [:block {:type :stage
+            ;; TODO unlimited stages?
+            :span {:stages 0}}
+    [:build]
+    (when restore-varis
+      [:create-session]
+      [:restore-varis restore-varis]) 
+    ;; TODO option for step 0 fetch/summaries
+    [:wait-take-input]
+    [:block {:type :interval
+             :span {:intervals 1
+                    :steps 1}
+             :plugin {:interval
+                      {:post-async [:offer-output]}}}
+     [:mode :predict]
+     [:fetch-map]]]])
 
 (defmacro ws-show-cmd-source
   [ws cmd]
