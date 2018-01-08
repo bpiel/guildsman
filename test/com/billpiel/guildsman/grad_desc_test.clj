@@ -14,13 +14,6 @@
             (flatten b))
        (every? apply-<)))
 
-(defn- solidify
-  "TODO -- FIX THIS! This is ridiculous. Convert mutable ndarry to immutable vec."
-  [x]
-  (->> x
-       flatten
-       (mapv (comp dec inc))))
-
 (t/deftest sub-abs
   (t/is (= 2.0
            (g/with-tensor-scope
@@ -289,7 +282,7 @@
           opt (c/grad-desc-opt :opt 0.5 loss)
           sess (g/build->session opt)
           _ (g/run-global-vars-init sess)
-          loss-init (identity #_solidify (g/produce sess loss))]
+          loss-init (g/produce sess loss)]
       (g/run sess opt)
       (t/is (ndvec-less-than? (g/produce sess a)
                               init-a))

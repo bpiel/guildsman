@@ -4,6 +4,7 @@
             [com.billpiel.guildsman.ops.gen-config :as cfg]
             [com.billpiel.guildsman.ops.gen-util :as ogu]
             [com.billpiel.guildsman.util :as ut]
+            [com.billpiel.guildsman.dx :as dx]
             clojure.pprint))
 
 (def assoc-meta-to-op? (atom false))
@@ -69,6 +70,46 @@
      (with-out-str
        (clojure.pprint/pprint op-def)))))
 
+(defn kv->dx-subsection
+      [[k v]]
+      (into [k]
+            (if (sequential? v)
+              (mapv (fn [attr]
+                      [(:name attr)
+                       (mapv vec
+                             (dissoc attr :name))]) 
+                    v)
+              [v])))
+
+(defn op-def->fn-docs
+  [op-def]
+  (dx/dx (into [(op-def :summary)
+                (op-def :description)
+                (into ['Outputs]
+                      (mapv (fn [attr]
+                              [(:name attr)
+                               (mapv vec
+                                     (dissoc attr :name))]) 
+                            (op-def :output-arg)))
+                (when-let [v (op-def :attr)]
+                  (into ['Attributes]
+                        (mapv (fn [attr]
+                                [(-> attr :name ut/snake->kebab )
+                                 (mapv vec
+                                       (dissoc attr :name))]) 
+                              v)))
+                (when-let [v (op-def :input-arg)]
+                  (kv->dx-subsection ['Inputs v]))]
+               (mapv kv->dx-subsection
+                     (dissoc op-def
+                             :name
+                             :summary
+                             :description
+                             :output-arg
+                             :attr
+                             :input-arg)))))
+
+
 (defn dyn-defn-op [op-def]
   (let [fn-name-sym (get-op-fn-name-sym op-def)]
     (ogu/dyn-defn
@@ -76,7 +117,7 @@
      (inject-finalizer
       (get-op-fn-body fn-name-sym op-def))
      (str "\n"
-          (pretty-op-def op-def)))))
+          (op-def->fn-docs op-def)))))
 
 (defn dyn-def-op-fns [op-def]
   (let [op (cfg/op-def-processor op-def)]
