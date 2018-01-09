@@ -622,6 +622,48 @@ provided an existing Graph defrecord and feed map."
   [ws-cfg block-type q & [offset]]
   [`(ws2/--wf-query-steps ~'state ~block-type ~q ~offset)])
 
+(defn gm-plugin-plans->op-nodes
+  [graph plans]
+  (mapv (partial sput/->op-node graph)
+        feed-args))
+
+(defn gm-plugin-setup-init-feed-args-main
+  [ws-cfg & _]
+  [`{:global {:input-ch (a/chan 1)
+              :feed-args (gm-plugin-plans->op-nodes
+                          ~'(-> state :global :gm :graph)
+                          (:feed-args ~'ws-cfg))
+              :fetch-return (gm-plugin-plans->op-nodes
+                             ~'(-> state :global :gm :graph)
+                             (:fetch-return ~'ws-cfg))}
+     ;; TODO add fetches!!
+     :modes {}}])
+
+(defn gm-plugin-wait-take-feed-args
+  [modes feed-ops input-ch]
+  (let [[[input return-ch] ch] (a/alts!! [input-ch
+                                 (a/timeout 100)])]
+    (if (= ch input-ch)
+      {:modes (update-in modes [:predict :feed]
+                         merge (zipmap feed-ops input))}
+      {:push {:todo [:wait-take-input]}})))
+
+(defn gm-plugin-setup-wait-take-feed-args
+  [ws-cfg & _]
+  [`(gm-plugin-wait-take-feed-args
+     ~'(-> state :modes :gm)
+     ~'(-> state :global :gm :feed-args)
+     ~'(-> state :global :gm :input-ch))])
+
+(defn gm-plugin-setup-offer-fetched-return
+  [ws-cfg & _]
+  [`(gm-plugin-offer-fetched-return
+     ~'(-> state :global :gm :graph) 
+     ~'(-> state :global ::plugin :ws-ns) ;; TODO hard code ns instead of lookup??
+     ~'(-> state :global ::plugin :log)
+     ~'(-> state :interval ::plugin :fetched)
+     ~'(-> state :stage :gm :pos :step))])
+
 ;; TODO verify session is closed
 (defn gm-plugin-close-graph
   [graph session]
@@ -666,8 +708,9 @@ provided an existing Graph defrecord and feed map."
    :require-span-completable {:inline #'gm-plugin-setup-require-span-completable}
    :require-span-repeatable {:inline #'gm-plugin-setup-require-span-repeatable}
    :query-steps {:inline #'gm-plugin-setup-query-steps}
-   :wait-take-input {} ;; TODO
-   :put-output {} ;; TODO
+   :init-feed-args {:main #'gm-plugin-setup-init-feed-args-main} ;; TODO
+   :wait-take-feed-args {:main #'gm-plugin-setup-wait-take-feed-args} ;; TODO
+   :offer-fetched-return {:main #'gm-plugin-setup-offer-fetched-return} ;; TODO
    :close-graph {:main #'gm-plugin-setup-close-graph}
    :close-session {:main #'gm-plugin-setup-close-session}})
 
@@ -727,13 +770,13 @@ provided an existing Graph defrecord and feed map."
     (when restore-varis
       [:create-session]
       [:restore-varis restore-varis]) 
-    ;; TODO option for step 0 fetch/summaries
+    [:init-feed-args]
     [:wait-take-input]
     [:block {:type :interval
              :span {:intervals 1
                     :steps 1}
              :plugin {:interval
-                      {:post-async [:offer-output]}}}
+                      {:post-async [:offer-fetch-return]}}}
      [:mode :predict]
      [:fetch-map]]]])
 

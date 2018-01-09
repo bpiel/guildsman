@@ -238,8 +238,6 @@
                                          :output-idx (+ 2 idx))])
                      fields)))
 
-
-
 (defmethod mc/build-macro :dsi-connector
   [^Graph g {:keys [id attrs inputs] :as args}]
   (let [[socket plug-hnd plug-init] inputs]
@@ -366,5 +364,3 @@
    :id id
    :inputs (mapv o/c components)
    :fields fields})
-
-

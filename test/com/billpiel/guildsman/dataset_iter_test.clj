@@ -196,14 +196,31 @@
                                                 :epoch-size 100} 
                                                [:bpiel/mnist-test-10k-features
                                                 :bpiel/mnist-test-10k-labels])}}
-             :predict {
-                       :iters {socket (c/dsi-plug {:batch-size -1
-                                                   #_[:epochs 1]
-                                                   :epoch-size 100} 
-                                                  [:bpiel/mnist-test-10k-features
-                                                   :bpiel/mnist-test-10k-labels])}}}
+             :predict {:feed-args [features] #_ {:features features}
+                       :fetch-return [classes]}}
      ;; TODO train-test should reset log
-     :workflows {:train-test {:driver g/default-train-test-wf}}}))
+     :workflows {:train-test {:driver g/default-train-test-wf}
+                 :predict {}}}))
+
+(g/with-tensor-conversion-scope
+  (g/let+ [{:keys [iter ign]}
+           (+>> (o/iterator :iter
+                            {:output-shapes [[-1]]
+                             :output-types [g/dt-int]})
+                (o/iterator-get-next :gn
+                                     {:output-shapes [[-1]]
+                                      :output-types [g/dt-int]})
+                (o/identity-tf :ign))
+
+           {:keys [mkitr]} (+>> (o/tensor-dataset {:output-shapes [[-1]]}
+                                                  [(o/placeholder :ph g/dt-int [-1])])
+                                (o/repeat-dataset {:output-shapes [[-1]]
+                                                   :output-types [g/dt-int]}
+                                                  $ -1)
+                                (o/make-iterator :mkitr $ iter))]
+    (g/with-close-let [{:keys [graph] :as session} (g/build-all->session [ign ])]
+#_      (g/run session mkitr {:ph [0]})
+      (g/produce session ign {:gn [5 6 7]} ))))
 
 
 
@@ -211,6 +228,8 @@
  (g/ws-status ws-mnist1))
 
 (g/ws-train-test ws-mnist1)
+
+(g/ws-pr-workflow-source ws-mnist1 :train-test)
 
 (tsc/set-global-conversion-scope!)
 
