@@ -59,7 +59,8 @@
          stage :stage
          interval :interval
          modes :modes
-         step :step}
+         step :step
+         repeat? :repeat?}
         returned-state
         state' (merge-with (partial merge-with merge)
                            state
@@ -71,7 +72,9 @@
                             :step {kw step}}
                            (when block-type
                              {block-type {kw block}}))
-        state'' (assoc state' :block (when block-type (block-type state')))]
+        state'' (assoc state'
+                       :block (when block-type (block-type state'))
+                       :repeat? repeat?)]
     (if-not (= (:modes state) (:modes state''))
       (update state'' :modes
               (partial --wf-merge-state-modes
@@ -327,6 +330,13 @@
         [current' todo'] head]
     [tail nil todo' (--wf-pop-state state)]))
 
+(defn wf-loop-repeat
+  [stack current todo state]
+  [stack
+   nil
+   (into [current] todo)
+   state])
+
 (defn --wf-loop
   [result stack current todo state]
   (let [state (:state result state)
@@ -337,7 +347,9 @@
                   (when-let [push-pop (:push-pop result)]
                     (--wf-loop-push-pop push-pop stack current todo state))
                   (when-let [pop-push (:pop-push result)]
-                    (--wf-loop-pop-push pop-push stack current todo state))))
+                    (--wf-loop-pop-push pop-push stack current todo state))
+                  (when-let [repeat? (:repeat? state)]
+                    (wf-loop-repeat stack current todo state))))
             [stack current todo state])]
     (loop [[stack current todo state]
            [stack nil todo state]]
@@ -508,7 +520,7 @@
                       ~'current nil
                       ~'todo (list :workflow)
                       ~'state ~'init]
-                 #_           (clojure.pprint/pprint ~'current)
+                 (clojure.pprint/pprint ~'current)
                  (let [~'result (case ~'current
                                   nil nil
                                   ~@(render-loop-cases
@@ -519,7 +531,7 @@
                                                                        ~'current
                                                                        ~'todo
                                                                        ~'state)]
-                     #_(Thread/sleep 100)
+                     (Thread/sleep 100)
                      (set-wf-state! ~'wf-out ~'state)
                      (cond (-> ~'wf-in deref :interrupt?)
                            (do (set-interrupted-wf-state! ~'wf-out)

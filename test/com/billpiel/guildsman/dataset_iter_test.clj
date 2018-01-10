@@ -1,5 +1,6 @@
 (ns com.billpiel.guildsman.dataset-iter-test
   (:require [clojure.test :as t]
+            [clojure.core.async :as a]
             [com.billpiel.guildsman.core :as g]
             [com.billpiel.guildsman.ops.basic :as o]
             [com.billpiel.guildsman.ops.composite :as c]
@@ -153,6 +154,25 @@
 
 (g/ws-train-test ws-dream)
 
+(g/with-tensor-conversion-scope
+  (g/let+ [{:keys [iter ign]}
+           (+>> (o/iterator :iter
+                            {:output-shapes [[-1]]
+                             :output-types [g/dt-int]})
+                (o/iterator-get-next :gn
+                                     {:output-shapes [[-1]]
+                                      :output-types [g/dt-int]})
+                (o/identity-tf :ign))
+
+           {:keys [mkitr]} (+>> (o/tensor-dataset {:output-shapes [[-1]]}
+                                                  [(o/placeholder :ph g/dt-int [-1])])
+                                (o/repeat-dataset {:output-shapes [[-1]]
+                                                   :output-types [g/dt-int]}
+                                                  $ -1)
+                                (o/make-iterator :mkitr $ iter))]
+    (g/with-close-let [{:keys [graph] :as session} (g/build-all->session [ign ])]
+#_      (g/run session mkitr {:ph [0]})
+      (g/produce session ign {:gn [5 6 7]} ))))
 
 (g/def-workspace ws-mnist1
   (g/let+ [{:keys [features labels socket]}
@@ -200,36 +220,28 @@
                        :fetch-return [classes]}}
      ;; TODO train-test should reset log
      :workflows {:train-test {:driver g/default-train-test-wf}
-                 :predict {}}}))
-
-(g/with-tensor-conversion-scope
-  (g/let+ [{:keys [iter ign]}
-           (+>> (o/iterator :iter
-                            {:output-shapes [[-1]]
-                             :output-types [g/dt-int]})
-                (o/iterator-get-next :gn
-                                     {:output-shapes [[-1]]
-                                      :output-types [g/dt-int]})
-                (o/identity-tf :ign))
-
-           {:keys [mkitr]} (+>> (o/tensor-dataset {:output-shapes [[-1]]}
-                                                  [(o/placeholder :ph g/dt-int [-1])])
-                                (o/repeat-dataset {:output-shapes [[-1]]
-                                                   :output-types [g/dt-int]}
-                                                  $ -1)
-                                (o/make-iterator :mkitr $ iter))]
-    (g/with-close-let [{:keys [graph] :as session} (g/build-all->session [ign ])]
-#_      (g/run session mkitr {:ph [0]})
-      (g/produce session ign {:gn [5 6 7]} ))))
+                 :predict {:driver g/default-predict-wf}}}))
 
 
+
+(clojure.pprint/pprint ws-mnist1)
 
 (clojure.pprint/pprint 
  (g/ws-status ws-mnist1))
 
 (g/ws-train-test ws-mnist1)
 
-(g/ws-pr-workflow-source ws-mnist1 :train-test)
+(g/ws-do-wf ws-mnist1 :predict)
+
+(g/ws-pr-workflow-source ws-mnist1 :predict)
+
+(def rch1 (a/chan 1))
+
+(def in-ch (-> ws-mnist1 :wf-out deref :global :gm :input-ch))
+
+(a/>!! in-ch [[3.] rch1])
+
+
 
 (tsc/set-global-conversion-scope!)
 

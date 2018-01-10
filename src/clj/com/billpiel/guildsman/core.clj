@@ -459,7 +459,8 @@ provided an existing Graph defrecord and feed map."
 
 (defn gm-plugin-create-session-main
   [graph session]
-  {:global {:session (graph->session graph)}})
+  {:global {:session (or session
+                         (graph->session graph))}})
 
 (defn gm-plugin-setup-create-session-main
   [ws-cfg & _]
@@ -625,28 +626,36 @@ provided an existing Graph defrecord and feed map."
 (defn gm-plugin-plans->op-nodes
   [graph plans]
   (mapv (partial sput/->op-node graph)
-        feed-args))
+        plans))
 
-(defn gm-plugin-setup-init-feed-args-main
+(defn gm-plugin-init-fn-io
+  [graph modes feed-args fetch-return]
+  (let [fetch-ops (gm-plugin-plans->op-nodes graph fetch-return)]
+    {:global {:input-ch (a/chan 1)
+              :feed-args (gm-plugin-plans->op-nodes graph feed-args)
+              :fetch-return  fetch-ops}
+     ;; TODO don't hardcode :predict
+     :modes (update-in modes [:predict :fetch] into fetch-ops)}))
+
+(defn gm-plugin-setup-init-fn-io-main
   [ws-cfg & _]
-  [`{:global {:input-ch (a/chan 1)
-              :feed-args (gm-plugin-plans->op-nodes
-                          ~'(-> state :global :gm :graph)
-                          (:feed-args ~'ws-cfg))
-              :fetch-return (gm-plugin-plans->op-nodes
-                             ~'(-> state :global :gm :graph)
-                             (:fetch-return ~'ws-cfg))}
-     ;; TODO add fetches!!
-     :modes {}}])
+  [`(gm-plugin-init-fn-io ~'(-> state :global :gm :graph)
+                          ~'(-> state :modes :gm)
+                          (-> ~'ws-cfg :modes :predict :feed-args)
+                          (-> ~'ws-cfg :modes :predict :fetch-return))])
 
 (defn gm-plugin-wait-take-feed-args
   [modes feed-ops input-ch]
   (let [[[input return-ch] ch] (a/alts!! [input-ch
-                                 (a/timeout 100)])]
+                                          (a/timeout 100)])]
+    (def ch1 ch)
     (if (= ch input-ch)
+      ;; TODO don't hardcode :predict
       {:modes (update-in modes [:predict :feed]
-                         merge (zipmap feed-ops input))}
-      {:push {:todo [:wait-take-input]}})))
+                         merge (zipmap feed-ops input))
+       :global {:return-ch return-ch}}
+      ;; TODO this is bad because you can't gaurantee the state/step's name ...... oh also.....
+      {:repeat? true})))
 
 (defn gm-plugin-setup-wait-take-feed-args
   [ws-cfg & _]
@@ -655,14 +664,18 @@ provided an existing Graph defrecord and feed map."
      ~'(-> state :global :gm :feed-args)
      ~'(-> state :global :gm :input-ch))])
 
+(defn gm-plugin-offer-fetched-return
+  [return-ch fetch-return fetched]
+  (a/offer! return-ch
+            (mapv fetched
+                  (map :id fetch-return))))
+
 (defn gm-plugin-setup-offer-fetched-return
   [ws-cfg & _]
   [`(gm-plugin-offer-fetched-return
-     ~'(-> state :global :gm :graph) 
-     ~'(-> state :global ::plugin :ws-ns) ;; TODO hard code ns instead of lookup??
-     ~'(-> state :global ::plugin :log)
-     ~'(-> state :interval ::plugin :fetched)
-     ~'(-> state :stage :gm :pos :step))])
+     ~'(-> state :global :gm :return-ch)
+     ~'(-> state :global :gm :fetch-return)
+     ~'(-> state :interval :gm :fetched))])
 
 ;; TODO verify session is closed
 (defn gm-plugin-close-graph
@@ -708,7 +721,7 @@ provided an existing Graph defrecord and feed map."
    :require-span-completable {:inline #'gm-plugin-setup-require-span-completable}
    :require-span-repeatable {:inline #'gm-plugin-setup-require-span-repeatable}
    :query-steps {:inline #'gm-plugin-setup-query-steps}
-   :init-feed-args {:main #'gm-plugin-setup-init-feed-args-main} ;; TODO
+   :init-fn-io {:main #'gm-plugin-setup-init-fn-io-main} ;; TODO
    :wait-take-feed-args {:main #'gm-plugin-setup-wait-take-feed-args} ;; TODO
    :offer-fetched-return {:main #'gm-plugin-setup-offer-fetched-return} ;; TODO
    :close-graph {:main #'gm-plugin-setup-close-graph}
@@ -751,9 +764,9 @@ provided an existing Graph defrecord and feed map."
 (defn default-train-test-wf
   [ws-cfg]
   (let [ws-cfg' (ws2/filter-modes ws-cfg [:train :test])
-        src (ws2/render-wf-fn-src (mk-default-train-test-wf-def ws-cfg)
-                                  ws-cfg)]
-    (vary-meta ((eval src) ws-cfg)
+        src (ws2/render-wf-fn-src (mk-default-train-test-wf-def ws-cfg')
+                                  ws-cfg')]
+    (vary-meta ((eval src) ws-cfg')
                assoc
                :doc "A default implementation of a train-test workflow....TODO"
                :source src)))
@@ -762,23 +775,33 @@ provided an existing Graph defrecord and feed map."
   [{:keys [restore-varis] :as ws-cfg}]
   [:block {:type :workflow
            ;; TODO unlimited steps?
-           :span {:steps 0}}
+           :span {:steps 99999}}
    [:block {:type :stage
             ;; TODO unlimited stages?
-            :span {:stages 0}}
+            :span {:stages 99999}}
     [:build]
+    [:create-session]
     (when restore-varis
-      [:create-session]
       [:restore-varis restore-varis]) 
-    [:init-feed-args]
-    [:wait-take-input]
+    [:init-fn-io]
+    [:wait-take-feed-args]
     [:block {:type :interval
              :span {:intervals 1
                     :steps 1}
              :plugin {:interval
-                      {:post-async [:offer-fetch-return]}}}
+                      {:post-async [:offer-fetched-return]}}}
      [:mode :predict]
      [:fetch-map]]]])
+
+(defn default-predict-wf
+  [ws-cfg]
+  (let [ws-cfg' (ws2/filter-modes ws-cfg [:predict])
+        src (ws2/render-wf-fn-src (mk-default-predict-wf-def ws-cfg')
+                                  ws-cfg')]
+    (vary-meta ((eval src) ws-cfg')
+               assoc
+               :doc "A default implementation of a prediction workflow....TODO"
+               :source src)))
 
 (defmacro ws-show-cmd-source
   [ws cmd]
