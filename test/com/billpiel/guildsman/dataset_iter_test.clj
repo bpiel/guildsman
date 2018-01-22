@@ -222,6 +222,54 @@
      :workflows {:train-test {:driver g/default-train-test-wf}
                  :predict {:driver g/default-predict-wf}}}))
 
+(g/def-workspace ws-add1
+  (g/let+ [{:keys [in1 in2 socket]}
+           (->> (c/dsi-socket :socket
+                              {:fields [:in1 g/dt-float [-1]
+                                        :in2 g/dt-float [-1]]})
+                (c/dsi-socket-outputs))
+
+           {:keys [predict]}
+           (+>> (o/concat-tf {:id :concat1
+                              :N 2}
+                             [in1 in2])
+                (c/dense {:id :pre
+                          :units 1})
+                (o/unpack {:id :predict
+                           :num 1
+                           :axis 0}))
+
+           {:keys [opt expected]}
+           (+>> (o/add :expected in1 in2)
+                (c/mean-squared-error predict)
+                (c/grad-desc-opt :opt 0.2))
+
+           acc (c/accuracy :acc
+                           predict
+                           expected)]
+    
+    {:plugins [dev/plugin g/gm-plugin]
+     :plans [acc opt]
+     :duration [:steps 100] ;; TODO ?? [:epochs 1] [:secs 10]
+     :interval [:steps 10]
+     :modes {:train {:step [opt]
+                     ::dev/summaries [acc]
+                     :iters {socket (c/dsi-plug {:batch-size 300
+                                                 :epoch-size 300}
+                                                [:bpiel/mnist-train-60k-labels
+                                                 :bpiel/mnist-train-60k-features])}}
+             :test {::dev/summaries [acc]
+                    :iters {socket (c/dsi-plug {:batch-size -1
+                                                #_[:epochs 1]
+                                                :epoch-size 100} 
+                                               [:bpiel/mnist-test-10k-features
+                                                :bpiel/mnist-test-10k-labels])}}
+             :predict {:feed-args [features] #_ {:features features}
+                       :fetch-return [classes]}}
+     ;; TODO train-test should reset log
+     :workflows {:train-test {:driver g/default-train-test-wf}
+                 :predict {:driver g/default-predict-wf}}}))
+
 
 
 (clojure.pprint/pprint ws-mnist1)
@@ -260,3 +308,6 @@
 (tsc/with-conversion-scope
   (g/produce (o/iterator {:output-types [dt/float-kw]
                           :output-shapes [[1]]})))
+
+(g/produce (o/unpack {:num 1 :axis 0}
+                     [[1 2]]))
