@@ -29,6 +29,43 @@
   [{:keys [ds-fields]}]
   (ds-fields-prop->output-attrs ds-fields))
 
+(defn- mem-ds-fields-prop
+  [fields inputs]
+  (mapv (fn [f {:keys [types shapes]}]
+          {:name f
+           :type (first types)
+           :shape (first shapes)})
+        fields
+        inputs))
+
+(defn- mem-ds-size-prop
+  [inputs]
+  (->> inputs
+       (map (comp first first :shapes))
+       (apply min)))
+
+
+(defmethod mc/build-macro :mem-recs-ds
+  [^Graph g {:keys [id inputs fields] :as args}]
+  (let [??? inputs]
+    [(set-ds-props (o/tensor-slice-dataset id
+                                           {:output_shapes (mapv (comp first :shapes)
+                                                                 inputs)}
+                                           inputs)
+                   fields
+                   :????)]))
+
+(sput/defn-comp-macro-op mem-recs-ds
+  {:doc "Create an in-memory dataset..."
+   :id :mem-ds
+   :attrs {fields "field names"}
+   :inputs [[records "the dataset as a vector of vector records"]]}
+  {:macro :mem-ds
+   :id id
+   :inputs (apply (partial mapv (comp o/c vector))
+                  records)
+   :fields fields})
+
 (defmethod mc/build-macro :repeat-ds
   [^Graph g {:keys [id inputs fields] :as args}]
   (let [[n dataset] inputs]
