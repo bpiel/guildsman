@@ -224,33 +224,33 @@
 
 
 (def add-ds-plan
-  (c/mem-ds [:features :labels]
-            [[[0. 0.] 0.]
-             [[0. 1.] 1.]
-             [[1. 1.] 2.]
-             [[-1. 1.] 0.]
-             [[1. -1.] 0.]
-             [0.5 0.] 0.5]))
+  (c/mem-recs-ds [:features :labels]
+                 [[[0. 0.] 0.]
+                  [[0. 1.] 1.]
+                  [[1. 1.] 2.]
+                  [[-1. 1.] 0.]
+                  [[1. -1.] 0.]
+                  [[0.5 0.] 0.5]]))
 
 (g/def-workspace ws-add1
-  (g/let+ [{:keys [features label socket]}
-           (+>> (c/dsi-socket :socket
+  (g/let+ [{:keys [features labels socket]}
+           (->> (c/dsi-socket :socket
                               {:fields [:features g/dt-float [-1 2]
                                         :labels   g/dt-float [-1]]})
-                (c/dsi-socket-outputs))
-
+                c/dsi-socket-outputs)
+_ (clojure.pprint/pprint  [features labels])
            logits (c/dense :logits
                            {:units 1}
                            features)
 
            {:keys [opt]}
-           (+>> label
+           (+>> labels
                 (c/mean-squared-error logits)
                 (c/grad-desc-opt :opt 0.2))
 
            acc (c/accuracy :acc
                            logits
-                           label)]
+                           labels)]
     
     {:plugins [dev/plugin g/gm-plugin]
      :plans [acc opt]
@@ -269,6 +269,9 @@
                        :fetch-return [logits]}}
      :workflows {:train-test {:driver g/default-train-test-wf}
                  :predict {:driver g/default-predict-wf}}}))
+
+;; what is wrong?
+;; no easy way to see accuracy
 
 
 (clojure.pprint/pprint ws-mnist1)

@@ -44,27 +44,26 @@
        (map (comp first first :shapes))
        (apply min)))
 
-
 (defmethod mc/build-macro :mem-recs-ds
-  [^Graph g {:keys [id inputs fields] :as args}]
-  (let [??? inputs]
-    [(set-ds-props (o/tensor-slice-dataset id
-                                           {:output_shapes (mapv (comp first :shapes)
-                                                                 inputs)}
-                                           inputs)
-                   fields
-                   :????)]))
+  [^Graph g {:keys [id inputs fields size] :as args}]
+  [(-> (o/tensor-slice-dataset id
+                               {:output_shapes (mapv (comp first :shapes)
+                                                     inputs)}
+                               inputs)
+       (set-ds-props (mem-ds-fields-prop fields inputs)
+                     size))])
 
 (sput/defn-comp-macro-op mem-recs-ds
-  {:doc "Create an in-memory dataset..."
-   :id :mem-ds
-   :attrs {fields "field names"}
+  {:doc "Create an in-memory dataset from vector of records..."
+   :id :mem-recs-ds
+   :attrs {fields "field names as keywords"}
    :inputs [[records "the dataset as a vector of vector records"]]}
-  {:macro :mem-ds
+  {:macro :mem-recs-ds
    :id id
    :inputs (apply (partial mapv (comp o/c vector))
                   records)
-   :fields fields})
+   :fields fields
+   :size (count records)})
 
 (defmethod mc/build-macro :repeat-ds
   [^Graph g {:keys [id inputs fields] :as args}]
