@@ -18,7 +18,8 @@
             [com.billpiel.guildsman.data-type :as dt]
             [clojure.walk :as w]
             com.billpiel.guildsman.common
-            clojure.pprint)
+            clojure.pprint
+            clojure.stacktrace)
   (:import [com.billpiel.guildsman.common Graph]
            [com.billpiel.guildsman.session Session]))
 
@@ -298,6 +299,13 @@ provided an existing Graph defrecord and feed map."
      :stage (-> wgo :pos :stage)
      :interrupt? (:interrupt? i)
      :ex (:ex o)}))
+
+(defn ws-pr-status
+  [ws]
+  (let [{:keys [ex] :as  status'} (ws-status ws)]
+    (clojure.pprint/pprint (dissoc status' :ex))
+    (when ex
+      (clojure.stacktrace/print-cause-trace ex))))
 
 (defn ws-interrupt
   [{:keys [wf-out wf-in wf-chan]} & [timeout-ms]]

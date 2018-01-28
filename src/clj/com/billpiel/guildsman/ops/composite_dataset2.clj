@@ -31,10 +31,10 @@
 
 (defn- mem-ds-fields-prop
   [fields inputs]
-  (mapv (fn [f {:keys [types shapes]}]
+  (mapv (fn [f {:keys [dtypes shapes]}]
           {:name f
-           :type (first types)
-           :shape (first shapes)})
+           :type (first dtypes)
+           :shape (-> shapes first rest vec)})
         fields
         inputs))
 
@@ -56,8 +56,9 @@
 (sput/defn-comp-macro-op mem-recs-ds
   {:doc "Create an in-memory dataset from vector of records..."
    :id :mem-recs-ds
-   :attrs {fields "field names as keywords"}
-   :inputs [[records "the dataset as a vector of vector records"]]}
+   :attrs {}
+   :inputs [[fields "field names as keywords"]
+            [records "the dataset as a vector of vector records"]]}
   {:macro :mem-recs-ds
    :id id
    :inputs (apply (partial mapv (comp o/c vector))
@@ -112,7 +113,7 @@
                            (mapcat :ds-fields inputs))
                           :N (count inputs))
                    inputs)
-    inputs))
+    (first inputs)))
 
 (defn- int->arg-sym [i]
   (-> i
@@ -368,9 +369,9 @@
 
 (defn- tensor-slice-ds-ds-fields-prop
   [fields inputs]
-  (mapv (fn [f {:keys [types shapes]}]
+  (mapv (fn [f {:keys [dtypes shapes]}]
           {:name f
-           :type (first types)
+           :type (first dtypes)
            :shape (first shapes)})
         fields
         inputs))

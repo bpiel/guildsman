@@ -238,7 +238,7 @@
                               {:fields [:features g/dt-float [-1 2]
                                         :labels   g/dt-float [-1]]})
                 c/dsi-socket-outputs)
-_ (clojure.pprint/pprint  [features labels])
+
            logits (c/dense :logits
                            {:units 1}
                            features)
@@ -276,8 +276,8 @@ _ (clojure.pprint/pprint  [features labels])
 
 (clojure.pprint/pprint ws-mnist1)
 
-(clojure.pprint/pprint 
- (g/ws-status ws-add1))
+(g/ws-pr-status ws-add1)
+
 
 (g/ws-train-test ws-add1)
 
