@@ -621,7 +621,8 @@ provided an existing Graph defrecord and feed map."
 
 (defn gm-plugin-setup-interval-post
   [ws-cfg]
-  [{:global {:fetched '(-> state :interval :gm :fetched)}}])
+  ['(vreset! (:last-fetched state)
+             (-> state :interval :gm :fetched))])
 
 (defn gm-plugin-setup-require-span-completable
   [ws-cfg & [span]]

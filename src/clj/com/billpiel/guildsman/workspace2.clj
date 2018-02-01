@@ -480,6 +480,7 @@
   (let [{:keys [global]} @wf-out]
     (vreset! wf-out
              {:global global
+              :last-fetched (volatile! nil)
               :block-type :global
               :heartbeat (now)
               :status :running

@@ -211,6 +211,7 @@
                                                 [:bpiel/mnist-train-60k-labels
                                                  :bpiel/mnist-train-60k-features])}}
              :test {::dev/summaries [acc]
+                    :fetch [acc]
                     :iters {socket (c/dsi-plug {:batch-size -1
                                                 #_[:epochs 1]
                                                 :epoch-size 100} 
@@ -221,7 +222,6 @@
      ;; TODO train-test should reset log
      :workflows {:train-test {:driver g/default-train-test-wf}
                  :predict {:driver g/default-predict-wf}}}))
-
 
 (def add-ds-plan
   (c/mem-recs-ds [:features :labels]
@@ -280,8 +280,9 @@
 (g/ws-pr-status ws-add1)
 
 (-> @(:wf-out ws-add1)
-    :global
-    :gm)
+    :last-fetched
+    deref)
+
 
 
 
