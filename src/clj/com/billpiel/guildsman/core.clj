@@ -620,9 +620,12 @@ provided an existing Graph defrecord and feed map."
   [`(ws2/--wf-require-span-completable ~'state ~'span)])
 
 (defn gm-plugin-setup-interval-post
-  [ws-cfg]
-  ['(vreset! (:last-fetched state)
-             (-> state :interval :gm :fetched))])
+  [ws-cfg]  
+  [(vary-meta `(do (vreset! (:last-fetched ~'state)
+                            (tsc/walk-convert-tensors
+                             (-> ~'state :interval :gm :fetched)))
+                   ~'state)
+              assoc ::ws2/no-merge-state true)])
 
 (defn gm-plugin-setup-require-span-completable
   [ws-cfg & [span]]

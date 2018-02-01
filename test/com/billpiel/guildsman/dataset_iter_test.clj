@@ -254,15 +254,16 @@
     
     {:plugins [dev/plugin g/gm-plugin]
      :plans [acc opt]
-     :duration [:steps 100]
-     :interval [:steps 10]
+     :duration [:steps 1]
+     :interval [:steps 1]
      :modes {:train {:step [opt]
                      ::dev/summaries [acc]
+                     :fetch [features]
                      :iters {socket (c/dsi-plug {:batch-size 6
                                                  :epoch-size 6}
                                                 [add-ds-plan])}}
              :test {::dev/summaries [acc]
-                    :fetch [acc]
+                    :fetch [labels]
                     :iters {socket (c/dsi-plug {:batch-size 6
                                                 :epoch-size 6}
                                                [add-ds-plan])}}
@@ -271,22 +272,95 @@
      :workflows {:train-test {:driver g/default-train-test-wf}
                  :predict {:driver g/default-predict-wf}}}))
 
-;; what is wrong?
-;; no easy way to see accuracy
-
-
-(clojure.pprint/pprint ws-mnist1)
 
 (g/ws-pr-status ws-add1)
 
 (-> @(:wf-out ws-add1)
     :last-fetched
-    deref)
-
-
-
+    deref
+    clojure.pprint/pprint )
 
 (g/ws-train-test ws-add1)
+
+
+(def add-ds-plan
+  (c/mem-recs-ds [:labels]
+                 [[ 0]
+                  [ 1]
+                  [ 2]]))
+
+
+(g/def-workspace ws-simple
+  (g/let+ [{:keys [labels socket]}
+           (->> (c/dsi-socket :socket
+                              {:fields [:labels g/dt-int [-1]]})
+                c/dsi-socket-outputs)
+           dummy (o/no-op :dummy)]
+    
+    {:plugins [dev/plugin g/gm-plugin]
+     :plans [labels socket dummy]
+     :duration [:steps 1]
+     :interval [:steps 1]
+     :modes {:train {:step [dummy]
+                     :fetch [labels]
+                     :iters {socket (c/dsi-plug {:batch-size 2
+                                                 :epoch-size 2}
+                                                [add-ds-plan])}}
+             :test {:fetch [labels]
+                    :iters {socket (c/dsi-plug {:batch-size 10
+                                                :epoch-size 10}
+                                               [add-ds-plan])}}}
+     :workflows {:train-test {:driver g/default-train-test-wf}}}))
+
+(g/ws-pr-status ws-simple)
+
+(-> @(:wf-out ws-simple)
+    :last-fetched
+    deref
+    clojure.pprint/pprint )
+
+(g/ws-pr-workflow-source ws-simple :train-test)
+
+;; TODO something goes wrong with deleting the tensor
+
+(g/ws-train-test ws-simple)
+
+
+
+(def add-ds-plan2
+  (c/mem-recs-ds [:features :labels]
+                 [[[0. 0.] 0.]
+                  [[0. 1.] 1.]
+                  [[1. 1.] 2.]
+                  [[-1. 1.] 0.]
+                  [[1. -1.] 0.]
+                  [[0.5 0.] 0.5]]))
+
+(g/let+ [{:keys [features labels socket]}
+         (->> (c/dsi-socket :socket
+                            {:fields [:features g/dt-float [-1 2]
+                                      :labels   g/dt-float [-1]]})
+              c/dsi-socket-outputs)
+
+         ds1 (c/mem-recs-ds [:features :labels]
+                            [[[0. 0.] 0.]
+                             [[0. 1.] 1.]
+                             [[1. 1.] 2.]
+                             [[-1. 1.] 0.]
+                             [[1. -1.] 0.]
+                             [[0.5 0.] 0.5]])
+         
+         plug (c/dsi-plug {:batch-size 6
+                           :epoch-size 6}
+                          [ds1])
+         conn (c/dsi-connector socket plug)
+         {:keys [graph] :as session} (g/build-all->session [features conn])]
+  (g/run-all session [conn])
+  (g/run-global-vars-init session)
+  (g/with-tensor-conversion-scope
+    (g/fetch-all session [features ])))
+
+(clojure.pprint/pprint ws-mnist1)
 
 (g/ws-do-wf ws-mnist1 :predict)
 

@@ -15,6 +15,10 @@
                       :scopes {}
                       :delete []}))
 
+#_ (def state (atom {:handles {}
+                     :scopes {}
+                     :delete []}))
+
 (defn PValueProvider?
   [v]
   (and (instance? java.lang.Object v)

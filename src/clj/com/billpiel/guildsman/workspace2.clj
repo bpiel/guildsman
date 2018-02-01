@@ -532,7 +532,7 @@
                                                                        ~'current
                                                                        ~'todo
                                                                        ~'state)]
-                     (Thread/sleep 100)
+#_                     (Thread/sleep 100)
                      (set-wf-state! ~'wf-out ~'state)
                      (cond (-> ~'wf-in deref :interrupt?)
                            (do (set-interrupted-wf-state! ~'wf-out)
