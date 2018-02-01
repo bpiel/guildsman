@@ -262,6 +262,7 @@
                                                  :epoch-size 6}
                                                 [add-ds-plan])}}
              :test {::dev/summaries [acc]
+                    :fetch [acc]
                     :iters {socket (c/dsi-plug {:batch-size 6
                                                 :epoch-size 6}
                                                [add-ds-plan])}}
@@ -277,6 +278,11 @@
 (clojure.pprint/pprint ws-mnist1)
 
 (g/ws-pr-status ws-add1)
+
+(-> @(:wf-out ws-add1)
+    :global
+    :gm)
+
 
 
 (g/ws-train-test ws-add1)

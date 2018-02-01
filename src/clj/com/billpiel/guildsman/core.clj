@@ -619,6 +619,10 @@ provided an existing Graph defrecord and feed map."
   [ws-cfg]
   [`(ws2/--wf-require-span-completable ~'state ~'span)])
 
+(defn gm-plugin-setup-interval-post
+  [ws-cfg]
+  [{:global {:fetched '(-> state :interval :gm :fetched)}}])
+
 (defn gm-plugin-setup-require-span-completable
   [ws-cfg & [span]]
   [`(ws2/--wf-require-span-completable ~'state ~(or span 'span))])
@@ -722,7 +726,8 @@ provided an existing Graph defrecord and feed map."
               :hook-forms {:post-async #'gm-plugin-interval-post-async-form
                            :start? #'gm-plugin-interval-start?-form
                            :repeat? #'gm-plugin-interval-repeat?-form}
-              :start? #'gm-plugin-interval-start?}
+              :start? #'gm-plugin-interval-start?
+              :post-async #'gm-plugin-setup-interval-post}
    :step {:block #'gm-plugin-step-block}
    :workflow {:block #'gm-plugin-workflow-block}
    :stage {:block #'gm-plugin-stage-block}
