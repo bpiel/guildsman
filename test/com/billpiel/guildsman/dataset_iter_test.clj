@@ -225,28 +225,25 @@
 
 (def add-ds-plan
   (c/mem-recs-ds [:features :labels]
-                 [[[0. 0.] 0.]
-                  [[0. 1.] 1.]
-                  [[1. 1.] 2.]
-                  [[-1. 1.] 0.]
-                  [[1. -1.] 0.]
-                  [[0.5 0.] 0.5]]))
+                 [[[0.1] 0.1]
+                  [[-0.1] -0.1]]))
 
 (g/def-workspace ws-add1
   (g/let+ [{:keys [features labels socket]}
            (->> (c/dsi-socket :socket
-                              {:fields [:features g/dt-float [-1 2]
+                              {:fields [:features g/dt-float [-1 1]
                                         :labels   g/dt-float [-1]]})
                 c/dsi-socket-outputs)
 
-           logits (c/dense :logits
-                           {:units 1}
-                           features)
+           {:keys [logits]}
+           (+>> features
+                (c/dense :logits
+                         {:units 1}))
 
-           {:keys [opt]}
+           {:keys [opt err]}
            (+>> labels
-                (c/mean-squared-error logits)
-                (c/grad-desc-opt :opt 0.2))
+                (c/mean-squared-error :err logits)
+                (c/grad-desc-opt :opt 0.05))
 
            acc (c/accuracy :acc
                            logits
@@ -254,16 +251,16 @@
     
     {:plugins [dev/plugin g/gm-plugin]
      :plans [acc opt]
-     :duration [:steps 1]
+     :duration [:steps 10]
      :interval [:steps 1]
      :modes {:train {:step [opt]
-                     ::dev/summaries [acc]
-                     :fetch [features]
+                     ::dev/summaries [err logits]
+                     :fetch [err]
                      :iters {socket (c/dsi-plug {:batch-size 6
                                                  :epoch-size 6}
                                                 [add-ds-plan])}}
-             :test {::dev/summaries [acc]
-                    :fetch [labels]
+             :test {::dev/summaries [err]
+                    :fetch [features logits]
                     :iters {socket (c/dsi-plug {:batch-size 6
                                                 :epoch-size 6}
                                                [add-ds-plan])}}
@@ -273,6 +270,8 @@
                  :predict {:driver g/default-predict-wf}}}))
 
 
+(g/ws-train-test ws-add1)
+
 (g/ws-pr-status ws-add1)
 
 (-> @(:wf-out ws-add1)
@@ -280,7 +279,7 @@
     deref
     clojure.pprint/pprint )
 
-(g/ws-train-test ws-add1)
+
 
 
 (def add-ds-plan
@@ -288,7 +287,6 @@
                  [[ 0]
                   [ 1]
                   [ 2]]))
-
 
 (g/def-workspace ws-simple
   (g/let+ [{:keys [labels socket]}

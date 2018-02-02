@@ -9,6 +9,7 @@
             [com.billpiel.guildsman.ops.gen :as ops-gen]
             [com.billpiel.guildsman.ops.composite :as c]
             [com.billpiel.guildsman.util :as ut]
+            [com.billpiel.guildsman.special-utils :as sput]
             [com.billpiel.guildsman.data-type :as dt]
             [com.billpiel.guildsman.graph :as gr]
             [com.billpiel.guildsman.webapp.server :as wsvr]
@@ -271,20 +272,20 @@
               name
               (str "/.*")
               re-pattern
-              (opn/find-ops g $)
+              (sput/search-ops g $)
               (filter #(-> % :op #{:VariableV2})
                       $))
        (into [(->> target
-                   (mcro/macro-plan->op-plan g)
-                   (opn/find-op g))])
+                   #_(mcro/macro-plan->op-plan g)
+                   (sput/->op-node g))])
        distinct))
 
 (defn agd->delta-ratio-smry
   [^Graph g smry-id {[v-id alpha-id delta-id] :inputs}]
   (let [c 0.0000001
-        v (opn/find-op g v-id)
-        delta (opn/find-op g delta-id)
-        alpha (opn/find-op g alpha-id)]
+        v (sput/->op-node g v-id)
+        delta (sput/->op-node g delta-id)
+        alpha (sput/->op-node g alpha-id)]
     (when (and v delta alpha)
       (o/scalar-summary {:id smry-id} smry-id
                         (sc/with-push-both-scopes :summaries
@@ -321,9 +322,11 @@
 
 (defn mk-summary-plans
   [g vari->agd target]
-  (->> (if-let [target' (opn/find-op g target)]
-         [target']
-         (find-ops-to-summarize g target))
+  (->> #_(if-let [target' (sput/->op-node g target)]
+           [target']
+           (find-ops-to-summarize g target))
+       (find-ops-to-summarize g target)
+       (into [])
        (map (partial mk-summary-plan g vari->agd))
        flatten
        (remove nil?)))

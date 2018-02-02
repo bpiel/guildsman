@@ -17,6 +17,17 @@
                         (mcro/macro-plan->op-plan g)
                         (opn/get-op-by-plan g))))
 
+(defn search-ops
+  [^Graph g qry]
+  (or (when (ut/regex? qry)
+        (let [id->node (gr/id->node g)]
+          (->> id->node
+               keys
+               (filter (partial re-find qry))
+               (mapv id->node))))
+      (when-let [r (->op-node g qry)]
+        [r])))
+
 (defn defn-comp-op-arities
   [name-sym {:keys [id attrs inputs]}]
   (let [attrs' (some-> attrs keys not-empty)

@@ -14,7 +14,10 @@
 
 (defn mean-squared-error
   ([features labels]
-   (->> (o/sub features labels)
-        o/square
-        reduce-mean)))
+   (mean-squared-error :mean-sq-err features labels))
+  ([id features labels]
+   (assoc (->> (o/sub features labels)
+               o/square
+               reduce-mean)
+          :id id)))
 
