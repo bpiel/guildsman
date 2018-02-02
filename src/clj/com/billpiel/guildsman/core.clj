@@ -541,11 +541,13 @@ provided an existing Graph defrecord and feed map."
 
 (defn gm-plugin-interval-post-async-form
   [hook-frms ws-cfg _]
-  `(do (future (tsc/with-scope
-                 (let [~'state (ws2/--wf-deliver-fetched ~'state)
-                       ~@(ws2/mk-default-form-bindings hook-frms)])))
-       nil))
-
+  `(let [~'dlvr-sco (tsc/mk-orphan-scope :standard)]
+     (->> ~'state :interval :gm :fetched-raw (tsc/add-to-scope! ~'dlvr-sco))
+     (future (try (let [~'state (ws2/--wf-deliver-fetched ~'state)
+                        ~@(ws2/mk-default-form-bindings hook-frms)])
+                  (finally
+                    (tsc/close-scope! ~'dlvr-sco))))
+     nil))
 
 (defn gm-plugin-interval-block
   [ws-cfg {:keys [span plugin] :as args} forms contents]

@@ -578,7 +578,6 @@
                f fetch]
            (let [f-id-str (:id f)
                  fetched (get-in fetched-raw [mk f-id-str])]
-             (tsc/add-to-scope! fetched) ;; assume we're in a scope created for this purpose
              [[pk :fetched mk f-id-str] fetched]))
          (reduce (fn [agg [path v]]
                    (assoc-in agg path v))
