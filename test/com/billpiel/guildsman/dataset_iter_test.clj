@@ -225,47 +225,47 @@
 
 (def add-ds-plan
   (c/mem-recs-ds [:features :labels]
-                 [[[0.1] 0.1]
-                  [[-0.1] -0.1]]))
+                 [[[ 0.1 0.1 ] 0.2]
+                  [[ 0.1 0. ] 0.1]
+                  [[ 0. 0. ] 0.]
+                  [[-0.1 -0.1] -0.2]
+                  [[-0.1 -0.] -0.1]]))
 
 (g/def-workspace ws-add1
   (g/let+ [{:keys [features labels socket]}
            (->> (c/dsi-socket :socket
-                              {:fields [:features g/dt-float [-1 1]
+                              {:fields [:features g/dt-float [-1 2]
                                         :labels   g/dt-float [-1]]})
                 c/dsi-socket-outputs)
 
-           {:keys [logits]}
+           {:keys [pred1]}
            (+>> features
                 (c/dense :logits
-                         {:units 1}))
+                         {:units 1})
+                (o/sigmoid :pred1))
 
            {:keys [opt err]}
            (+>> labels
-                (c/mean-squared-error :err logits)
-                (c/grad-desc-opt :opt 0.05))
-
-           acc (c/accuracy :acc
-                           logits
-                           labels)]
+                (c/mean-squared-error :err pred1)
+                (c/grad-desc-opt :opt 0.002))]
     
     {:plugins [dev/plugin g/gm-plugin]
-     :plans [acc opt]
-     :duration [:steps 10]
+     :plans [opt]
+     :duration [:steps 200]
      :interval [:steps 1]
      :modes {:train {:step [opt]
-                     ::dev/summaries [err logits]
+                     ::dev/summaries [err pred1]
                      :fetch [err]
-                     :iters {socket (c/dsi-plug {:batch-size 6
-                                                 :epoch-size 6}
+                     :iters {socket (c/dsi-plug {:batch-size 5
+                                                 :epoch-size 5}
                                                 [add-ds-plan])}}
              :test {::dev/summaries [err]
-                    :fetch [features logits]
-                    :iters {socket (c/dsi-plug {:batch-size 6
-                                                :epoch-size 6}
+                    :fetch [labels pred1]
+                    :iters {socket (c/dsi-plug {:batch-size 5
+                                                :epoch-size 5}
                                                [add-ds-plan])}}
              :predict {:feed-args [features]
-                       :fetch-return [logits]}}
+                       :fetch-return [pred1]}}
      :workflows {:train-test {:driver g/default-train-test-wf}
                  :predict {:driver g/default-predict-wf}}}))
 
@@ -283,32 +283,45 @@
 
 
 (def add-ds-plan
-  (c/mem-recs-ds [:labels]
-                 [[ 0]
-                  [ 1]
-                  [ 2]]))
+  (c/mem-recs-ds [:labels :lab2]
+                 [[[] 10 123]
+                  [21 278]
+                  [34 356]]))
 
 (g/def-workspace ws-simple
-  (g/let+ [{:keys [labels socket]}
+  (g/let+ [{:keys [labels lab2 socket]}
            (->> (c/dsi-socket :socket
-                              {:fields [:labels g/dt-int [-1]]})
+                              {:fields [:labels g/dt-int [-1]
+                                        :lab2 g/dt-int [-1]]})
                 c/dsi-socket-outputs)
-           dummy (o/no-op :dummy)]
+           v1 (c/vari :v1
+                      {:dtype g/dt-int
+                       :shape [3]}
+                      [0 0 0])
+           a1 (o/assign v1 (o/identity-tf labels))
+           v2 (c/vari :v2
+                      {:dtype g/dt-int
+                       :shape [3]}
+                      [0 0 0])
+           a2 (o/assign v2 (o/identity-tf lab2))
+           noop1 (o/no-op :noop1 {:ctrl-inputs [a1 a2]})]
     
     {:plugins [dev/plugin g/gm-plugin]
-     :plans [labels socket dummy]
-     :duration [:steps 1]
+     :plans [labels socket a1 a2 noop1]
+     :duration [:steps 2]
      :interval [:steps 1]
-     :modes {:train {:step [dummy]
-                     :fetch [labels]
-                     :iters {socket (c/dsi-plug {:batch-size 2
-                                                 :epoch-size 2}
+     :modes {:train {:step [noop1]
+                     :fetch [v1]
+                     :iters {socket (c/dsi-plug {:batch-size 3
+                                                 :epoch-size 3}
                                                 [add-ds-plan])}}
-             :test {:fetch [labels]
-                    :iters {socket (c/dsi-plug {:batch-size 10
-                                                :epoch-size 10}
+             :test {:fetch [v1 v2]
+                    :iters {socket (c/dsi-plug {:batch-size 3
+                                                :epoch-size 1}
                                                [add-ds-plan])}}}
      :workflows {:train-test {:driver g/default-train-test-wf}}}))
+
+(g/ws-train-test ws-simple)
 
 (g/ws-pr-status ws-simple)
 
@@ -321,7 +334,7 @@
 
 ;; TODO something goes wrong with deleting the tensor
 
-(g/ws-train-test ws-simple)
+
 
 
 
@@ -392,3 +405,16 @@
 
 (g/produce (o/unpack {:num 1 :axis 0}
                      [[1 2]]))
+
+
+(g/with-tensor-scope
+  (let [features [[0.1 -0.1]]
+        labels [0.]
+        d1 (c/dense :d1 {:units 1} features)
+        loss (c/mean-squared-error a b)
+        opt (c/grad-desc-opt :opt 0.5 loss)
+        sess (g/build->session opt)
+        _ (g/run-global-vars-init sess)
+        loss-init (g/produce sess loss)]
+    (g/run sess opt)
+    (g/produce sess loss)))

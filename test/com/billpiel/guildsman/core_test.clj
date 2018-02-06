@@ -6,6 +6,7 @@
 
 (t/deftest addition-scalar-float
   (t/is (= 3.0
-           (g/produce
-            (o/add 1. 2.)))))
+           (g/with-tensor-conversion-scope
+             (g/produce
+              (o/add 1. 2.))))))
 
