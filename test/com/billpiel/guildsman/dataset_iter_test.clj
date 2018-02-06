@@ -225,34 +225,33 @@
 
 (def add-ds-plan
   (c/mem-recs-ds [:features :labels]
-                 [[[ 0.1 0.1 ] 0.2]
-                  [[ 0.1 0. ] 0.1]
-                  [[ 0. 0. ] 0.]
-                  [[-0.1 -0.1] -0.2]
-                  [[-0.1 -0.] -0.1]]))
+                 [[[ 0.1 0.1 ] [0.2]]
+                  [[ 0.1 0. ] [0.1]]
+                  [[ 0. 0. ] [0.]]
+                  [[-0.1 -0.1] [-0.2]]
+                  [[-0.1 -0.] [-0.1]]]))
 
 (g/def-workspace ws-add1
   (g/let+ [{:keys [features labels socket]}
            (->> (c/dsi-socket :socket
                               {:fields [:features g/dt-float [-1 2]
-                                        :labels   g/dt-float [-1]]})
+                                        :labels   g/dt-float [-1 1]]})
                 c/dsi-socket-outputs)
 
            {:keys [pred1]}
            (+>> features
-                (c/dense :logits
-                         {:units 1})
-                (o/sigmoid :pred1))
+                (c/dense :pred1
+                         {:units 1}))
 
            {:keys [opt err]}
            (+>> labels
                 (c/mean-squared-error :err pred1)
-                (c/grad-desc-opt :opt 0.002))]
+                (c/grad-desc-opt :opt 0.1))]
     
     {:plugins [dev/plugin g/gm-plugin]
      :plans [opt]
-     :duration [:steps 200]
-     :interval [:steps 1]
+     :duration [:steps 1000]
+     :interval [:steps 1000]
      :modes {:train {:step [opt]
                      ::dev/summaries [err pred1]
                      :fetch [err]
@@ -408,13 +407,70 @@
 
 
 (g/with-tensor-scope
-  (let [features [[0.1 -0.1]]
-        labels [0.]
-        d1 (c/dense :d1 {:units 1} features)
-        loss (c/mean-squared-error a b)
-        opt (c/grad-desc-opt :opt 0.5 loss)
+  (let [v1 (c/vari :v1 {:dtype g/dt-float :shape [2]} [0. 0.])
+        x [-1. 1.]
+        loss (c/mean-squared-error v1 x)
+        opt (c/grad-desc-opt :opt 0.1 loss)
         sess (g/build->session opt)
         _ (g/run-global-vars-init sess)
         loss-init (g/produce sess loss)]
-    (g/run sess opt)
-    (g/produce sess loss)))
+    (g/run-all sess (repeat 10  opt))
+    (g/with-tensor-conversion-scope
+      (g/produce sess v1))))
+
+(g/with-tensor-scope
+  (let [v1 (c/vari :v1 {:dtype g/dt-float :shape [2]} [0. 0.])
+        x [-1. 1.]
+        loss (o/squared-difference v1 x)
+        opt (c/grad-desc-opt :opt 0.1 loss)
+        sess (g/build->session opt)
+        _ (g/run-global-vars-init sess)
+        loss-init (g/produce sess loss)]
+    (g/run-all sess (repeat 10  opt))
+    (g/with-tensor-conversion-scope
+      (g/produce sess v1))))
+
+(g/with-tensor-scope
+  (let [x [[ 0.1 0.1 ]
+           [ 0.1 0. ]
+           [ 0. 0. ]
+           [-0.1 -0.1]
+           [-0.1 -0.]]
+        y [[0.2]
+           [0.1]
+           [0.]
+           [-0.2]
+           [-0.1]]
+        d1 (c/dense :d1 {:units 1} x)
+        loss (c/reduce-sum (o/squared-difference d1 y))
+        opt (c/grad-desc-opt :opt 0.01 loss)
+        sess (g/build->session opt)
+        _ (g/run-global-vars-init sess)
+        loss-init (g/produce sess loss)]
+    (g/run-all sess (repeat 1000  opt))
+    (g/with-tensor-conversion-scope
+      (g/produce sess d1))))
+
+(g/with-tensor-scope
+  (let [x [[ 0.1 0.1 ]
+           [ 0.1 0. ]
+           [ 0. 0. ]
+           [-0.1 -0.1]
+           [-0.1 -0.]]
+        y [[0.2]
+           [0.1]
+           [0.]
+           [-0.2]
+           [-0.1]]
+        d1 (c/dense :d1 {:units 1} x)
+        loss (->> (o/sub d1 y)
+                  o/abs
+                  c/reduce-sum)
+        opt (c/grad-desc-opt :opt 0.01 loss)
+        sess (g/build->session opt)
+        _ (g/run-global-vars-init sess)
+        loss-init (g/produce sess loss)]
+    (g/run-all sess (repeat 1000  opt))
+    (g/with-tensor-conversion-scope
+      (g/produce sess d1))))
+
