@@ -571,22 +571,22 @@ provided an existing Graph defrecord and feed map."
   [ws-cfg {:keys [span plugin] :as args} forms contents]
   (let [span-src (ws2/render-map-single-inline-src span ws-cfg)
         start?-src (ws2/render-element-single-expr [:block-hook :interval :start?]
-                                               ws-cfg)
+                                                   ws-cfg)
         {:keys [ids forms]} (ws2/render-block-contents :interval
-                                                   forms
-                                                   (ws2/inject-plugin ws-cfg
-                                                                  plugin)
-                                                   contents
-                                                   [:pre]
-                                                   [:post-async
-                                                    :repeat?])]
+                                                       forms
+                                                       (ws2/inject-plugin ws-cfg
+                                                                          plugin)
+                                                       contents
+                                                       [:pre]
+                                                       [:post-async
+                                                        :repeat?])]
     (ws2/add-to-forms (ws2/apply-subs-to-child-forms forms {'$interval-block-ids ids})
-                  :interval nil
-                  `(let [~'span ~span-src] 
-                     (when ~start?-src 
-                       {:push {:block-type :interval
-                               :todo [~@ids]
-                               :span ~'span}})))))
+                      :interval nil
+                      `(let [~'span ~span-src]
+                         (when ~start?-src
+                           {:push {:block-type :interval
+                                   :todo [~@ids]
+                                   :span ~'span}})))))
 
 (defn gm-plugin-step-block
   [ws-cfg {:keys [span]} forms contents]
@@ -614,12 +614,19 @@ provided an existing Graph defrecord and feed map."
                            :span ~span}})))
 
 (defn gm-plugin-stage-block
-  [ws-cfg {:keys [span]} forms contents]
-  (let [{:keys [ids forms]} (ws2/render-block-contents :stage forms ws-cfg contents)]
-    (ws2/add-to-forms forms :stage nil
-                  `{:push {:block-type :stage
-                           :todo [~@ids]
-                           :span ~span}})))
+  [ws-cfg {:keys [span plugin]} forms contents]
+  (let [{:keys [ids forms]} (ws2/render-block-contents :stage
+                                                       forms
+                                                       (ws2/inject-plugin ws-cfg
+                                                                          plugin)
+                                                       contents
+                                                       [:pre]
+                                                       [:repeat?])]
+    (ws2/add-to-forms (ws2/apply-subs-to-child-forms forms {'$stage-block-ids ids})
+                      :stage nil
+                      `{:push {:block-type :stage
+                               :todo [~@ids]
+                               :span ~span}})))
 
 (defn gm-plugin-interval-start?-form
   [hook-frms ws-cfg & _]
@@ -633,6 +640,15 @@ provided an existing Graph defrecord and feed map."
                 false)
        {:pop-push {:block-type :interval
                    :todo ~'$interval-block-ids
+                   :span ~'span}})))
+
+(defn gm-plugin-stage-repeat?-form
+  [hook-frms ws-cfg _]
+  `(let [~'span (-> ~'state :block :gm :span)]
+     (when ~(or (some-> hook-frms first second first)
+                false)
+       {:pop-push {:block-type :stage
+                   :todo ~'$stage-block-ids
                    :span ~'span}})))
 
 (defn gm-plugin-interval-start?
@@ -756,7 +772,8 @@ provided an existing Graph defrecord and feed map."
               :post-async #'gm-plugin-setup-interval-post}
    :step {:block #'gm-plugin-step-block}
    :workflow {:block #'gm-plugin-workflow-block}
-   :stage {:block #'gm-plugin-stage-block}
+   :stage {:block #'gm-plugin-stage-block
+           :hook-forms {:repeat? #'gm-plugin-stage-repeat?-form}}
    :require-span-completable {:inline #'gm-plugin-setup-require-span-completable}
    :require-span-repeatable {:inline #'gm-plugin-setup-require-span-repeatable}
    :query-steps {:inline #'gm-plugin-setup-query-steps}
@@ -817,7 +834,10 @@ provided an existing Graph defrecord and feed map."
            :span {:steps 99999}}
    [:block {:type :stage
             ;; TODO unlimited stages?
-            :span {:stages 99999}}
+            :span {:stages 99999}
+            :plugin {:stage
+                     {:repeat? [:require-span-repeatable]}}
+            }
     [:build]
     [:create-session]
     (when restore-varis

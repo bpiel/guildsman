@@ -35,9 +35,9 @@
 (g/def-workspace ws1
   (g/let+ [p1 (o/placeholder :p1 g/dt-float [1])
            {:keys [v a1 tr]}
-           (+>> (c/vari :v {:dtype g/dt-float :shape [1]} [0.])
-                (o/add :a1 p1)
-                (o/assign :tr v))]
+           (+->> (c/vari :v {:dtype g/dt-float :shape [1]} [0.])
+                 (o/add :a1 p1)
+                 (o/assign :tr v))]
     {:plugins [dev/plugin g/gm-plugin]
      :plans [tr]
      :duration [:steps 100000]

@@ -156,23 +156,23 @@
 
 (g/with-tensor-conversion-scope
   (g/let+ [{:keys [iter ign]}
-           (+>> (o/iterator :iter
-                            {:output-shapes [[-1]]
-                             :output-types [g/dt-int]})
-                (o/iterator-get-next :gn
-                                     {:output-shapes [[-1]]
-                                      :output-types [g/dt-int]})
-                (o/identity-tf :ign))
+           (+->> (o/iterator :iter
+                             {:output-shapes [[-1]]
+                              :output-types [g/dt-int]})
+                 (o/iterator-get-next :gn
+                                      {:output-shapes [[-1]]
+                                       :output-types [g/dt-int]})
+                 (o/identity-tf :ign))
 
-           {:keys [mkitr]} (+>> (o/tensor-dataset {:output-shapes [[-1]]}
-                                                  [(o/placeholder :ph g/dt-int [-1])])
-                                (o/repeat-dataset {:output-shapes [[-1]]
-                                                   :output-types [g/dt-int]}
-                                                  $ -1)
-                                (o/make-iterator :mkitr $ iter))]
+           {:keys [mkitr]} (+->> (o/tensor-dataset {:output-shapes [[-1]]}
+                                                   [(o/placeholder :ph g/dt-int [-1])])
+                                 (o/repeat-dataset {:output-shapes [[-1]]
+                                                    :output-types [g/dt-int]}
+                                                   $ -1)
+                                 (o/make-iterator :mkitr $ iter))]
     (g/with-close-let [{:keys [graph] :as session} (g/build-all->session [ign ])]
-#_      (g/run session mkitr {:ph [0]})
-      (g/produce session ign {:gn [5 6 7]} ))))
+      #_      (g/run session mkitr {:ph [0]})
+      (g/produce session ign {:gn [5 6 7]}))))
 
 (g/def-workspace ws-mnist1
   (g/let+ [{:keys [features labels socket]}
@@ -182,14 +182,14 @@
                 (c/dsi-socket-outputs))
 
            {:keys [logits classes]}
-           (+>> features
-                (c/dense {:units 1024}) ;; TODO why is this scoped as ::req??
-                (c/dense {:id :logits
-                          :units 10})
-                (o/arg-max :classes $ 1))
+           (+->> features
+                 (c/dense {:units 1024}) ;; TODO why is this scoped as ::req??
+                 (c/dense {:id :logits
+                           :units 10})
+                 (o/arg-max :classes $ 1))
 
            {:keys [opt]}
-           (+>> labels
+           (+->> labels
                 (c/one-hot $ 10)
                 (c/mean-squared-error logits)
                 (c/grad-desc-opt :opt 0.2))
@@ -241,14 +241,14 @@
                 c/dsi-socket-outputs)
 
            {:keys [pred1]}
-           (+>> features
-                (c/dense :pred1
-                         {:units 1}))
+           (+->> features
+                 (c/dense :pred1
+                          {:units 1}))
 
            {:keys [opt err]}
-           (+>> labels
-                (c/mean-squared-error :err pred1)
-                (c/grad-desc-opt :opt 0.1))]
+           (+->> labels
+                 (c/mean-squared-error :err pred1)
+                 (c/grad-desc-opt :opt 0.1))]
     
     {:plugins [dev/plugin g/gm-plugin]
      :plans [opt]
@@ -278,8 +278,10 @@
 (g/ws-predict-wf ws-add1)
 
 (g/ws-predict-sync ws-add1
-                   [[[0.3 0.05]
+                   [[[1.3 0.05]
                      [0.11 0.09]]])
+
+(g/ws-interrupt ws-add1)
 
 (-> @(:wf-out ws-add1)
     :last-fetched

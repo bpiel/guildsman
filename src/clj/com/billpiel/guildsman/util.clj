@@ -256,7 +256,7 @@
 (defn let+**
   [[b v]]
   (if (and (seq? v)
-           (= (first v) '+>>))
+           (= (first v) '+->>))
     (let [[_ v1 & vrest] v]
       (concat `(~'$gm$ (id-merge ~'$gm$
                                  ~(wrap-bind-form v1 v1))
