@@ -18,7 +18,8 @@
             [com.billpiel.guildsman.data-type :as dt]
             [clojure.walk :as w]
             com.billpiel.guildsman.common
-            clojure.pprint)
+            clojure.pprint
+            clojure.stacktrace)
   (:import [com.billpiel.guildsman.common Graph]
            [com.billpiel.guildsman.session Session]))
 
@@ -299,6 +300,13 @@ provided an existing Graph defrecord and feed map."
      :interrupt? (:interrupt? i)
      :ex (:ex o)}))
 
+(defn ws-pr-status
+  [ws]
+  (let [{:keys [ex] :as  status'} (ws-status ws)]
+    (clojure.pprint/pprint (dissoc status' :ex))
+    (when ex
+      (clojure.stacktrace/print-cause-trace ex))))
+
 (defn ws-interrupt
   [{:keys [wf-out wf-in wf-chan]} & [timeout-ms]]
   (if-not (= (:status @wf-out) :running)
@@ -327,9 +335,27 @@ provided an existing Graph defrecord and feed map."
   [ws]
   (ws-do-wf ws :close))
 
-(defn ws-train-test
+(defn ws-train-test-wf
   [ws]
   (ws-do-wf ws :train-test))
+
+(defn ws-predict-wf
+  [ws]
+  (ws-do-wf ws :predict))
+
+;; TODO timeout
+(defn ws-predict-async
+  [ws input]
+  (let [return (a/chan 1)]
+    (-> ws :wf-out deref :global :gm :input-ch
+        (a/>!! [input return]))
+    return))
+
+(defn ws-predict-sync
+  [ws input]
+  (-> ws
+      (ws-predict-async input)
+      a/<!!))
 
 (def last-ex (atom nil))
 #_ (clojure.pprint/pprint last-ex)
@@ -459,7 +485,8 @@ provided an existing Graph defrecord and feed map."
 
 (defn gm-plugin-create-session-main
   [graph session]
-  {:global {:session (graph->session graph)}})
+  {:global {:session (or session
+                         (graph->session graph))}})
 
 (defn gm-plugin-setup-create-session-main
   [ws-cfg & _]
@@ -532,32 +559,34 @@ provided an existing Graph defrecord and feed map."
 
 (defn gm-plugin-interval-post-async-form
   [hook-frms ws-cfg _]
-  `(do (future (tsc/with-scope
-                 (let [~'state (ws2/--wf-deliver-fetched ~'state)
-                       ~@(ws2/mk-default-form-bindings hook-frms)])))
-       nil))
-
+  `(let [~'dlvr-sco (tsc/mk-orphan-scope :standard)]
+     (->> ~'state :interval :gm :fetched-raw (tsc/add-to-scope! ~'dlvr-sco))
+     (future (try (let [~'state (ws2/--wf-deliver-fetched ~'state)
+                        ~@(ws2/mk-default-form-bindings hook-frms)])
+                  (finally
+                    (tsc/close-scope! ~'dlvr-sco))))
+     nil))
 
 (defn gm-plugin-interval-block
   [ws-cfg {:keys [span plugin] :as args} forms contents]
   (let [span-src (ws2/render-map-single-inline-src span ws-cfg)
         start?-src (ws2/render-element-single-expr [:block-hook :interval :start?]
-                                               ws-cfg)
+                                                   ws-cfg)
         {:keys [ids forms]} (ws2/render-block-contents :interval
-                                                   forms
-                                                   (ws2/inject-plugin ws-cfg
-                                                                  plugin)
-                                                   contents
-                                                   [:pre]
-                                                   [:post-async
-                                                    :repeat?])]
+                                                       forms
+                                                       (ws2/inject-plugin ws-cfg
+                                                                          plugin)
+                                                       contents
+                                                       [:pre]
+                                                       [:post-async
+                                                        :repeat?])]
     (ws2/add-to-forms (ws2/apply-subs-to-child-forms forms {'$interval-block-ids ids})
-                  :interval nil
-                  `(let [~'span ~span-src] 
-                     (when ~start?-src 
-                       {:push {:block-type :interval
-                               :todo [~@ids]
-                               :span ~'span}})))))
+                      :interval nil
+                      `(let [~'span ~span-src]
+                         (when ~start?-src
+                           {:push {:block-type :interval
+                                   :todo [~@ids]
+                                   :span ~'span}})))))
 
 (defn gm-plugin-step-block
   [ws-cfg {:keys [span]} forms contents]
@@ -585,12 +614,19 @@ provided an existing Graph defrecord and feed map."
                            :span ~span}})))
 
 (defn gm-plugin-stage-block
-  [ws-cfg {:keys [span]} forms contents]
-  (let [{:keys [ids forms]} (ws2/render-block-contents :stage forms ws-cfg contents)]
-    (ws2/add-to-forms forms :stage nil
-                  `{:push {:block-type :stage
-                           :todo [~@ids]
-                           :span ~span}})))
+  [ws-cfg {:keys [span plugin]} forms contents]
+  (let [{:keys [ids forms]} (ws2/render-block-contents :stage
+                                                       forms
+                                                       (ws2/inject-plugin ws-cfg
+                                                                          plugin)
+                                                       contents
+                                                       [:pre]
+                                                       [:repeat?])]
+    (ws2/add-to-forms (ws2/apply-subs-to-child-forms forms {'$stage-block-ids ids})
+                      :stage nil
+                      `{:push {:block-type :stage
+                               :todo [~@ids]
+                               :span ~span}})))
 
 (defn gm-plugin-interval-start?-form
   [hook-frms ws-cfg & _]
@@ -606,9 +642,26 @@ provided an existing Graph defrecord and feed map."
                    :todo ~'$interval-block-ids
                    :span ~'span}})))
 
+(defn gm-plugin-stage-repeat?-form
+  [hook-frms ws-cfg _]
+  `(let [~'span (-> ~'state :block :gm :span)]
+     (when ~(or (some-> hook-frms first second first)
+                false)
+       {:pop-push {:block-type :stage
+                   :todo ~'$stage-block-ids
+                   :span ~'span}})))
+
 (defn gm-plugin-interval-start?
   [ws-cfg]
   [`(ws2/--wf-require-span-completable ~'state ~'span)])
+
+(defn gm-plugin-setup-interval-post
+  [ws-cfg]  
+  [(vary-meta `(do (vreset! (:last-fetched ~'state)
+                            (tsc/walk-convert-tensors
+                             (-> ~'state :interval :gm :fetched)))
+                   ~'state)
+              assoc ::ws2/no-merge-state true)])
 
 (defn gm-plugin-setup-require-span-completable
   [ws-cfg & [span]]
@@ -621,6 +674,62 @@ provided an existing Graph defrecord and feed map."
 (defn gm-plugin-setup-query-steps
   [ws-cfg block-type q & [offset]]
   [`(ws2/--wf-query-steps ~'state ~block-type ~q ~offset)])
+
+(defn gm-plugin-plans->op-nodes
+  [graph plans]
+  (mapv (partial sput/->op-node graph)
+        plans))
+
+(defn gm-plugin-init-fn-io
+  [graph modes feed-args fetch-return]
+  (let [fetch-ops (gm-plugin-plans->op-nodes graph fetch-return)]
+    {:global {:input-ch (a/chan 1)
+              :feed-args (gm-plugin-plans->op-nodes graph feed-args)
+              :fetch-return  fetch-ops}
+     ;; TODO don't hardcode :predict
+     :modes (update-in modes [:predict :fetch] into fetch-ops)}))
+
+(defn gm-plugin-setup-init-fn-io-main
+  [ws-cfg & _]
+  [`(gm-plugin-init-fn-io ~'(-> state :global :gm :graph)
+                          ~'(-> state :modes :gm)
+                          (-> ~'ws-cfg :modes :predict :feed-args)
+                          (-> ~'ws-cfg :modes :predict :fetch-return))])
+
+(defn gm-plugin-wait-take-feed-args
+  [modes feed-ops input-ch]
+  (let [[[input return-ch] ch] (a/alts!! [input-ch
+                                          (a/timeout 100)])]
+    (def ch1 ch)
+    (if (= ch input-ch)
+      ;; TODO don't hardcode :predict
+      {:modes (update-in modes [:predict :feed]
+                         merge (zipmap feed-ops input))
+       :global {:return-ch return-ch}}
+      ;; TODO this is bad because you can't gaurantee the state/step's name ...... oh also.....
+      {:repeat? true})))
+
+(defn gm-plugin-setup-wait-take-feed-args
+  [ws-cfg & _]
+  [`(gm-plugin-wait-take-feed-args
+     ~'(-> state :modes :gm)
+     ~'(-> state :global :gm :feed-args)
+     ~'(-> state :global :gm :input-ch))])
+
+(defn gm-plugin-offer-fetched-return
+  [return-ch fetch-return fetched]
+  (a/offer! return-ch
+            (tsc/walk-convert-tensors
+             (mapv fetched
+                   (map :id fetch-return)))))
+
+(defn gm-plugin-setup-offer-fetched-return
+  [ws-cfg & _]
+  [`(gm-plugin-offer-fetched-return
+     ~'(-> state :global :gm :return-ch)
+     ~'(-> state :global :gm :fetch-return)
+     ;; TODO don't hardcode predict?
+     ~'(-> state :interval :gm :fetched :predict))])
 
 ;; TODO verify session is closed
 (defn gm-plugin-close-graph
@@ -659,13 +768,18 @@ provided an existing Graph defrecord and feed map."
               :hook-forms {:post-async #'gm-plugin-interval-post-async-form
                            :start? #'gm-plugin-interval-start?-form
                            :repeat? #'gm-plugin-interval-repeat?-form}
-              :start? #'gm-plugin-interval-start?}
+              :start? #'gm-plugin-interval-start?
+              :post-async #'gm-plugin-setup-interval-post}
    :step {:block #'gm-plugin-step-block}
    :workflow {:block #'gm-plugin-workflow-block}
-   :stage {:block #'gm-plugin-stage-block}
+   :stage {:block #'gm-plugin-stage-block
+           :hook-forms {:repeat? #'gm-plugin-stage-repeat?-form}}
    :require-span-completable {:inline #'gm-plugin-setup-require-span-completable}
    :require-span-repeatable {:inline #'gm-plugin-setup-require-span-repeatable}
    :query-steps {:inline #'gm-plugin-setup-query-steps}
+   :init-fn-io {:main #'gm-plugin-setup-init-fn-io-main} ;; TODO
+   :wait-take-feed-args {:main #'gm-plugin-setup-wait-take-feed-args} ;; TODO
+   :offer-fetched-return {:main #'gm-plugin-setup-offer-fetched-return} ;; TODO
    :close-graph {:main #'gm-plugin-setup-close-graph}
    :close-session {:main #'gm-plugin-setup-close-session}})
 
@@ -706,11 +820,46 @@ provided an existing Graph defrecord and feed map."
 (defn default-train-test-wf
   [ws-cfg]
   (let [ws-cfg' (ws2/filter-modes ws-cfg [:train :test])
-        src (ws2/render-wf-fn-src (mk-default-train-test-wf-def ws-cfg)
-                                  ws-cfg)]
-    (vary-meta ((eval src) ws-cfg)
+        src (ws2/render-wf-fn-src (mk-default-train-test-wf-def ws-cfg')
+                                  ws-cfg')]
+    (vary-meta ((eval src) ws-cfg')
                assoc
                :doc "A default implementation of a train-test workflow....TODO"
+               :source src)))
+
+(defn- mk-default-predict-wf-def
+  [{:keys [restore-varis] :as ws-cfg}]
+  [:block {:type :workflow
+           ;; TODO unlimited steps?
+           :span {:steps 99999}}
+   [:block {:type :stage
+            ;; TODO unlimited stages?
+            :span {:stages 99999}
+            :plugin {:stage
+                     {:repeat? [:require-span-repeatable]}}
+            }
+    [:build]
+    [:create-session]
+    (when restore-varis
+      [:restore-varis restore-varis]) 
+    [:init-fn-io]
+    [:wait-take-feed-args]
+    [:block {:type :interval
+             :span {:intervals 1
+                    :steps 1}
+             :plugin {:interval
+                      {:post-async [:offer-fetched-return]}}}
+     [:mode :predict]
+     [:fetch-map]]]])
+
+(defn default-predict-wf
+  [ws-cfg]
+  (let [ws-cfg' (ws2/filter-modes ws-cfg [:predict])
+        src (ws2/render-wf-fn-src (mk-default-predict-wf-def ws-cfg')
+                                  ws-cfg')]
+    (vary-meta ((eval src) ws-cfg')
+               assoc
+               :doc "A default implementation of a prediction workflow....TODO"
                :source src)))
 
 (defmacro ws-show-cmd-source

@@ -15,6 +15,10 @@
                       :scopes {}
                       :delete []}))
 
+#_ (def state (atom {:handles {}
+                     :scopes {}
+                     :delete []}))
+
 (defn PValueProvider?
   [v]
   (and (instance? java.lang.Object v)
@@ -25,13 +29,13 @@
   (when (PValueProvider? v)
     (tsr/getHandle v)))
 
-(defn find-natives
+(defn find-native-handles
   [v]
   (->> v
        (tree-seq #(and (coll? %)
                        (not (PValueProvider? %)))
                  seq)
-       (filter ->handle)))
+       (keep ->handle)))
 
 (defn- remove-scope-from-hnds
   [state-handles scope-id hnds]
@@ -103,6 +107,10 @@
    :parent (dissoc *scope*
                    :parent)})
 
+(defn mk-orphan-scope [ty]
+  (binding [*scope* nil]
+    (mk-scope ty)))
+
 (defn set-global-standard-scope! []
   (set-global-scope! (mk-scope :standard)))
 
@@ -135,7 +143,7 @@
 (def conj-set (fnil conj #{}))
 
 (defn- add-to-scope**
-  [scope-id state {:keys [handle]}]
+  [scope-id state handle]
   (-> state
       (update-in [:handles handle]
                  conj-set
@@ -156,12 +164,12 @@
   ([{ty :type id :id :as scope} v]
    (case ty
      :standard (do (some->> v
-                            find-natives
+                            find-native-handles
                             not-empty
                             (swap! state add-to-scope* id))
                    v)
      nil (if (->> v
-                  find-natives
+                  find-native-handles
                   not-empty)
            (throw (Exception. "No tensor scope. Cannot create native tensor value without a tensor scope." ))
            v)

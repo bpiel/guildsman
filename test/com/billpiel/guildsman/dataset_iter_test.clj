@@ -1,5 +1,6 @@
 (ns com.billpiel.guildsman.dataset-iter-test
   (:require [clojure.test :as t]
+            [clojure.core.async :as a]
             [com.billpiel.guildsman.core :as g]
             [com.billpiel.guildsman.ops.basic :as o]
             [com.billpiel.guildsman.ops.composite :as c]
@@ -153,6 +154,25 @@
 
 (g/ws-train-test ws-dream)
 
+(g/with-tensor-conversion-scope
+  (g/let+ [{:keys [iter ign]}
+           (+->> (o/iterator :iter
+                             {:output-shapes [[-1]]
+                              :output-types [g/dt-int]})
+                 (o/iterator-get-next :gn
+                                      {:output-shapes [[-1]]
+                                       :output-types [g/dt-int]})
+                 (o/identity-tf :ign))
+
+           {:keys [mkitr]} (+->> (o/tensor-dataset {:output-shapes [[-1]]}
+                                                   [(o/placeholder :ph g/dt-int [-1])])
+                                 (o/repeat-dataset {:output-shapes [[-1]]
+                                                    :output-types [g/dt-int]}
+                                                   $ -1)
+                                 (o/make-iterator :mkitr $ iter))]
+    (g/with-close-let [{:keys [graph] :as session} (g/build-all->session [ign ])]
+      #_      (g/run session mkitr {:ph [0]})
+      (g/produce session ign {:gn [5 6 7]}))))
 
 (g/def-workspace ws-mnist1
   (g/let+ [{:keys [features labels socket]}
@@ -162,14 +182,14 @@
                 (c/dsi-socket-outputs))
 
            {:keys [logits classes]}
-           (+>> features
-                (c/dense {:units 1024}) ;; TODO why is this scoped as ::req??
-                (c/dense {:id :logits
-                          :units 10})
-                (o/arg-max :classes $ 1))
+           (+->> features
+                 (c/dense {:units 1024}) ;; TODO why is this scoped as ::req??
+                 (c/dense {:id :logits
+                           :units 10})
+                 (o/arg-max :classes $ 1))
 
            {:keys [opt]}
-           (+>> labels
+           (+->> labels
                 (c/one-hot $ 10)
                 (c/mean-squared-error logits)
                 (c/grad-desc-opt :opt 0.2))
@@ -191,20 +211,198 @@
                                                 [:bpiel/mnist-train-60k-labels
                                                  :bpiel/mnist-train-60k-features])}}
              :test {::dev/summaries [acc]
+                    :fetch [acc]
                     :iters {socket (c/dsi-plug {:batch-size -1
                                                 #_[:epochs 1]
                                                 :epoch-size 100} 
                                                [:bpiel/mnist-test-10k-features
-                                                :bpiel/mnist-test-10k-labels])}}}
+                                                :bpiel/mnist-test-10k-labels])}}
+             :predict {:feed-args [features] #_ {:features features}
+                       :fetch-return [classes]}}
      ;; TODO train-test should reset log
+     :workflows {:train-test {:driver g/default-train-test-wf}
+                 :predict {:driver g/default-predict-wf}}}))
+
+(def add-ds-plan
+  (c/mem-recs-ds [:features :labels]
+                 [[[ 0.1 0.1] [0.2]]
+                  [[ 0.1 0.] [0.1]]
+                  [[ 0. 0.1] [0.1]]
+                  [[ 0. 0.] [0.]]
+                  [[-0.1 -0.1] [-0.2]]
+                  [[-0.1 0.] [-0.1]]
+                  [[0. -0.1] [-0.1]]]))
+
+(g/def-workspace ws-add1
+  (g/let+ [{:keys [features labels socket]}
+           (->> (c/dsi-socket :socket
+                              {:fields [:features g/dt-float [-1 2]
+                                        :labels   g/dt-float [-1 1]]})
+                c/dsi-socket-outputs)
+
+           {:keys [pred1]}
+           (+->> features
+                 (c/dense :pred1
+                          {:units 1}))
+
+           {:keys [opt err]}
+           (+->> labels
+                 (c/mean-squared-error :err pred1)
+                 (c/grad-desc-opt :opt 0.1))]
+    
+    {:plugins [dev/plugin g/gm-plugin]
+     :plans [opt]
+     :duration [:steps 1000]
+     :interval [:steps 1000]
+     :modes {:train {:step [opt]
+                     ::dev/summaries [err pred1]
+                     :fetch [err]
+                     :iters {socket (c/dsi-plug {:batch-size 7
+                                                 :epoch-size 7}
+                                                [add-ds-plan])}}
+             :test {::dev/summaries [err]
+                    :fetch [labels pred1]
+                    :iters {socket (c/dsi-plug {:batch-size 7
+                                                :epoch-size 7}
+                                               [add-ds-plan])}}
+             :predict {:feed-args [features]
+                       :fetch-return [pred1]}}
+     :workflows {:train-test {:driver g/default-train-test-wf}
+                 :predict {:driver g/default-predict-wf}}}))
+
+
+(g/ws-train-test-wf ws-add1)
+
+(g/ws-pr-status ws-add1)
+
+(g/ws-predict-wf ws-add1)
+
+(g/ws-predict-sync ws-add1
+                   [[[1.3 0.05]
+                     [0.11 0.09]]])
+
+(g/ws-interrupt ws-add1)
+
+(-> @(:wf-out ws-add1)
+    :last-fetched
+    deref
+    clojure.pprint/pprint )
+
+(g/ws-do-wf ws-add1 :predict)
+
+(do
+  (def rch1 (a/chan 1))
+
+  (def in-ch (-> ws-add1 :wf-out deref :global :gm :input-ch))
+
+  (a/>!! in-ch [[[[0.3 0.05]
+                  [0.11 0.09]]] rch1]))
+
+(a/<!! rch1)
+
+
+(def add-ds-plan
+  (c/mem-recs-ds [:labels :lab2]
+                 [[[] 10 123]
+                  [21 278]
+                  [34 356]]))
+
+(g/def-workspace ws-simple
+  (g/let+ [{:keys [labels lab2 socket]}
+           (->> (c/dsi-socket :socket
+                              {:fields [:labels g/dt-int [-1]
+                                        :lab2 g/dt-int [-1]]})
+                c/dsi-socket-outputs)
+           v1 (c/vari :v1
+                      {:dtype g/dt-int
+                       :shape [3]}
+                      [0 0 0])
+           a1 (o/assign v1 (o/identity-tf labels))
+           v2 (c/vari :v2
+                      {:dtype g/dt-int
+                       :shape [3]}
+                      [0 0 0])
+           a2 (o/assign v2 (o/identity-tf lab2))
+           noop1 (o/no-op :noop1 {:ctrl-inputs [a1 a2]})]
+    
+    {:plugins [dev/plugin g/gm-plugin]
+     :plans [labels socket a1 a2 noop1]
+     :duration [:steps 2]
+     :interval [:steps 1]
+     :modes {:train {:step [noop1]
+                     :fetch [v1]
+                     :iters {socket (c/dsi-plug {:batch-size 3
+                                                 :epoch-size 3}
+                                                [add-ds-plan])}}
+             :test {:fetch [v1 v2]
+                    :iters {socket (c/dsi-plug {:batch-size 3
+                                                :epoch-size 1}
+                                               [add-ds-plan])}}}
      :workflows {:train-test {:driver g/default-train-test-wf}}}))
 
+(g/ws-train-test ws-simple)
+
+(g/ws-pr-status ws-simple)
+
+(-> @(:wf-out ws-simple)
+    :last-fetched
+    deref
+    clojure.pprint/pprint )
+
+(g/ws-pr-workflow-source ws-simple :train-test)
+
+;; TODO something goes wrong with deleting the tensor
 
 
-(clojure.pprint/pprint 
- (g/ws-status ws-mnist1))
 
-(g/ws-train-test ws-mnist1)
+
+
+(def add-ds-plan2
+  (c/mem-recs-ds [:features :labels]
+                 [[[0. 0.] 0.]
+                  [[0. 1.] 1.]
+                  [[1. 1.] 2.]
+                  [[-1. 1.] 0.]
+                  [[1. -1.] 0.]
+                  [[0.5 0.] 0.5]]))
+
+(g/let+ [{:keys [features labels socket]}
+         (->> (c/dsi-socket :socket
+                            {:fields [:features g/dt-float [-1 2]
+                                      :labels   g/dt-float [-1]]})
+              c/dsi-socket-outputs)
+
+         ds1 (c/mem-recs-ds [:features :labels]
+                            [[[0. 0.] 0.]
+                             [[0. 1.] 1.]
+                             [[1. 1.] 2.]
+                             [[-1. 1.] 0.]
+                             [[1. -1.] 0.]
+                             [[0.5 0.] 0.5]])
+         
+         plug (c/dsi-plug {:batch-size 6
+                           :epoch-size 6}
+                          [ds1])
+         conn (c/dsi-connector socket plug)
+         {:keys [graph] :as session} (g/build-all->session [features conn])]
+  (g/run-all session [conn])
+  (g/run-global-vars-init session)
+  (g/with-tensor-conversion-scope
+    (g/fetch-all session [features ])))
+
+(clojure.pprint/pprint ws-mnist1)
+
+(g/ws-do-wf ws-mnist1 :predict)
+
+(g/ws-pr-workflow-source ws-mnist1 :predict)
+
+(def rch1 (a/chan 1))
+
+(def in-ch (-> ws-mnist1 :wf-out deref :global :gm :input-ch))
+
+(a/>!! in-ch [[3.] rch1])
+
+
 
 (tsc/set-global-conversion-scope!)
 
@@ -223,3 +421,76 @@
 (tsc/with-conversion-scope
   (g/produce (o/iterator {:output-types [dt/float-kw]
                           :output-shapes [[1]]})))
+
+(g/produce (o/unpack {:num 1 :axis 0}
+                     [[1 2]]))
+
+
+(g/with-tensor-scope
+  (let [v1 (c/vari :v1 {:dtype g/dt-float :shape [2]} [0. 0.])
+        x [-1. 1.]
+        loss (c/mean-squared-error v1 x)
+        opt (c/grad-desc-opt :opt 0.1 loss)
+        sess (g/build->session opt)
+        _ (g/run-global-vars-init sess)
+        loss-init (g/produce sess loss)]
+    (g/run-all sess (repeat 10  opt))
+    (g/with-tensor-conversion-scope
+      (g/produce sess v1))))
+
+(g/with-tensor-scope
+  (let [v1 (c/vari :v1 {:dtype g/dt-float :shape [2]} [0. 0.])
+        x [-1. 1.]
+        loss (o/squared-difference v1 x)
+        opt (c/grad-desc-opt :opt 0.1 loss)
+        sess (g/build->session opt)
+        _ (g/run-global-vars-init sess)
+        loss-init (g/produce sess loss)]
+    (g/run-all sess (repeat 10  opt))
+    (g/with-tensor-conversion-scope
+      (g/produce sess v1))))
+
+(g/with-tensor-scope
+  (let [x [[ 0.1 0.1 ]
+           [ 0.1 0. ]
+           [ 0. 0. ]
+           [-0.1 -0.1]
+           [-0.1 -0.]]
+        y [[0.2]
+           [0.1]
+           [0.]
+           [-0.2]
+           [-0.1]]
+        d1 (c/dense :d1 {:units 1} x)
+        loss (c/reduce-sum (o/squared-difference d1 y))
+        opt (c/grad-desc-opt :opt 0.01 loss)
+        sess (g/build->session opt)
+        _ (g/run-global-vars-init sess)
+        loss-init (g/produce sess loss)]
+    (g/run-all sess (repeat 1000  opt))
+    (g/with-tensor-conversion-scope
+      (g/produce sess d1))))
+
+(g/with-tensor-scope
+  (let [x [[ 0.1 0.1 ]
+           [ 0.1 0. ]
+           [ 0. 0. ]
+           [-0.1 -0.1]
+           [-0.1 -0.]]
+        y [[0.2]
+           [0.1]
+           [0.]
+           [-0.2]
+           [-0.1]]
+        d1 (c/dense :d1 {:units 1} x)
+        loss (->> (o/sub d1 y)
+                  o/abs
+                  c/reduce-sum)
+        opt (c/grad-desc-opt :opt 0.01 loss)
+        sess (g/build->session opt)
+        _ (g/run-global-vars-init sess)
+        loss-init (g/produce sess loss)]
+    (g/run-all sess (repeat 1000  opt))
+    (g/with-tensor-conversion-scope
+      (g/produce sess d1))))
+

@@ -29,6 +29,43 @@
   [{:keys [ds-fields]}]
   (ds-fields-prop->output-attrs ds-fields))
 
+(defn- mem-ds-fields-prop
+  [fields inputs]
+  (mapv (fn [f {:keys [dtypes shapes]}]
+          {:name f
+           :type (first dtypes)
+           :shape (-> shapes first rest vec)})
+        fields
+        inputs))
+
+(defn- mem-ds-size-prop
+  [inputs]
+  (->> inputs
+       (map (comp first first :shapes))
+       (apply min)))
+
+(defmethod mc/build-macro :mem-recs-ds
+  [^Graph g {:keys [id inputs fields size] :as args}]
+  [(-> (o/tensor-slice-dataset id
+                               {:output_shapes (mapv (comp first :shapes)
+                                                     inputs)}
+                               inputs)
+       (set-ds-props (mem-ds-fields-prop fields inputs)
+                     size))])
+
+(sput/defn-comp-macro-op mem-recs-ds
+  {:doc "Create an in-memory dataset from vector of records..."
+   :id :mem-recs-ds
+   :attrs {}
+   :inputs [[fields "field names as keywords"]
+            [records "the dataset as a vector of vector records"]]}
+  {:macro :mem-recs-ds
+   :id id
+   :inputs (apply (partial mapv (comp o/c vector))
+                  records)
+   :fields fields
+   :size (count records)})
+
 (defmethod mc/build-macro :repeat-ds
   [^Graph g {:keys [id inputs fields] :as args}]
   (let [[n dataset] inputs]
@@ -76,7 +113,7 @@
                            (mapcat :ds-fields inputs))
                           :N (count inputs))
                    inputs)
-    inputs))
+    (first inputs)))
 
 (defn- int->arg-sym [i]
   (-> i
@@ -238,8 +275,6 @@
                                          :output-idx (+ 2 idx))])
                      fields)))
 
-
-
 (defmethod mc/build-macro :dsi-connector
   [^Graph g {:keys [id attrs inputs] :as args}]
   (let [[socket plug-hnd plug-init] inputs]
@@ -334,9 +369,9 @@
 
 (defn- tensor-slice-ds-ds-fields-prop
   [fields inputs]
-  (mapv (fn [f {:keys [types shapes]}]
+  (mapv (fn [f {:keys [dtypes shapes]}]
           {:name f
-           :type (first types)
+           :type (first dtypes)
            :shape (first shapes)})
         fields
         inputs))
@@ -366,5 +401,3 @@
    :id id
    :inputs (mapv o/c components)
    :fields fields})
-
-

@@ -29,15 +29,14 @@
 
 (defn get-op-by-plan
   [^Graph g plan]
-  (ut/$- ->> plan
+  (ut/$- some->> plan
          compute-hash
          ((gr/hash->id g))
          ((gr/id->node g))
          (assoc $ :output-idx
-                (or (:output-idx plan)
-                    0))))
+                (:output-idx plan 0))))
 
-(defn find-op
+#_(defn find-op
   [^Graph g qry]
   (if (map? qry) (get-op-by-plan g qry) 
       (let [qry' (if (keyword? qry)
@@ -45,7 +44,7 @@
                    qry)]
         ((gr/id->node g) qry'))))
 
-(defn find-ops
+#_(defn find-ops
   [^Graph g qry]
   (or (when (ut/regex? qry)
         (let [id->node (gr/id->node g)]

@@ -98,6 +98,10 @@
 
 (defn- visit-plan*
   [f plan]
+  ;; TODO use spec?
+  (when (->> plan :inputs (filter nil?) not-empty)
+    (throw (Exception. (format "Plan contains `nil` as input. %s"
+                               plan))))
   (if (and (sequential? plan)
            (or (empty? plan) ;; assume an empty input list??
                (some map? (tree-seq sequential? identity plan)))) ;; TODO not great way to detect input list
@@ -252,7 +256,7 @@
 (defn let+**
   [[b v]]
   (if (and (seq? v)
-           (= (first v) '+>>))
+           (= (first v) '+->>))
     (let [[_ v1 & vrest] v]
       (concat `(~'$gm$ (id-merge ~'$gm$
                                  ~(wrap-bind-form v1 v1))
