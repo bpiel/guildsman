@@ -335,9 +335,27 @@ provided an existing Graph defrecord and feed map."
   [ws]
   (ws-do-wf ws :close))
 
-(defn ws-train-test
+(defn ws-train-test-wf
   [ws]
   (ws-do-wf ws :train-test))
+
+(defn ws-predict-wf
+  [ws]
+  (ws-do-wf ws :predict))
+
+;; TODO timeout
+(defn ws-predict-async
+  [ws input]
+  (let [return (a/chan 1)]
+    (-> ws :wf-out deref :global :gm :input-ch
+        (a/>!! [input return]))
+    return))
+
+(defn ws-predict-sync
+  [ws input]
+  (-> ws
+      (ws-predict-async input)
+      a/<!!))
 
 (def last-ex (atom nil))
 #_ (clojure.pprint/pprint last-ex)
@@ -685,15 +703,17 @@ provided an existing Graph defrecord and feed map."
 (defn gm-plugin-offer-fetched-return
   [return-ch fetch-return fetched]
   (a/offer! return-ch
-            (mapv fetched
-                  (map :id fetch-return))))
+            (tsc/walk-convert-tensors
+             (mapv fetched
+                   (map :id fetch-return)))))
 
 (defn gm-plugin-setup-offer-fetched-return
   [ws-cfg & _]
   [`(gm-plugin-offer-fetched-return
      ~'(-> state :global :gm :return-ch)
      ~'(-> state :global :gm :fetch-return)
-     ~'(-> state :interval :gm :fetched))])
+     ;; TODO don't hardcode predict?
+     ~'(-> state :interval :gm :fetched :predict))])
 
 ;; TODO verify session is closed
 (defn gm-plugin-close-graph

@@ -225,11 +225,13 @@
 
 (def add-ds-plan
   (c/mem-recs-ds [:features :labels]
-                 [[[ 0.1 0.1 ] [0.2]]
-                  [[ 0.1 0. ] [0.1]]
-                  [[ 0. 0. ] [0.]]
+                 [[[ 0.1 0.1] [0.2]]
+                  [[ 0.1 0.] [0.1]]
+                  [[ 0. 0.1] [0.1]]
+                  [[ 0. 0.] [0.]]
                   [[-0.1 -0.1] [-0.2]]
-                  [[-0.1 -0.] [-0.1]]]))
+                  [[-0.1 0.] [-0.1]]
+                  [[0. -0.1] [-0.1]]]))
 
 (g/def-workspace ws-add1
   (g/let+ [{:keys [features labels socket]}
@@ -255,13 +257,13 @@
      :modes {:train {:step [opt]
                      ::dev/summaries [err pred1]
                      :fetch [err]
-                     :iters {socket (c/dsi-plug {:batch-size 5
-                                                 :epoch-size 5}
+                     :iters {socket (c/dsi-plug {:batch-size 7
+                                                 :epoch-size 7}
                                                 [add-ds-plan])}}
              :test {::dev/summaries [err]
                     :fetch [labels pred1]
-                    :iters {socket (c/dsi-plug {:batch-size 5
-                                                :epoch-size 5}
+                    :iters {socket (c/dsi-plug {:batch-size 7
+                                                :epoch-size 7}
                                                [add-ds-plan])}}
              :predict {:feed-args [features]
                        :fetch-return [pred1]}}
@@ -269,16 +271,32 @@
                  :predict {:driver g/default-predict-wf}}}))
 
 
-(g/ws-train-test ws-add1)
+(g/ws-train-test-wf ws-add1)
 
 (g/ws-pr-status ws-add1)
+
+(g/ws-predict-wf ws-add1)
+
+(g/ws-predict-sync ws-add1
+                   [[[0.3 0.05]
+                     [0.11 0.09]]])
 
 (-> @(:wf-out ws-add1)
     :last-fetched
     deref
     clojure.pprint/pprint )
 
+(g/ws-do-wf ws-add1 :predict)
 
+(do
+  (def rch1 (a/chan 1))
+
+  (def in-ch (-> ws-add1 :wf-out deref :global :gm :input-ch))
+
+  (a/>!! in-ch [[[[0.3 0.05]
+                  [0.11 0.09]]] rch1]))
+
+(a/<!! rch1)
 
 
 (def add-ds-plan
