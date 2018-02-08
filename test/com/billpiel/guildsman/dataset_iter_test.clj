@@ -223,6 +223,8 @@
      :workflows {:train-test {:driver g/default-train-test-wf}
                  :predict {:driver g/default-predict-wf}}}))
 
+
+
 (def add-ds-plan
   (c/mem-recs-ds [:features :labels]
                  [[[ 0.1 0.1] [0.2]]
@@ -340,7 +342,7 @@
                                                [add-ds-plan])}}}
      :workflows {:train-test {:driver g/default-train-test-wf}}}))
 
-(g/ws-train-test ws-simple)
+(g/ws-train-test-wf ws-simple)
 
 (g/ws-pr-status ws-simple)
 
@@ -449,6 +451,8 @@
     (g/run-all sess (repeat 10  opt))
     (g/with-tensor-conversion-scope
       (g/produce sess v1))))
+
+
 
 (g/with-tensor-scope
   (let [x [[ 0.1 0.1 ]

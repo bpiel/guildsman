@@ -42,8 +42,9 @@
               (~name-sym nil {} ~@inputs')))]
          (remove nil?))))
 
-(defn defn-comp-op-main*
-  [name-sym {:keys [id attrs inputs] :as attr-map} body]
+
+#_(defn defn-comp-op-main*
+  [name-sym {:keys [id attrs inputs assoc-scopes? with-op-meta? with-push-id-to-scopes?] :as attr-map} body]
   (let [attrs' (some-> attrs keys not-empty)
         inputs' (some->> inputs (map first) not-empty)
         ctrl-inputs' (when (:ctrl-inputs-attr? attr-map true)
@@ -65,6 +66,37 @@
          (ut/with-op-meta
            (assoc (do ~@body)
                   :ctrl-inputs ~@ctrl-inputs')))))))
+
+(defn defn-comp-op-main*
+  [name-sym {:keys [id attrs inputs assoc-scopes? with-op-meta? with-push-id-to-scopes?] :as attr-map} body]
+  (let [attrs' (some-> attrs keys not-empty)
+        inputs' (some->> inputs (map first) not-empty)
+        ctrl-inputs' (when (:ctrl-inputs-attr? attr-map true)
+                       '(ctrl-inputs))
+        arg-list (cond (and id attrs' inputs')
+                       `[~'id
+                         {:keys [~@attrs' ~@ctrl-inputs']}
+                         ~@inputs']
+                       (and id attrs')
+                       `[~'id
+                         {:keys [~@attrs' ~@ctrl-inputs']}]
+                       (and id inputs' ctrl-inputs')
+                       `[~'id
+                         {:keys [~@ctrl-inputs']}
+                         ~@inputs'])
+        steps (remove nil?
+                      [(if (:ctrl-inputs-attr? attr-map true)
+                         `(assoc (do ~@body)
+                                 :ctrl-inputs ~@ctrl-inputs')
+                         `(do ~@body))
+                       (when assoc-scopes?
+                         `sc/assoc-scopes-to-plan)
+                       (when with-push-id-to-scopes?
+                         `(sc/with-push-both-scopes (or ~'id ~id)))
+                       (when with-op-meta?
+                         `ut/with-op-meta)])]
+    `(~arg-list
+      (->> ~@steps))))
 
 (defn defn-comp-op-fn-attr-map
   [name-sym {:keys [doc attrs inputs]}]
@@ -88,7 +120,7 @@
     (merge {:ctrl-inputs-attr? true
             :assoc-scopes? false
             :with-op-meta? true
-            :with-push-id-to-scopes true}
+            :with-push-id-to-scopes? true}
            attrs-map)
     body))
 
@@ -98,6 +130,6 @@
     (merge {:ctrl-inputs-attr? true
             :assoc-scopes? true
             :with-op-meta? true
-            :with-push-id-to-scopes true}
+            :with-push-id-to-scopes? false}
            attrs-map)
     body))
