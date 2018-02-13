@@ -498,3 +498,40 @@
     (g/with-tensor-conversion-scope
       (g/produce sess d1))))
 
+
+
+(g/def-workspace ws-splitter
+  (g/let+ [{:keys [labels lab2 socket]}
+           (->> (c/dsi-socket :socket
+                              {:fields [:labels g/dt-int [-1]
+                                        :lab2 g/dt-int [-1]]})
+                c/dsi-socket-outputs)
+           v1 (c/vari :v1
+                      {:dtype g/dt-int
+                       :shape [3]}
+                      [0 0 0])
+           a1 (o/assign v1 (o/identity-tf labels))
+           v2 (c/vari :v2
+                      {:dtype g/dt-int
+                       :shape [3]}
+                      [0 0 0])
+           a2 (o/assign v2 (o/identity-tf lab2))
+           noop1 (o/no-op :noop1 {:ctrl-inputs [a1 a2]})]
+    
+    {:plans [labels socket a1 a2 noop1]
+     :modes {:train {:step [noop1]
+                     :fetch [v1]
+                     :iters {socket (c/dsi-plug {:batch-size 3
+                                                 :epoch-size 3}
+                                                [add-ds-plan])}}
+             :test {:fetch [v1 v2]
+                    :iters {socket (c/dsi-plug {:batch-size 3
+                                                :epoch-size 1}
+                                               [add-ds-plan])}}}}))
+
+
+(def wf-train-test
+  (g/mk-train-test-wf
+   {:plugins [dev/plugin g/gm-plugin]
+    :duration [:steps 2]
+    :interval [:steps 1]}))
