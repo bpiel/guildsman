@@ -788,7 +788,7 @@ provided an existing Graph defrecord and feed map."
 ;; END PLUGIN ========================
 
 ;; WORKSPACES ========================
-(defn- mk-default-train-test-wf-def
+(defn- mk-train-test-kernel
   [{:keys [duration interval] :as wf-def}]
   [:block {:type :workflow
            :span {:steps (second duration)}}
@@ -821,7 +821,7 @@ provided an existing Graph defrecord and feed map."
 (defn default-train-test-wf
   [ws-cfg]
   (let [ws-cfg' (wf/filter-modes ws-cfg [:train :test])
-        src (wf/render-wf-fn-src (mk-default-train-test-wf-def ws-cfg')
+        src (wf/render-wf-fn-src (mk-train-test-kernel ws-cfg')
                                   ws-cfg')]
     (vary-meta ((eval src) ws-cfg')
                assoc
@@ -941,3 +941,17 @@ provided an existing Graph defrecord and feed map."
 
 ;; ===========???????????????
 
+(defn render-workflow-from-kernel
+  [kernel-fn wf-cfg]
+  (let [kernel (kernel-fn wf-cfg)
+        src (wf/render-wf-fn-src kernel)]
+    (vary-meta (eval src)
+               assoc
+               :doc "A default implementation of a train-test workflow....TODO"
+               :source src
+               :wf-kernel kernel)))
+
+(defn mk-train-test-wf
+  [{:keys [plugins duration interval] :as cfg}]
+  (render-workflow-from-kernel mk-train-test-kernel
+                               cfg))
