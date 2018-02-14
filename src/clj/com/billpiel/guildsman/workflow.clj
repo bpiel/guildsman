@@ -74,8 +74,8 @@
                 (keys span))))))
 
 (defn inject-plugin
-  [ws-cfg plugin]
-  (update ws-cfg
+  [wf-cfg plugin]
+  (update wf-cfg
           :plugins
           (partial into [plugin])))
 
@@ -123,7 +123,7 @@
 
 
 (defn default-form-renderer
-  [hook-frms ws-cfg & _]
+  [hook-frms wf-cfg & _]
   `(let [~@(mk-default-form-bindings hook-frms)]
      {:state ~'state}))
 
@@ -180,13 +180,13 @@
          not-empty)))
 
 (defn compound-command-renderer
-  [frm-renderer hook-renderers cmd-type args ws-cfg forms]
+  [frm-renderer hook-renderers cmd-type args wf-cfg forms]
   (add-to-forms forms
                 cmd-type
                 nil
                 (frm-renderer
-                 (map #(apply % ws-cfg args) hook-renderers)
-                 ws-cfg
+                 (map #(apply % wf-cfg args) hook-renderers)
+                 wf-cfg
                  args)))
 
 
@@ -195,57 +195,57 @@
 (declare render-command)
 
 (defn render-command
-  [[cmd-type & args] ws-cfg forms]
-  (if-let [hook-renderers (find-command-renderers cmd-type ws-cfg)]
-    (compound-command-renderer (find-command-form-renderer cmd-type ws-cfg)
+  [[cmd-type & args] wf-cfg forms]
+  (if-let [hook-renderers (find-command-renderers cmd-type wf-cfg)]
+    (compound-command-renderer (find-command-form-renderer cmd-type wf-cfg)
                                hook-renderers
                                cmd-type
                                args
-                               ws-cfg
+                               wf-cfg
                                forms)
     forms))
 
 (defn render-element
-  [[cmd :as cmd-def] ws-cfg forms]
+  [[cmd :as cmd-def] wf-cfg forms]
   (case cmd
-    :block (render-block cmd-def ws-cfg forms)
+    :block (render-block cmd-def wf-cfg forms)
     :block-hook (let [[_ block-type hook-type] cmd-def]
-                  (render-block-hook block-type hook-type ws-cfg forms))
-    (render-command cmd-def ws-cfg forms)))
+                  (render-block-hook block-type hook-type wf-cfg forms))
+    (render-command cmd-def wf-cfg forms)))
 
 (defn render-element-single-expr
-  [cmd-def ws-cfg]
-  (let [{:keys [forms]} (render-element cmd-def ws-cfg {})]
-    (some-> (render-element cmd-def ws-cfg {})
+  [cmd-def wf-cfg]
+  (let [{:keys [forms]} (render-element cmd-def wf-cfg {})]
+    (some-> (render-element cmd-def wf-cfg {})
             :forms
             keys
             first)))
 
 (defn render-element-inline
-  [{:keys [plugins] :as ws-cfg} [cmd-name & args]]
+  [{:keys [plugins] :as wf-cfg} [cmd-name & args]]
   (when-let [renderer (find-kw-src-pair-renderer [cmd-name :inline]
                                                  plugins)]
-    (apply renderer ws-cfg args)))
+    (apply renderer wf-cfg args)))
 
 (defn render-inline-block-contents
-  [block-type ws-cfg contents & [pre-hooks post-hooks]]
+  [block-type wf-cfg contents & [pre-hooks post-hooks]]
   (vec
-   (keep (partial render-element-inline ws-cfg)
+   (keep (partial render-element-inline wf-cfg)
          (concat (map (fn [h] [:block-hook block-type h]) pre-hooks)
                  contents
                  (map (fn [h] [:block-hook block-type h]) post-hooks)))))
 
 (defn render-block-contents-reducer
-  [ws-cfg {:keys [forms] :as agg} cmd-def]
-  (let [{:keys [id forms]} (render-element cmd-def ws-cfg forms)]
+  [wf-cfg {:keys [forms] :as agg} cmd-def]
+  (let [{:keys [id forms]} (render-element cmd-def wf-cfg forms)]
     (-> agg
         (update :ids #(if id
                         (conj % id)
                         %))
         (update :forms merge forms))))
 
-(defn render-block-contents [block-type forms ws-cfg contents & [pre-hooks post-hooks]]
-  (reduce (partial render-block-contents-reducer ws-cfg)
+(defn render-block-contents [block-type forms wf-cfg contents & [pre-hooks post-hooks]]
+  (reduce (partial render-block-contents-reducer wf-cfg)
           {:ids []
            :forms forms}
           (concat (map (fn [h] [:block-hook block-type h]) pre-hooks)
@@ -254,20 +254,20 @@
 
 
 (defn render-single-inline-src
-  [{:keys [plugins] :as ws-cfg} cmd-def]
+  [{:keys [plugins] :as wf-cfg} cmd-def]
   (if (vector? cmd-def)
     (let [[cmd-name & args] cmd-def]
       (if-let [r-fn (find-kw-src-pair-renderer [cmd-name :inline] plugins)]
         (some-> r-fn
-                (apply ws-cfg args)
+                (apply wf-cfg args)
                 second first)
         (throw (Exception. (format "render-single-inline-src: Couldn't find inline for: %s"
                                    cmd-name)))))
     cmd-def))
 
 (defn render-map-single-inline-src
-  [m ws-cfg]
-  (ut/fmap (partial render-single-inline-src ws-cfg)
+  [m wf-cfg]
+  (ut/fmap (partial render-single-inline-src wf-cfg)
            m))
 
 
@@ -351,7 +351,7 @@
 
 
 (defn default-form-renderer
-  [hook-frms ws-cfg & _]
+  [hook-frms wf-cfg & _]
   `(let [~@(mk-default-form-bindings hook-frms)]
      {:state ~'state}))
 
@@ -529,34 +529,34 @@
       (throw (Exception. (format "Could not find block renderer for %s" block-type)))))
 
 (defn render-block
-  [[_ {block-type :type :as opts} & contents] ws-cfg forms]
-  ((find-block-renderer block-type ws-cfg) ws-cfg opts forms contents))
+  [[_ {block-type :type :as opts} & contents] wf-cfg forms]
+  ((find-block-renderer block-type wf-cfg) wf-cfg opts forms contents))
 
 (defn find-block-hook-renderers
   [block-type hook-type {:keys [plugins]}]
   (find-kw-src-pair-renderers [block-type hook-type] plugins))
 
 (defn render-block-hook
-  [block-type hook-type ws-cfg forms]
-  (if-let [hook-renderers (find-block-hook-renderers block-type hook-type ws-cfg)]
-    (compound-command-renderer (find-hook-form-renderer block-type hook-type ws-cfg)
+  [block-type hook-type wf-cfg forms]
+  (if-let [hook-renderers (find-block-hook-renderers block-type hook-type wf-cfg)]
+    (compound-command-renderer (find-hook-form-renderer block-type hook-type wf-cfg)
                                hook-renderers
                                ;; TODO clean up
                                (keyword (str (name block-type)
                                              "-"
                                              (name hook-type)))
                                []
-                               ws-cfg
+                               wf-cfg
                                forms)
     forms))
 
 (defn render-workflow
-  [[cmd {block-type :type} :as block-def] ws-cfg]
+  [[cmd {block-type :type} :as block-def] wf-cfg]
   (when-not (= cmd :block)
     (throw (Exception. "top-level command must be `:block`.")))
   (when-not (= block-type :workflow)
     (throw (Exception. "top-level block must be `:workflow`.")))
-  (render-block block-def ws-cfg {}))
+  (render-block block-def wf-cfg {}))
 
 (defn render-loop-cases
   [forms-map]
@@ -601,7 +601,7 @@
 
 (defn render-wf-fn-src
   [wf-kernel wf-cfg]
-  `(fn [~'{:keys [wf-in wf-out ws-cfg] :as ws}]
+  `(fn [~'{:keys [wf-in wf-out] ws-cfg :cfg :as ws}]
      (a/thread
        (tsc/with-scope
          (let [~'init (set-init-wf-state! ~'wf-out)]
@@ -615,23 +615,23 @@
                                 nil nil
                                 ~@(render-loop-cases
                                    (:forms   
-                                    (render-workflow wf-kernel wf-cfg))))]
-                 (let [[~'stack ~'current ~'todo ~'state] (iter-loop ~'result
-                                                                     ~'stack
-                                                                     ~'current
-                                                                     ~'todo
-                                                                     ~'state)]
-                   #_                     (Thread/sleep 100)
-                   (set-wf-state! ~'wf-out ~'state)
-                   (cond (-> ~'wf-in deref :interrupt?)
-                         (do (set-interrupted-wf-state! ~'wf-out)
-                             false)
+                                    (render-workflow wf-kernel wf-cfg))))
+                     [~'stack ~'current ~'todo ~'state] (iter-loop ~'result
+                                                                   ~'stack
+                                                                   ~'current
+                                                                   ~'todo
+                                                                   ~'state)]
+                 #_                     (Thread/sleep 100)
+                 (set-wf-state! ~'wf-out ~'state)
+                 (cond (-> ~'wf-in deref :interrupt?)
+                       (do (set-interrupted-wf-state! ~'wf-out)
+                           false)
 
-                         (nil? ~'current)
-                         (do (set-done-wf-state! ~'wf-out)
-                             true)
+                       (nil? ~'current)
+                       (do (set-done-wf-state! ~'wf-out)
+                           true)
 
-                         :else (recur ~'stack ~'current ~'todo ~'state)))))
+                       :else (recur ~'stack ~'current ~'todo ~'state))))
              (catch Exception ~'e
                (set-ex-wf-state! ~'wf-out ~'e)
                false)))))))

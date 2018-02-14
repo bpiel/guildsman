@@ -319,7 +319,7 @@ provided an existing Graph defrecord and feed map."
               (not (= (:status @wf-out) :running)))))))
 
 
-(defn ws-do-wf
+#_(defn ws-do-wf
   [ws wf & [wait-ms]]
   (let [{:keys [wf-in wf-chan multi]} ws]
     (when (= (:statue wf-in) :running)
@@ -327,6 +327,18 @@ provided an existing Graph defrecord and feed map."
     (vswap! wf-in assoc
             :interrupt? false)
     (let [ch (multi wf ws)]
+      (vreset! wf-chan ch))
+    (Thread/sleep (or wait-ms 100)) ;; TODO use alts!!!
+    (ws-status ws)))
+
+(defn start-wf
+  [wf ws & [wait-ms]]
+  (let [{:keys [wf-in wf-chan]} ws]
+    (when (= (:statue wf-in) :running)
+      (throw (Exception. "A workflow is already running. Interrupt it first.")))
+    (vswap! wf-in assoc
+            :interrupt? false)
+    (let [ch (wf ws)]
       (vreset! wf-chan ch))
     (Thread/sleep (or wait-ms 100)) ;; TODO use alts!!!
     (ws-status ws)))
@@ -381,7 +393,7 @@ provided an existing Graph defrecord and feed map."
              assoc
              :doc "A default implementation of a close workflow....TODO"))
 
-(defn wf-fn-map->ws
+#_(defn wf-fn-map->ws
   [ws-name wf-fn-map]
   (let [multi (clojure.lang.MultiFn. (str ws-name "-multi")
                                      (fn [cmd & _] cmd)
@@ -394,7 +406,7 @@ provided an existing Graph defrecord and feed map."
       (. multi clojure.core/addMethod wf f))
     ws))
 
-(defn ws-cfg->fn-map
+#_(defn ws-cfg->fn-map
   [{:keys [workflows] :as ws-cfg}]
   (into {}
         (for [[k v] workflows]
@@ -403,13 +415,13 @@ provided an existing Graph defrecord and feed map."
                             (dissoc :workflows :driver))]
             [k ((:driver v) ws-cfg')]))))
 
-(defn- assoc-in-if-nil
+#_(defn- assoc-in-if-nil
   [ws-cfg path default-wf]
   (if (nil? (get-in ws-cfg path))
     (assoc-in ws-cfg path default-wf)
     ws-cfg))
 
-(defn mk-workspace
+#_(defn mk-workspace
   [ws-name ws-cfg]
   (let [ws-cfg' (-> ws-cfg
                     (assoc-in-if-nil [:workflows :init :driver] default-init-wf)
@@ -418,6 +430,15 @@ provided an existing Graph defrecord and feed map."
                                          :ws-name ws-name))]
     [(wf-fn-map->ws ws-name wf-fn-map)
      (ut/fmap meta wf-fn-map)]))
+
+(defn mk-workspace
+  [ws-name ws-cfg]
+  [{:wf-in (volatile! {})
+    :wf-out (volatile! {})
+    :wf-chan (volatile! nil)
+    :ws-name ws-name
+    :cfg ws-cfg}
+   :NOTHING?])
 
 ;; PLUGIN ============================
 
@@ -862,7 +883,7 @@ provided an existing Graph defrecord and feed map."
                :doc "A default implementation of a prediction workflow....TODO"
                :source src)))
 
-(defmacro ws-show-cmd-source
+#_(defmacro ws-show-cmd-source
   [ws cmd]
   `(-> ~ws
        var
@@ -870,17 +891,16 @@ provided an existing Graph defrecord and feed map."
        :source-map
        ~cmd))
 
-(defmacro ws-show-workflow-meta
+(defmacro wf-get--workflow-meta
   [ws cmd]
   `(-> ~ws
        var
        meta
-       :wf-meta
-       ~cmd))
+))
 
 (defmacro ws-pr-workflow-source
-  [ws wf]
-  `(ut/pr-code (:source (ws-show-workflow-meta ~ws ~wf))))
+  [wf]
+  `(ut/pr-code (:source (meta ~wf))))
 
 (defmacro def-workspace
   [ws-name & body]
@@ -891,14 +911,16 @@ provided an existing Graph defrecord and feed map."
          (when (and (some-> ~'existing :wf-out deref :status (= :running))
                     (not (ws-interrupt ~'existing)))
            (throw (Exception. "Could not interrupt running workflow.")))
-         (ws-do-wf ~'existing :close)))
-     (let [ws-def# (do ~@body)
-           [ws# meta#] (mk-workspace '~ws-name ws-def#)]
+         (doseq [close-fn# (:close ~'existing)]
+           (close-fn# ~'existing))))
+     (let [ws-cfg# (do ~@body)
+           [ws# meta#] (mk-workspace '~ws-name ws-cfg#)]
        (def ~ws-name ws#)
        (alter-meta! (var ~ws-name)
                     assoc
                     :wf-meta meta#)
-       ((~ws-name :multi) :init ~ws-name) ;; TODO arg is weird??
+       (doseq [init-fn# (:init ~ws-name)]
+         (init-fn# ~ws-name))
        (var ~ws-name))))
 
 ;; END WORKSPACES ========================

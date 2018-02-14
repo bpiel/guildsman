@@ -499,6 +499,11 @@
       (g/produce sess d1))))
 
 
+(def add-ds-plan
+  (c/mem-recs-ds [:labels :lab2]
+                 [[10 123]
+                  [21 278]
+                  [34 356]]))
 
 (g/def-workspace ws-splitter
   (g/let+ [{:keys [labels lab2 socket]}
@@ -518,7 +523,8 @@
            a2 (o/assign v2 (o/identity-tf lab2))
            noop1 (o/no-op :noop1 {:ctrl-inputs [a1 a2]})]
     
-    {:plans [labels socket a1 a2 noop1]
+    {:init [#_dev/init]
+     :plans [labels socket a1 a2 noop1]
      :modes {:train {:step [noop1]
                      :fetch [v1]
                      :iters {socket (c/dsi-plug {:batch-size 3
@@ -532,8 +538,21 @@
 
 (def wf-train-test
   (g/mk-train-test-wf
-   {:plugins [dev/plugin g/gm-plugin]
+   {:plugins [#_dev/plugin g/gm-plugin]
     :duration [:steps 2]
     :interval [:steps 1]}))
 
+(g/start-wf wf-train-test ws-splitter)
+
+(g/ws-pr-status ws-splitter)
+
+(g/ws-pr-workflow-source wf-train-test)
+
+(meta wf-train-test)
+
 (clojure.pprint/pprint (meta wf-train-test))
+
+(-> @(:wf-out ws-splitter)
+    :last-fetched
+    deref
+    clojure.pprint/pprint )
