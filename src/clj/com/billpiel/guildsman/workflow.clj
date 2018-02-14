@@ -10,6 +10,26 @@
   [ws-cfg modes]
   (update ws-cfg :modes select-keys modes))
 
+(def block-order [:global :workflow :stage :interval :step])
+
+(defn higher-blocks [block-type]
+  (take-while (complement #{block-type})
+              block-order))
+
+(defn lower-blocks [block-type]
+  (rest (drop-while (complement #{block-type})
+                    block-order)))
+
+(def pluralize-block
+  {:step :steps
+   :interval :intervals
+   :stage :stages
+   :workflow :workflows
+   :mode :modes})
+
+(def singularize-block
+  (clojure.set/map-invert pluralize-block))
+
 (defn push-light-block
   [state block-type init-block-state]
   (assoc state
@@ -86,9 +106,104 @@
   [forms subs-map]
   (clojure.walk/postwalk-replace subs-map forms))
 
+(defn mk-default-form-bindings*
+  [[plugin-kw frms]]
+  (map (fn [frm]
+         (if (-> frm meta ::no-merge-state)
+           frm
+           `(--wf-merge-state ~plugin-kw ~'state
+                              ~frm)))
+       frms))
+
+(defn mk-default-form-bindings
+  [hook-frms]
+  (interleave (repeat 100 'state)
+              (mapcat mk-default-form-bindings*
+                      hook-frms)))
+
+
+(defn default-form-renderer
+  [hook-frms ws-cfg & _]
+  `(let [~@(mk-default-form-bindings hook-frms)]
+     {:state ~'state}))
+
+(defn find-kw-src-pair-renderer
+  [path plugins]
+  (when-let [plugin (first (filter #(get-in % path)
+                                   plugins))]
+    (fn [& args]
+      [(-> plugin :meta :kw)
+       (apply (get-in plugin path) args)])))
+
+
+(defn find-hook-form-renderer
+  [block-type hook-type {:keys [plugins]}]
+  (or (some #(get-in % [block-type :hook-forms hook-type])
+            plugins)
+      default-form-renderer))
+
+(defn find-command-form-renderer
+  [cmd-type {:keys [plugins]}]
+  (or (some #(get-in % [cmd-type :form])
+            plugins)
+      default-form-renderer))
+
+(declare find-command-renderers)
+
+(defn find-kw-src-pair-renderers
+  [path plugins]
+  (when-let [plugins' (not-empty (filter #(get-in % path)
+                                         plugins))]
+    (remove nil?
+            (flatten
+             (for [plugin plugins']
+               (let [p (get-in plugin path)
+                     kw (-> plugin :meta :kw)]
+                 (if (vector? p)
+                   (find-command-renderers (first p)
+                                           {:plugins plugins})
+                   (fn [& args]
+                     [kw (apply p args)]))))))))
+
+(defn find-command-renderers
+  [cmd-type {:keys [plugins]}]
+  (if-let [inline (find-kw-src-pair-renderer [cmd-type :inline]
+                                             plugins)]
+    [inline]
+    (->> (concat (find-kw-src-pair-renderers [cmd-type :pre]
+                                              plugins)
+                 [(find-kw-src-pair-renderer [cmd-type :main]
+                                              plugins)]
+                  (find-kw-src-pair-renderers [cmd-type :post]
+                                              plugins))
+         (remove nil?)
+         not-empty)))
+
+(defn compound-command-renderer
+  [frm-renderer hook-renderers cmd-type args ws-cfg forms]
+  (add-to-forms forms
+                cmd-type
+                nil
+                (frm-renderer
+                 (map #(apply % ws-cfg args) hook-renderers)
+                 ws-cfg
+                 args)))
+
+
 (declare render-block)
 (declare render-block-hook)
 (declare render-command)
+
+(defn render-command
+  [[cmd-type & args] ws-cfg forms]
+  (if-let [hook-renderers (find-command-renderers cmd-type ws-cfg)]
+    (compound-command-renderer (find-command-form-renderer cmd-type ws-cfg)
+                               hook-renderers
+                               cmd-type
+                               args
+                               ws-cfg
+                               forms)
+    forms))
 
 (defn render-element
   [[cmd :as cmd-def] ws-cfg forms]
@@ -137,30 +252,6 @@
                   contents
                   (map (fn [h] [:block-hook block-type h]) post-hooks))))
 
-(declare find-command-renderers)
-
-(defn find-kw-src-pair-renderer
-  [path plugins]
-  (when-let [plugin (first (filter #(get-in % path)
-                                   plugins))]
-    (fn [& args]
-      [(-> plugin :meta :kw)
-       (apply (get-in plugin path) args)])))
-
-(defn find-kw-src-pair-renderers
-  [path plugins]
-  (when-let [plugins' (not-empty (filter #(get-in % path)
-                                         plugins))]
-    (remove nil?
-            (flatten
-             (for [plugin plugins']
-               (let [p (get-in plugin path)
-                     kw (-> plugin :meta :kw)]
-                 (if (vector? p)
-                   (find-command-renderers (first p)
-                                           {:plugins plugins})
-                   (fn [& args]
-                     [kw (apply p args)]))))))))
 
 (defn render-single-inline-src
   [{:keys [plugins] :as ws-cfg} cmd-def]
@@ -316,26 +407,6 @@
     state))
 
 
-(def block-order [:global :workflow :stage :interval :step])
-
-(defn higher-blocks [block-type]
-  (take-while (complement #{block-type})
-              block-order))
-
-(defn lower-blocks [block-type]
-  (rest (drop-while (complement #{block-type})
-                    block-order)))
-
-(def pluralize-block
-  {:step :steps
-   :interval :intervals
-   :stage :stages
-   :workflow :workflows
-   :mode :modes})
-
-(def singularize-block
-  (clojure.set/map-invert pluralize-block))
-
 (defn loop-calc-limit
   [block-type span state]
   (if-let [one-up (last (higher-blocks block-type))]
@@ -413,7 +484,6 @@
    (into [current] todo)
    state])
 
-
 (defn iter-loop
   [result stack current todo state]
   (let [state (:state result state)
@@ -462,6 +532,24 @@
   [[_ {block-type :type :as opts} & contents] ws-cfg forms]
   ((find-block-renderer block-type ws-cfg) ws-cfg opts forms contents))
 
+(defn find-block-hook-renderers
+  [block-type hook-type {:keys [plugins]}]
+  (find-kw-src-pair-renderers [block-type hook-type] plugins))
+
+(defn render-block-hook
+  [block-type hook-type ws-cfg forms]
+  (if-let [hook-renderers (find-block-hook-renderers block-type hook-type ws-cfg)]
+    (compound-command-renderer (find-hook-form-renderer block-type hook-type ws-cfg)
+                               hook-renderers
+                               ;; TODO clean up
+                               (keyword (str (name block-type)
+                                             "-"
+                                             (name hook-type)))
+                               []
+                               ws-cfg
+                               forms)
+    forms))
+
 (defn render-workflow
   [[cmd {block-type :type} :as block-def] ws-cfg]
   (when-not (= cmd :block)
@@ -476,8 +564,43 @@
           (clojure.set/map-invert
            forms-map)))
 
+(defn now [] (System/currentTimeMillis))
+
+(defn set-init-wf-state!
+  [wf-out]
+  (let [{:keys [global]} @wf-out]
+    (vreset! wf-out
+             {:global global
+              :last-fetched (volatile! nil)
+              :block-type :global
+              :heartbeat (now)
+              :status :running
+              :ex nil})))
+
+(defn set-interrupted-wf-state!
+  [wf-out]
+  (vswap! wf-out assoc
+          :status :interrupted))
+
+(defn set-done-wf-state!
+  [wf-out]
+  (vswap! wf-out assoc
+          :status :done))
+
+(defn set-ex-wf-state!
+  [wf-out ex]
+  (vswap! wf-out assoc
+          :status :exception
+          :ex ex))
+
+(defn set-wf-state!
+  [wf-out state]
+  (vreset! wf-out
+           (assoc state
+                  :heartbeat (now))))
+
 (defn render-wf-fn-src
-  [wf-def]
+  [wf-kernel wf-cfg]
   `(fn [~'{:keys [wf-in wf-out ws-cfg] :as ws}]
      (a/thread
        (tsc/with-scope
@@ -492,7 +615,7 @@
                                 nil nil
                                 ~@(render-loop-cases
                                    (:forms   
-                                    (render-workflow wf-def))))]
+                                    (render-workflow wf-kernel wf-cfg))))]
                  (let [[~'stack ~'current ~'todo ~'state] (iter-loop ~'result
                                                                      ~'stack
                                                                      ~'current

@@ -5,7 +5,6 @@
             [com.billpiel.guildsman.session :as sess]
             [com.billpiel.guildsman.tensor :as tsr]
             [com.billpiel.guildsman.op-node :as opn]
-            [com.billpiel.guildsman.workspace2 :as ws2]
             [com.billpiel.guildsman.workflow :as wf]
             [com.billpiel.guildsman.util :as ut]
             [com.billpiel.guildsman.dx :as dx]
@@ -482,7 +481,7 @@ provided an existing Graph defrecord and feed map."
    `(->> ~'ws-cfg
          :modes
          (gm-plugin-build-modes (-> ~'state :global :gm :graph))
-         wf/--wf-setup-modes)])
+         wf/setup-modes)])
 
 (defn gm-plugin-create-session-main
   [graph session]
@@ -513,7 +512,7 @@ provided an existing Graph defrecord and feed map."
                    (->> (for [mkw mode-kws]
                           [mkw (->> mode-vals
                                     (map mkw)
-                                    (apply wf/--wf-merge-mode-maps g))])
+                                    (apply wf/merge-mode-maps g))])
                         (into {})
                         (assoc-in state [:modes :-compiled])))
                  state)
@@ -534,7 +533,7 @@ provided an existing Graph defrecord and feed map."
    `(--ws-run-all-repeat ~'(-> state :global :gm :session)
                          (-> ~'state :modes :-compiled :-current
                              gm-plugin-prep-for-run-repeat)
-                         (wf/--wf-query-steps ~'state :block :span))])
+                         (wf/query-steps ~'state :block :span))])
 
 (defn gm-plugin-setup-fetch-map-inline
   [wf-def & _]
@@ -562,7 +561,7 @@ provided an existing Graph defrecord and feed map."
   [hook-frms wf-def _]
   `(let [~'dlvr-sco (tsc/mk-orphan-scope :standard)]
      (->> ~'state :interval :gm :fetched-raw (tsc/add-to-scope! ~'dlvr-sco))
-     (future (try (let [~'state (wf/--wf-deliver-fetched ~'state)
+     (future (try (let [~'state (wf/deliver-fetched ~'state)
                         ~@(wf/mk-default-form-bindings hook-frms)])
                   (finally
                     (tsc/close-scope! ~'dlvr-sco))))
@@ -599,9 +598,9 @@ provided an existing Graph defrecord and feed map."
                   :step nil
                   `(let [~'span ~span-src]
                      (when ~start?-src
-                       (let [~'state (wf/--wf-push-light-block ~'state :step {:gm {:span ~'span}})
+                       (let [~'state (wf/push-light-block ~'state :step {:gm {:span ~'span}})
                              ~@(wf/mk-default-form-bindings hook-frms)
-                             ~'state (wf/--wf-pop-light-block ~'state)]
+                             ~'state (wf/pop-light-block ~'state)]
                          {:state ~'state
                           :push-pop {:block-type :step
                                      :span ~'span}}))))))
@@ -654,7 +653,7 @@ provided an existing Graph defrecord and feed map."
 
 (defn gm-plugin-interval-start?
   [wf-def]
-  [`(wf/--wf-require-span-completable ~'state ~'span)])
+  [`(wf/require-span-completable ~'state ~'span)])
 
 (defn gm-plugin-setup-interval-post
   [wf-def]  
@@ -666,15 +665,15 @@ provided an existing Graph defrecord and feed map."
 
 (defn gm-plugin-setup-require-span-completable
   [wf-def & [span]]
-  [`(wf/--wf-require-span-completable ~'state ~(or span 'span))])
+  [`(wf/require-span-completable ~'state ~(or span 'span))])
 
 (defn gm-plugin-setup-require-span-repeatable
   [wf-def & [span]]
-  [`(wf/--wf-require-span-repeatable ~'state ~(or span 'span))])
+  [`(wf/require-span-repeatable ~'state ~(or span 'span))])
 
 (defn gm-plugin-setup-query-steps
   [wf-def block-type q & [offset]]
-  [`(wf/--wf-query-steps ~'state ~block-type ~q ~offset)])
+  [`(wf/query-steps ~'state ~block-type ~q ~offset)])
 
 (defn gm-plugin-plans->op-nodes
   [graph plans]
@@ -944,7 +943,7 @@ provided an existing Graph defrecord and feed map."
 (defn render-workflow-from-kernel
   [kernel-fn wf-cfg]
   (let [kernel (kernel-fn wf-cfg)
-        src (wf/render-wf-fn-src kernel)]
+        src (wf/render-wf-fn-src kernel wf-cfg)]
     (vary-meta (eval src)
                assoc
                :doc "A default implementation of a train-test workflow....TODO"

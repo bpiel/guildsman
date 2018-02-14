@@ -535,3 +535,5 @@
    {:plugins [dev/plugin g/gm-plugin]
     :duration [:steps 2]
     :interval [:steps 1]}))
+
+(clojure.pprint/pprint (meta wf-train-test))
