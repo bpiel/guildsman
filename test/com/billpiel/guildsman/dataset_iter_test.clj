@@ -579,10 +579,7 @@
                  (c/mean-squared-error :err pred1)
                  (c/grad-desc-opt :opt 0.1))]
     
-    {:plugins [dev/plugin g/gm-plugin]
-     :plans [opt]
-     :duration [:steps 1000]
-     :interval [:steps 1000]
+    {:plans [opt]
      :modes {:train {:step [opt]
                      ::dev/summaries [err pred1]
                      :fetch [err]
@@ -595,9 +592,7 @@
                                                 :epoch-size 7}
                                                [add-ds-plan])}}
              :predict {:feed-args [features]
-                       :fetch-return [pred1]}}
-     :workflows {:train-test {:driver g/default-train-test-wf}
-                 :predict {:driver g/default-predict-wf}}}))
+                       :fetch-return [pred1]}}}))
 
 
 
