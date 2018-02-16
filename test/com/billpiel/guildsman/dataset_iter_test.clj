@@ -498,3 +498,139 @@
     (g/with-tensor-conversion-scope
       (g/produce sess d1))))
 
+
+(def add-ds-plan
+  (c/mem-recs-ds [:labels :lab2]
+                 [[10 123]
+                  [21 278]
+                  [34 356]]))
+
+(g/def-workspace ws-splitter
+  (g/let+ [{:keys [labels lab2 socket]}
+           (->> (c/dsi-socket :socket
+                              {:fields [:labels g/dt-int [-1]
+                                        :lab2 g/dt-int [-1]]})
+                c/dsi-socket-outputs)
+           v1 (c/vari :v1
+                      {:dtype g/dt-int
+                       :shape [3]}
+                      [0 0 0])
+           a1 (o/assign v1 (o/identity-tf labels))
+           v2 (c/vari :v2
+                      {:dtype g/dt-int
+                       :shape [3]}
+                      [0 0 0])
+           a2 (o/assign v2 (o/identity-tf lab2))
+           noop1 (o/no-op :noop1 {:ctrl-inputs [a1 a2]})]
+    
+    {:init [#_dev/init]
+     :plans [labels socket a1 a2 noop1]
+     :modes {:train {:step [noop1]
+                     :fetch [v1]
+                     :iters {socket (c/dsi-plug {:batch-size 3
+                                                 :epoch-size 3}
+                                                [add-ds-plan])}}
+             :test {:fetch [v1 v2]
+                    :iters {socket (c/dsi-plug {:batch-size 3
+                                                :epoch-size 1}
+                                               [add-ds-plan])}}}}))
+
+
+(def wf-train-test
+  (g/mk-train-test-wf
+   {:plugins [dev/plugin g/gm-plugin]
+    :duration [:steps 1000]
+    :interval [:steps 1000]}))
+
+(g/start-wf wf-train-test ws-splitter)
+
+(g/ws-pr-status ws-splitter)
+
+(g/ws-close ws-splitter)
+
+(def wf-predict
+  (g/mk-predict-wf
+   {:plugins [dev/plugin g/gm-plugin]}))
+
+(def add-ds-plan
+  (c/mem-recs-ds [:features :labels]
+                 [[[ 0.1 0.1] [0.2]]
+                  [[ 0.1 0.] [0.1]]
+                  [[ 0. 0.1] [0.1]]
+                  [[ 0. 0.] [0.]]
+                  [[-0.1 -0.1] [-0.2]]
+                  [[-0.1 0.] [-0.1]]
+                  [[0. -0.1] [-0.1]]]))
+
+(g/def-workspace ws-add1
+  (g/let+ [{:keys [features labels socket]}
+           (->> (c/dsi-socket :socket
+                              {:fields [:features g/dt-float [-1 2]
+                                        :labels   g/dt-float [-1 1]]})
+                c/dsi-socket-outputs)
+
+           {:keys [pred1]}
+           (+->> features
+                 (c/dense :pred1
+                          {:units 1}))
+
+           {:keys [opt err]}
+           (+->> labels
+                 (c/mean-squared-error :err pred1)
+                 (c/grad-desc-opt :opt 0.1))]
+    
+    {:plugins [dev/plugin g/gm-plugin]
+     :plans [opt]
+     :duration [:steps 1000]
+     :interval [:steps 1000]
+     :modes {:train {:step [opt]
+                     ::dev/summaries [err pred1]
+                     :fetch [err]
+                     :iters {socket (c/dsi-plug {:batch-size 7
+                                                 :epoch-size 7}
+                                                [add-ds-plan])}}
+             :test {::dev/summaries [err]
+                    :fetch [labels pred1]
+                    :iters {socket (c/dsi-plug {:batch-size 7
+                                                :epoch-size 7}
+                                               [add-ds-plan])}}
+             :predict {:feed-args [features]
+                       :fetch-return [pred1]}}
+     :workflows {:train-test {:driver g/default-train-test-wf}
+                 :predict {:driver g/default-predict-wf}}}))
+
+
+
+(g/start-wf wf-train-test ws-add1)
+
+(g/ws-pr-status ws-add1)
+
+(g/start-wf wf-predict ws-add1)
+
+(g/ws-predict-sync ws-add1
+                   [[[1.3 0.05]
+                     [0.11 0.09]]])
+
+(g/ws-interrupt ws-add1)
+
+(g/start-wf g/ws-close ws-add1)
+
+
+
+(g/ws-pr-workflow-source wf-train-test)
+
+(meta wf-train-test)
+
+(clojure.pprint/pprint (meta wf-train-test))
+
+(-> @(:wf-out ws-splitter)
+    :last-fetched
+    deref
+    clojure.pprint/pprint )
+
+(-> @(:wf-out ws-splitter)
+    :global
+    :gm
+    clojure.pprint/pprint )
+
+(clojure.pprint/pprint ws-splitter)

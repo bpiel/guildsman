@@ -168,6 +168,7 @@
             keys
             first)))
 
+
 (defn render-block-contents-reducer
   [ws-cfg {:keys [forms] :as agg} cmd-def]
   (let [{:keys [id forms]} (render-element cmd-def ws-cfg forms)]
