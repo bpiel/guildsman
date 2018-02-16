@@ -100,14 +100,6 @@ In the example below, both `graph` and `session` will be closed upon
   [bindings & body]
   (with-close-let* bindings body))
 
-#_(defn tensor->value [tensor]
-  (:value tensor))
-
-#_(defn delete-tensor->value [tensor]
-  (let [r (tensor->value tensor)]
-    (tm/release-tensor-ref tensor)    
-    r))
-
 (defn graph->session
   "Takes a Graph defrecord. Creates and returns a Session defrecord."
   [^Graph graph]
@@ -318,19 +310,6 @@ provided an existing Graph defrecord and feed map."
           (or (= ch wf-chan')
               (not (= (:status @wf-out) :running)))))))
 
-
-#_(defn ws-do-wf
-  [ws wf & [wait-ms]]
-  (let [{:keys [wf-in wf-chan multi]} ws]
-    (when (= (:statue wf-in) :running)
-      (throw (Exception. "A workflow is already running. Interrupt it first.")))
-    (vswap! wf-in assoc
-            :interrupt? false)
-    (let [ch (multi wf ws)]
-      (vreset! wf-chan ch))
-    (Thread/sleep (or wait-ms 100)) ;; TODO use alts!!!
-    (ws-status ws)))
-
 (defn start-wf
   [wf ws & [wait-ms]]
   (let [{:keys [wf-in wf-chan]} ws]
@@ -342,18 +321,6 @@ provided an existing Graph defrecord and feed map."
       (vreset! wf-chan ch))
     (Thread/sleep (or wait-ms 100)) ;; TODO use alts!!!
     (ws-status ws)))
-
-#_(defn ws-close
-  [ws]
-  (ws-do-wf ws :close))
-
-#_(defn ws-train-test-wf
-  [ws]
-  (ws-do-wf ws :train-test))
-
-#_(defn ws-predict-wf
-  [ws]
-  (ws-do-wf ws :predict))
 
 ;; TODO timeout
 (defn ws-predict-async
@@ -393,44 +360,6 @@ provided an existing Graph defrecord and feed map."
               wf-def)
              assoc
              :doc "A default implementation of a close workflow....TODO"))
-
-#_(defn wf-fn-map->ws
-  [ws-name wf-fn-map]
-  (let [multi (clojure.lang.MultiFn. (str ws-name "-multi")
-                                     (fn [cmd & _] cmd)
-                                     :default #'clojure.core/global-hierarchy)
-        ws {:wf-in (volatile! {})
-            :wf-out (volatile! {})
-            :wf-chan (volatile! nil)
-            :multi multi}]
-    (doseq [[wf f] wf-fn-map]
-      (. multi clojure.core/addMethod wf f))
-    ws))
-
-#_(defn ws-cfg->fn-map
-  [{:keys [workflows] :as ws-cfg}]
-  (into {}
-        (for [[k v] workflows]
-          (let [ws-cfg' (-> ws-cfg
-                            (merge v)
-                            (dissoc :workflows :driver))]
-            [k ((:driver v) ws-cfg')]))))
-
-#_(defn- assoc-in-if-nil
-  [ws-cfg path default-wf]
-  (if (nil? (get-in ws-cfg path))
-    (assoc-in ws-cfg path default-wf)
-    ws-cfg))
-
-#_(defn mk-workspace
-  [ws-name ws-cfg]
-  (let [ws-cfg' (-> ws-cfg
-                    (assoc-in-if-nil [:workflows :init :driver] default-init-wf)
-                    (assoc-in-if-nil [:workflows :close :driver] default-close-wf))
-        wf-fn-map (ws-cfg->fn-map (assoc ws-cfg'
-                                         :ws-name ws-name))]
-    [(wf-fn-map->ws ws-name wf-fn-map)
-     (ut/fmap meta wf-fn-map)]))
 
 (defn mk-workspace
   [ws-name ws-cfg]
@@ -873,24 +802,6 @@ provided an existing Graph defrecord and feed map."
                       {:post-async [:offer-fetched-return]}}}
      [:mode :predict]
      [:fetch-map]]]])
-
-#_(defn default-predict-wf
-  [ws-cfg]
-  (let [ws-cfg' (wf/filter-modes ws-cfg [:predict])
-        src (wf/render-wf-fn-src (mk-default-predict-wf-def ws-cfg')
-                                  ws-cfg')]
-    (vary-meta ((eval src) ws-cfg')
-               assoc
-               :doc "A default implementation of a prediction workflow....TODO"
-               :source src)))
-
-#_(defmacro ws-show-cmd-source
-  [ws cmd]
-  `(-> ~ws
-       var
-       meta
-       :source-map
-       ~cmd))
 
 (defmacro wf-get--workflow-meta
   [ws cmd]
