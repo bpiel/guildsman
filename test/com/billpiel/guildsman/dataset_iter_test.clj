@@ -538,7 +538,7 @@
 
 (def wf-train-test
   (g/mk-train-test-wf
-   {:plugins [#_dev/plugin g/gm-plugin]
+   {:plugins [dev/plugin g/gm-plugin]
     :duration [:steps 2]
     :interval [:steps 1]}))
 
@@ -556,3 +556,5 @@
     :last-fetched
     deref
     clojure.pprint/pprint )
+
+(clojure.pprint/pprint ws-splitter)

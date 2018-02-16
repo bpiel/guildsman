@@ -426,18 +426,20 @@
 ;; PLUGIN =====================================
 
 (defn plugin-init-post
-  [ws-name]
-  (let [ns-sym (mk-ns-sym ws-name)
-        _ (release-dev-ns ns-sym) ;; TODO necessary?
-        ws-ns (create-ns ns-sym)
-        log (atom (sorted-map))]
-    (swap! dev-nses conj ns-sym)
-    (intern ws-ns '$log log)
-    {:global {:ws-ns ws-ns
-              :log log}}))
+  [ws-ns ws-name]
+  (when-not ws-ns
+    (let [ns-sym (mk-ns-sym ws-name)
+          _ (release-dev-ns ns-sym) ;; TODO necessary?
+          ws-ns (create-ns ns-sym)
+          log (atom (sorted-map))]
+      (swap! dev-nses conj ns-sym)
+      (intern ws-ns '$log log)
+      {:global {:ws-ns ws-ns
+                :log log}})))
 
 (defn plugin-setup-init-post [{:keys [ws-name]} & _]
-  [`(plugin-init-post '~ws-name)])
+  [`(plugin-init-post ~'(-> state :global ::plugin :ws-ns)
+                      (:ws-name ~'ws))])
 
 (defn plugin-build-post
   [^Graph g ws-ns summaries]

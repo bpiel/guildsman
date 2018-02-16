@@ -343,15 +343,15 @@ provided an existing Graph defrecord and feed map."
     (Thread/sleep (or wait-ms 100)) ;; TODO use alts!!!
     (ws-status ws)))
 
-(defn ws-close
+#_(defn ws-close
   [ws]
   (ws-do-wf ws :close))
 
-(defn ws-train-test-wf
+#_(defn ws-train-test-wf
   [ws]
   (ws-do-wf ws :train-test))
 
-(defn ws-predict-wf
+#_(defn ws-predict-wf
   [ws]
   (ws-do-wf ws :predict))
 
@@ -436,6 +436,7 @@ provided an existing Graph defrecord and feed map."
   [{:wf-in (volatile! {})
     :wf-out (volatile! {})
     :wf-chan (volatile! nil)
+    :wf-closers (atom #{})
     :ws-name ws-name
     :cfg ws-cfg}
    :NOTHING?])
@@ -962,11 +963,26 @@ provided an existing Graph defrecord and feed map."
 
 ;; ===========???????????????
 
+(defn render-init-workflow
+  [wf-cfg]
+  (-> [:block {:type :workflow
+               ;; TODO unlimited steps?
+               :span {:steps 99999}}
+       [:init]]
+      (wf/render-wf-fn-src wf-cfg)
+      eval))
+
 (defn render-workflow-from-kernel
-  [kernel-fn wf-cfg]
+  [kernel-fn {:keys [plugins] :as wf-cfg}]
   (let [kernel (kernel-fn wf-cfg)
-        src (wf/render-wf-fn-src kernel wf-cfg)]
-    (vary-meta (eval src)
+        src (wf/render-wf-fn-src kernel wf-cfg)
+        wf-fn (eval src)
+        init-wf-fn (render-init-workflow wf-cfg)]
+    (vary-meta (fn [ws]
+                 (swap! (:wf-closers ws)
+                        conj plugins)
+                 (when (a/<!! (init-wf-fn ws))
+                   (wf-fn ws)))
                assoc
                :doc "A default implementation of a train-test workflow....TODO"
                :source src
