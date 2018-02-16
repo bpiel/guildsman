@@ -358,10 +358,11 @@ provided an existing Graph defrecord and feed map."
 ;; TODO timeout
 (defn ws-predict-async
   [ws input]
-  (let [return (a/chan 1)]
-    (-> ws :wf-out deref :global :gm :input-ch
-        (a/>!! [input return]))
-    return))
+  (if-let [input-ch (some-> ws :wf-out deref :global :gm :input-ch)]
+    (let [return (a/chan 1)]
+      (a/>!! input-ch [input return])
+      return)
+    (throw (Exception. "Workspace has no input channel. Be sure prediction mode is running."))))
 
 (defn ws-predict-sync
   [ws input]
@@ -849,7 +850,7 @@ provided an existing Graph defrecord and feed map."
                :doc "A default implementation of a train-test workflow....TODO"
                :source src)))
 
-(defn- mk-default-predict-wf-def
+(defn- mk-predict-kernel
   [{:keys [restore-varis] :as ws-cfg}]
   [:block {:type :workflow
            ;; TODO unlimited steps?
@@ -858,8 +859,7 @@ provided an existing Graph defrecord and feed map."
             ;; TODO unlimited stages?
             :span {:stages 99999}
             :plugin {:stage
-                     {:repeat? [:require-span-repeatable]}}
-            }
+                     {:repeat? [:require-span-repeatable]}}}
     [:build]
     [:create-session]
     (when restore-varis
@@ -874,7 +874,7 @@ provided an existing Graph defrecord and feed map."
      [:mode :predict]
      [:fetch-map]]]])
 
-(defn default-predict-wf
+#_(defn default-predict-wf
   [ws-cfg]
   (let [ws-cfg' (wf/filter-modes ws-cfg [:predict])
         src (wf/render-wf-fn-src (mk-default-predict-wf-def ws-cfg')
@@ -896,8 +896,7 @@ provided an existing Graph defrecord and feed map."
   [ws cmd]
   `(-> ~ws
        var
-       meta
-))
+       meta))
 
 (defmacro ws-pr-workflow-source
   [wf]
@@ -965,10 +964,16 @@ provided an existing Graph defrecord and feed map."
 
 (defn render-init-workflow
   [wf-cfg]
-  (-> [:block {:type :workflow
-               ;; TODO unlimited steps?
-               :span {:steps 99999}}
+  (-> [:block {:type :workflow}
        [:init]]
+      (wf/render-wf-fn-src wf-cfg)
+      eval))
+
+(defn render-close-workflow
+  [wf-cfg]
+  (-> [:block {:type :workflow}
+       [:close-session]
+       [:close-graph]]
       (wf/render-wf-fn-src wf-cfg)
       eval))
 
@@ -980,7 +985,7 @@ provided an existing Graph defrecord and feed map."
         init-wf-fn (render-init-workflow wf-cfg)]
     (vary-meta (fn [ws]
                  (swap! (:wf-closers ws)
-                        conj plugins)
+                        into plugins)
                  (when (a/<!! (init-wf-fn ws))
                    (wf-fn ws)))
                assoc
@@ -992,3 +997,13 @@ provided an existing Graph defrecord and feed map."
   [{:keys [plugins duration interval] :as cfg}]
   (render-workflow-from-kernel mk-train-test-kernel
                                cfg))
+
+(defn mk-predict-wf
+  [{:keys [plugins duration interval] :as cfg}]
+  (render-workflow-from-kernel mk-predict-kernel
+                               cfg))
+
+(defn ws-close
+  [{:keys [wf-closers] :as ws}]
+  (a/<!! ((render-close-workflow {:plugins @wf-closers})
+          ws)))

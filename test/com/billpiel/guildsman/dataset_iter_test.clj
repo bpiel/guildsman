@@ -539,12 +539,83 @@
 (def wf-train-test
   (g/mk-train-test-wf
    {:plugins [dev/plugin g/gm-plugin]
-    :duration [:steps 2]
-    :interval [:steps 1]}))
+    :duration [:steps 1000]
+    :interval [:steps 1000]}))
 
 (g/start-wf wf-train-test ws-splitter)
 
 (g/ws-pr-status ws-splitter)
+
+(g/ws-close ws-splitter)
+
+(def wf-predict
+  (g/mk-predict-wf
+   {:plugins [dev/plugin g/gm-plugin]}))
+
+(def add-ds-plan
+  (c/mem-recs-ds [:features :labels]
+                 [[[ 0.1 0.1] [0.2]]
+                  [[ 0.1 0.] [0.1]]
+                  [[ 0. 0.1] [0.1]]
+                  [[ 0. 0.] [0.]]
+                  [[-0.1 -0.1] [-0.2]]
+                  [[-0.1 0.] [-0.1]]
+                  [[0. -0.1] [-0.1]]]))
+
+(g/def-workspace ws-add1
+  (g/let+ [{:keys [features labels socket]}
+           (->> (c/dsi-socket :socket
+                              {:fields [:features g/dt-float [-1 2]
+                                        :labels   g/dt-float [-1 1]]})
+                c/dsi-socket-outputs)
+
+           {:keys [pred1]}
+           (+->> features
+                 (c/dense :pred1
+                          {:units 1}))
+
+           {:keys [opt err]}
+           (+->> labels
+                 (c/mean-squared-error :err pred1)
+                 (c/grad-desc-opt :opt 0.1))]
+    
+    {:plugins [dev/plugin g/gm-plugin]
+     :plans [opt]
+     :duration [:steps 1000]
+     :interval [:steps 1000]
+     :modes {:train {:step [opt]
+                     ::dev/summaries [err pred1]
+                     :fetch [err]
+                     :iters {socket (c/dsi-plug {:batch-size 7
+                                                 :epoch-size 7}
+                                                [add-ds-plan])}}
+             :test {::dev/summaries [err]
+                    :fetch [labels pred1]
+                    :iters {socket (c/dsi-plug {:batch-size 7
+                                                :epoch-size 7}
+                                               [add-ds-plan])}}
+             :predict {:feed-args [features]
+                       :fetch-return [pred1]}}
+     :workflows {:train-test {:driver g/default-train-test-wf}
+                 :predict {:driver g/default-predict-wf}}}))
+
+
+
+(g/start-wf wf-train-test ws-add1)
+
+(g/ws-pr-status ws-add1)
+
+(g/start-wf wf-predict ws-add1)
+
+(g/ws-predict-sync ws-add1
+                   [[[1.3 0.05]
+                     [0.11 0.09]]])
+
+(g/ws-interrupt ws-add1)
+
+(g/start-wf g/ws-close ws-add1)
+
+
 
 (g/ws-pr-workflow-source wf-train-test)
 
@@ -555,6 +626,11 @@
 (-> @(:wf-out ws-splitter)
     :last-fetched
     deref
+    clojure.pprint/pprint )
+
+(-> @(:wf-out ws-splitter)
+    :global
+    :gm
     clojure.pprint/pprint )
 
 (clojure.pprint/pprint ws-splitter)
