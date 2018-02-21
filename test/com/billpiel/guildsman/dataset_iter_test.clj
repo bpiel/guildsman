@@ -592,9 +592,11 @@
                                                 :epoch-size 7}
                                                [add-ds-plan])}}
              :predict {:feed-args [features]
-                       :fetch-return [pred1]}}}))
+                       :fetch-return [pred1]}}
+     :chkpt {:use [repo1 #_:ch#####????]
+             :keep-min err}}))
 
-
+;; -- wf -- what goes in def? what goes in args?
 
 (g/start-wf wf-train-test ws-add1)
 

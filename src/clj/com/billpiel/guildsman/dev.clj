@@ -1,7 +1,7 @@
 (ns com.billpiel.guildsman.dev
   (:require [clojure.core.async :as a]
             [com.billpiel.guildsman.core :as g]
-            [com.billpiel.guildsman.train-db :as tr-db]
+            [com.billpiel.guildsman.checkpoint-repo :as chkpt]
             [com.billpiel.guildsman.scope :as sc]
             [com.billpiel.guildsman.shape :as sh]
             [com.billpiel.guildsman.ops.basic :as o]
@@ -472,9 +472,9 @@
 #_  (swap! log-atom
          assoc step
          {:step step
-          :fetched (fetched->log-entry g fetched)}) ;;; <<=========== hmmmmmmmmmm
-  (send-web-view-updater g ws-ns
-                         (:log @tr-db/db)
+          :fetched (fetched->log-entry g fetched)}) ;;; TODO <<=========== hmmmmmmmmmm
+  #_(send-web-view-updater g ws-ns
+                         (:log @tr-db/db) ;; TODO <<=========== hmmmmmmmmmmm
                          #_@log-atom)
   #_(clojure.pprint/pprint [fetched step]))
 

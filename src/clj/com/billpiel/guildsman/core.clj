@@ -445,14 +445,22 @@ provided an existing Graph defrecord and feed map."
   [`(gm-plugin-create-session-main (-> ~'state :global :gm :graph)
                                    (-> ~'state :global :gm :session))])
 
+;; TODO make correct
+(defn restore-checkpoint
+  [ws-use-chkpt]
+  (throw (Exception. "NOT IMPLEMENTED")))
+
 (defn gm-plugin-init-varis-main
-  [session]
-  (run-global-vars-init session)
+  [session ws-use-chkpt]
+  (if ws-use-chkpt
+    (restore-checkpoint ws-use-chkpt)
+    (run-global-vars-init session))
   {:global {:varis-set true}})
 
 (defn gm-plugin-setup-init-varis-main
   [wf-def & _]
-  [`(gm-plugin-init-varis-main (-> ~'state :global :gm :session))])
+  [`(gm-plugin-init-varis-main (-> ~'state :global :gm :session)
+                               (some-> ~'ws-cfg :chkpt :use))])
 
 ;; TODO make more efficient??
 (defn gm-plugin-compile-modes-run-req
