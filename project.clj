@@ -15,6 +15,8 @@
   :dependencies [[org.clojure/clojure "1.9.0-RC1"]
                  [org.clojure/core.async "0.3.465"]
                  [org.clojars.ghaskins/protobuf "3.3.1-1"]
+                 [com.h2database/h2 "1.4.196"]
+                 [com.taoensso/nippy "2.14.0"]
 
                  ;; web app
                  [org.clojure/clojurescript "1.9.908"]
@@ -36,14 +38,14 @@
                  [com.cemerick/piggieback "0.2.2-20150424.212437-1"]
                  [figwheel-sidecar "0.5.13"]]
 
- ; :hooks [leiningen.cljsbuild]
+  ;; :hooks [leiningen.cljsbuild]
   
   :profiles
   {:dev
    {:dependencies []
     :repl-options {:nrepl-middleware [cemerick.piggieback/wrap-cljs-repl]}
     :plugins      [[lein-figwheel "0.5.13"]]
-;    :prep-tasks [["cljsbuild" "once" "main"] "javac" "compile"]
+    ;;    :prep-tasks [["cljsbuild" "once" "main"] "javac" "compile"]
     }}
 
   :cljsbuild
