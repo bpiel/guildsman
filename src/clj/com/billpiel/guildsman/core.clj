@@ -513,7 +513,7 @@ provided an existing Graph defrecord and feed map."
   [hook-frms wf-def _]
   `(let [~'dlvr-sco (tsc/mk-orphan-scope :standard)]
      (->> ~'state :interval :gm :fetched-raw (tsc/add-to-scope! ~'dlvr-sco))
-     (future (try (let [~'state (wf/deliver-fetched ~'state)
+     (future (try (let [~'state (wf/deliver-fetched ~'state) ;; TODO replace with write to train log db?????????
                         ~@(wf/mk-default-form-bindings hook-frms)])
                   (finally
                     (tsc/close-scope! ~'dlvr-sco))))
@@ -729,9 +729,9 @@ provided an existing Graph defrecord and feed map."
    :require-span-completable {:inline #'gm-plugin-setup-require-span-completable}
    :require-span-repeatable {:inline #'gm-plugin-setup-require-span-repeatable}
    :query-steps {:inline #'gm-plugin-setup-query-steps}
-   :init-fn-io {:main #'gm-plugin-setup-init-fn-io-main} ;; TODO
-   :wait-take-feed-args {:main #'gm-plugin-setup-wait-take-feed-args} ;; TODO
-   :offer-fetched-return {:main #'gm-plugin-setup-offer-fetched-return} ;; TODO
+   :init-fn-io {:main #'gm-plugin-setup-init-fn-io-main}
+   :wait-take-feed-args {:main #'gm-plugin-setup-wait-take-feed-args}
+   :offer-fetched-return {:main #'gm-plugin-setup-offer-fetched-return}
    :close-graph {:main #'gm-plugin-setup-close-graph}
    :close-session {:main #'gm-plugin-setup-close-session}})
 

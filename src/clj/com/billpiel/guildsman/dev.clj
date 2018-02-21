@@ -1,6 +1,7 @@
 (ns com.billpiel.guildsman.dev
   (:require [clojure.core.async :as a]
             [com.billpiel.guildsman.core :as g]
+            [com.billpiel.guildsman.train-db :as tr-db]
             [com.billpiel.guildsman.scope :as sc]
             [com.billpiel.guildsman.shape :as sh]
             [com.billpiel.guildsman.ops.basic :as o]
@@ -467,12 +468,14 @@
                                 ~'(-> state :global ::plugin :ws-ns))])
 
 (defn plugin-interval-post
-  [^Graph g ws-ns log-atom fetched step]
-  (swap! log-atom
+  [^Graph g ws-ns #_log-atom fetched step]
+#_  (swap! log-atom
          assoc step
          {:step step
-          :fetched (fetched->log-entry g fetched)})
-  (send-web-view-updater g ws-ns @log-atom)
+          :fetched (fetched->log-entry g fetched)}) ;;; <<=========== hmmmmmmmmmm
+  (send-web-view-updater g ws-ns
+                         (:log @tr-db/db)
+                         #_@log-atom)
   #_(clojure.pprint/pprint [fetched step]))
 
 (defn plugin-setup-interval-post
@@ -480,7 +483,7 @@
   [`(plugin-interval-post
      ~'(-> state :global :gm :graph) 
      ~'(-> state :global ::plugin :ws-ns) ;; TODO hard code ns instead of lookup??
-     ~'(-> state :global ::plugin :log)
+;;     ~'(-> state :global ::plugin :log)
      ~'(-> state :interval ::plugin :fetched)
      ~'(-> state :stage :gm :pos :step))])
 
