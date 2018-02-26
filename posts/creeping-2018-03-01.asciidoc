@@ -1,0 +1,192 @@
+Mar 1, 2018
+
+= Guildsman Scope Creep 
+*_...and Wondering About Others' ML Workflows_*
+
+It's been a few months in a row now that I've pushed back the
+Guildsman alpha deadline by a month. I'm ok with that. At work, we
+adhere to the practice of continuously shipping small, iterative
+improvements. I'm very happy that we do that. However, for better or
+worse, with personal projects, I often like to take a luxurious amount
+of time to play around and explore ideas. With Guildsman, I've been
+thinking a lot about the differences between traditional software and
+machine learning, and how those differences affect the development
+workflow.
+
+'''
+
+*DISCLAIMER*: I'm a novice in the field of ML. I've spent a
+significant amount of time googling and asking questions of others,
+but my understanding of these topics covered below is not that of an
+expert.
+
+If I'm getting things wrong, please get in touch and help me head in
+the right direction. Thanks
+
+'''
+
+== Training
+=== The Process, The Product and The Problems
+
+Compared to traditional software development, machine learning
+includes the additional step of training and also an additional artifact,
+the trained model. 
+
+In traditional software development, you perform some sort of test on
+modified source before considering it for production use. Whether it's
+running a full test suite or just trying a few cases from the REPL,
+there's some process that yields feedback and informs a decisions
+about whether this development session is done.
+
+=== Training Can Be Slow
+
+In machine learning, there's no exact analog to the boolean
+correctness result that a test gives you, but there is some sort of
+fitness score. "This trained model correctly identifies cats 90% of
+the time. Let's ship it!" This fitness score is the result of testing
+a trained model. Therefore, training the model is part of the
+development process -- a critical part. Training a model, however, can
+take orders of magnitude longer than the compilation and testing
+steps. (Ok, the time required for compilation and testing can vary
+wildly based on many factors, but I'm generalizing based on my
+experience). The duration of the development iteration cycle can
+explode; progress slows to a crawl; disillusionment sets in etc.
+
+There's only so much that can be done to accelerate model training,
+but I believe there is a lot that can be done to mitigate its negative
+impact on the development process. I've been noodling on this goal.
+
+=== Where Do You Keep the Trained Model?
+
+Ok, training is done and you have a trained model. It correctly
+identifies cats at an astounding level of accuracy. Yay! But, what do
+you with that model? How do you deploy it to production? With
+Clojure/Java, deployment might mean dropping a JAR file on a
+server. What's the equivalent for ML? Do you include your trained in
+the JAR as a resource, or drop it nearby on the file system? These
+both seem fine, I guess. But then, how do you keep track of which
+model has been deployed and what the expected performance is? In our
+deployment system, we know which git commit is on the server. We also
+have a record that all tests passed for that commit in our CI
+tool. Where do you record test results for the deployed model? (Or any
+model?) Or stepping back, running tests requires test data. There's
+all sorts of organizational questions related to that: 
+
+* Where is the test data kept? 
+* How is it made available to the test runner? 
+* Is the test data versioned? 
+* Where is it recorded which version of the test data produced which
+test result?
+
+I'm not the only one asking these questions, of course. There are
+services and software solutions that attempt to addresses at least
+some of the above. There are more in the works. For TensorFlow, Google
+offers TensorFlow Serving. I think they're headed in the right
+direction, but seems like an incomplete solution at this point. 
+
+I want a *high-quality* ML dev experience. I don't think we're *there*
+yet.
+
+== Attempting a Foundation for Solutions
+
+I haven't solved these problems, but I have given them a lot of
+attention. Below I've outlined the features I've built into Guildsman
+and how they attempt to at least serve as a good foundation for
+possible future solutions.
+
+=== Dataset Packages
+
+Think about how great git commits are.
+
+* They are immutable.
+* They have a unique identifier.
+* They expose their history (parent commits).
+
+And with a bit of context (the repo), they are easily:
+
+* discoverable
+* obtainable
+
+The ideal dataset would have all of these properties. The ideal ML
+workflow would leverage an infrastructure that supports such
+datasets. With this in mind, I instilled in Guildsman the concept of
+packages. As is the case with most features of Guildsman, the
+implementation is minimal, but the foundation is there.
+
+The goal is a scenario where you can drop a package identifier as in
+input into your graph and Guildsman will be able to:
+
+* determine whether the package (dataset) has been previously procured
+* obtain it if necessary (ex. download from web server)
+* wire up the necessary nodes and point them to wherever the dataset is
+  (likely a file on the local filesystem)
+
+Added bonus: In addition to the dataset itself, packages can contain
+portions of graphs, as well. That opens up all sorts of possibilities,
+but the primary intended use is to be able to package a dataset
+together with the TensorFlow nodes to interpret the format of the
+dataset. I'm pretty excited about the potential here.
+
+Imagine a world where repos of versioned, publicly accessible datasets
+are plentiful. Guildsman's packaging system could integrate into such
+repos. For more on that, check out https://qri.io/.
+
+
+=== Workflows and Plugins
+
+How do you make the training process faster? By training on high-end
+GPUs! But these resources are expensive. It's not cost-effective for
+every dev to have their own. Instead, training server resources must
+be shared somehow. The development workflow now extends outside the
+local machine (or the one the REPL) to include these servers. For me,
+this is not typical or ideal.
+
+We've improved the development iteration cycle in one respect, but
+potentially worsened in another. Ideally, these resources would be
+made available for development use in a seamless manner. That's my
+goal with Guildsman's workflow feature.
+
+Workflows are how Guildsman carries out activities such as training
+and prediction. They are a series of actions to perform on a
+TensorFlow graph. In that respect, they are like a function. An
+important difference though is that Guildsman provides mechanisms to
+allow workflows to be specified as a data structure. I guess it's a
+DSL of some kind. The data structure gets _compiled_ to Clojure code
+and then eval'd to produce an actual funcion. Data-defined workflows
+buy you two things:
+
+* easy transmission to a remote server (for a seamless dev
+  experience!)
+* ample surface area for plugins to hook in and augment functionality
+
+Why are plugins useful here? I don't have a lot of ideas about
+possible pluggable functionality, but the two I do have are critical.
+
+* a plugin to neatly interleave behavior and features useful for
+development, but not necessary for production.
+* a plugin to seamlessly coordinate with remote training servers
+
+If you are familiar with TensorFlow's
+https://www.tensorflow.org/programmers_guide/estimators[estimators],
+it might be helpful to think of workflows as a generalizaion of those.
+
+=== Checkpoint Repo
+
+As training occurs, TensorFlow saves the state of variables into files
+called "checkpoints". These are use to recover... other uses?
+
+Guildsman expands on TensorFlow's checkpoints by maintaining a
+database with details about the saved checkpoint files. This includes:
+
+* the structure of the TensorFlow graph
+* a log of what training was done to arrive at the results
+* test results
+* test dataset identifier
+
+I'd like to add support for pushing this data to a central (public or
+private, depending on the use case) repository. This central repo could
+facilitate collaboration. It might even be useful as the model source
+for a deployment system.
+
+'''
+As always, I expect to have an alpha release out in the next few weeks.
