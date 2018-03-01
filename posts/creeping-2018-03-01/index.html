@@ -43,6 +43,7 @@ strong {
 }
 
 
+
 </style>
 <script type="text/javascript">
 /*<![CDATA[*/
@@ -428,7 +429,7 @@ together with the TensorFlow nodes to interpret the format of the
 dataset. I&#8217;m pretty excited about the potential here.</p></div>
 <div class="paragraph"><p>Imagine a world where repos of versioned, publicly accessible datasets
 are plentiful. Guildsman&#8217;s packaging system could integrate into such
-repos. For more on that, check out <a href="https://qri.io/">https://qri.io/</a>.</p></div>
+repos. For more on that dream, check out <a href="https://qri.io/">https://qri.io/</a>.</p></div>
 </div>
 <div class="sect2">
 <h3 id="_workflows_and_plugins">Workflows and Plugins</h3>
@@ -436,20 +437,20 @@ repos. For more on that, check out <a href="https://qri.io/">https://qri.io/</a>
 GPUs! But these resources are expensive. It&#8217;s not cost-effective for
 every dev to have their own. Instead, training-server resources must
 be shared somehow. The development workflow now extends outside the
-local machine (or the one the REPL) to include these servers. For me,
-this is not typical or ideal.</p></div>
+local machine to include these servers. For me, this is not typical or
+ideal.</p></div>
 <div class="paragraph"><p>We&#8217;ve improved the development iteration cycle in one respect, but
-potentially worsened in another. Ideally, these resources would be
-made available for development use in a seamless manner. That&#8217;s my
-goal with Guildsman&#8217;s workflow feature.</p></div>
-<div class="paragraph"><p>Workflows are how Guildsman carries out activities such as training
+likely worsened in another. Ideally, a training server would be made
+available for development use in a seamless manner. That&#8217;s my goal
+with Guildsman&#8217;s workflow feature.</p></div>
+<div class="paragraph"><p>Workflows are how Guildsman carries out activities, such as training
 and prediction. They are a series of actions to perform on a
-TensorFlow graph. In that respect, they are like a function. An
-important difference though is that Guildsman provides mechanisms to
-allow workflows to be specified as a data structure. I guess it&#8217;s a
-DSL of some kind. The data structure gets <em>compiled</em> to Clojure code
-and then eval&#8217;d to produce an actual funcion. Data-defined workflows
-buy you two things:</p></div>
+TensorFlow graph. In that respect, they are like a function. There&#8217;s
+an important difference&#8201;&#8212;&#8201;Guildsman provides mechanisms to allow
+workflows to be specified as a data structure. I guess it&#8217;s a DSL of
+some kind. The data structure gets <em>compiled</em> to Clojure code and then
+eval&#8217;d to produce an actual funcion. Data-defined workflows buy you
+two things:</p></div>
 <div class="ulist"><ul>
 <li>
 <p>
@@ -459,12 +460,12 @@ easy transmission to a remote server (for a seamless dev
 </li>
 <li>
 <p>
-ample surface area for plugins to hook in and augment functionality
+ample surface area for plugins to hook in and alter behavior
 </p>
 </li>
 </ul></div>
-<div class="paragraph"><p>Why are plugins useful here? I don&#8217;t have a lot of ideas about
-possible pluggable functionality, but the two I do have are critical.</p></div>
+<div class="paragraph"><p>Why do we need plugins? I only have two well-defined ideas about what
+plugins will be good for, but they&#8217;re both pretty big deals.</p></div>
 <div class="ulist"><ul>
 <li>
 <p>
@@ -484,8 +485,8 @@ it might be helpful to think of workflows as a generalizaion of those.</p></div>
 </div>
 <div class="sect2">
 <h3 id="_checkpoint_repo">Checkpoint Repo</h3>
-<div class="paragraph"><p>As training occurs, TensorFlow saves the state of variables into files
-called "checkpoints". These are use to recover&#8230; other uses?</p></div>
+<div class="paragraph"><p>As training occurs, TensorFlow automatically and periodically saves
+the state of variables into files called "checkpoints".</p></div>
 <div class="paragraph"><p>Guildsman expands on TensorFlow&#8217;s checkpoints by maintaining a
 database with details about the saved checkpoint files. This includes:</p></div>
 <div class="ulist"><ul>
@@ -496,7 +497,7 @@ the structure of the TensorFlow graph
 </li>
 <li>
 <p>
-a log of what training was done to arrive at the results
+a log of what training was done to arrive at graph&#8217;s state
 </p>
 </li>
 <li>
@@ -510,12 +511,16 @@ test dataset identifier
 </p>
 </li>
 </ul></div>
-<div class="paragraph"><p>I&#8217;d like to add support for pushing this data to a central (public or
-private, depending on the use case) repository. This central repo could
-facilitate collaboration. It might even be useful as the model source
-for a deployment system.</p></div>
+<div class="paragraph"><p>In the future, I&#8217;d like to add support for pushing checkpoints and
+their metadata to a central repository. These checkpoint repos could
+be private and internal to an organization, or a public community
+resource. By serving as a locus for collaboration and organization of
+results, they could be an invaluable tool for ML teams. Perhaps a
+checkpoint repo could serve as a source for deployment as well.</p></div>
 <hr />
 <div class="paragraph"><p>As always, I expect to have an alpha release out in the next few weeks.</p></div>
+<div class="paragraph"><p>If you&#8217;d like to read more, or get in touch, check out the
+<a href="https://github.com/bpiel/guildsman">Guildsman README</a>.</p></div>
 </section></div>
 </div>
 </div>
@@ -525,7 +530,7 @@ for a deployment system.</p></div>
 <div id="footer">
 <div id="footer-text">
 Last updated
- 2018-02-28 22:48:35 EST
+ 2018-03-01 13:02:26 EST
 </div>
 </div>
 </body>

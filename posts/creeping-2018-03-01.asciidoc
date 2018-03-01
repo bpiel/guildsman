@@ -3,7 +3,6 @@ include::header.asciidoc[]
 Mar 1, 2018
 
 = Guildsman Scope Creep
-:nofooter:
 *_...and wondering about others' ML workflows_*
 
 It's been a few months in a row now that I've pushed back the
@@ -132,7 +131,7 @@ dataset. I'm pretty excited about the potential here.
 
 Imagine a world where repos of versioned, publicly accessible datasets
 are plentiful. Guildsman's packaging system could integrate into such
-repos. For more on that, check out https://qri.io/.
+repos. For more on that dream, check out https://qri.io/.
 
 
 === Workflows and Plugins
@@ -141,29 +140,29 @@ How do you make the training process faster? By training on high-end
 GPUs! But these resources are expensive. It's not cost-effective for
 every dev to have their own. Instead, training-server resources must
 be shared somehow. The development workflow now extends outside the
-local machine (or the one the REPL) to include these servers. For me,
-this is not typical or ideal.
+local machine to include these servers. For me, this is not typical or
+ideal.
 
 We've improved the development iteration cycle in one respect, but
-potentially worsened in another. Ideally, these resources would be
-made available for development use in a seamless manner. That's my
-goal with Guildsman's workflow feature.
+likely worsened in another. Ideally, a training server would be made
+available for development use in a seamless manner. That's my goal
+with Guildsman's workflow feature.
 
-Workflows are how Guildsman carries out activities such as training
+Workflows are how Guildsman carries out activities, such as training
 and prediction. They are a series of actions to perform on a
-TensorFlow graph. In that respect, they are like a function. An
-important difference though is that Guildsman provides mechanisms to
-allow workflows to be specified as a data structure. I guess it's a
-DSL of some kind. The data structure gets _compiled_ to Clojure code
-and then eval'd to produce an actual funcion. Data-defined workflows
-buy you two things:
+TensorFlow graph. In that respect, they are like a function. There's
+an important difference -- Guildsman provides mechanisms to allow
+workflows to be specified as a data structure. I guess it's a DSL of
+some kind. The data structure gets _compiled_ to Clojure code and then
+eval'd to produce an actual funcion. Data-defined workflows buy you
+two things:
 
 * easy transmission to a remote server (for a seamless dev
   experience!)
-* ample surface area for plugins to hook in and augment functionality
+* ample surface area for plugins to hook in and alter behavior
 
-Why are plugins useful here? I don't have a lot of ideas about
-possible pluggable functionality, but the two I do have are critical.
+Why do we need plugins? I only have two well-defined ideas about what
+plugins will be good for, but they're both pretty big deals.
 
 * a plugin to neatly interleave behavior and features useful for
 development, but not necessary for production.
@@ -175,23 +174,29 @@ it might be helpful to think of workflows as a generalizaion of those.
 
 === Checkpoint Repo
 
-As training occurs, TensorFlow saves the state of variables into files
-called "checkpoints". These are use to recover... other uses?
+As training occurs, TensorFlow automatically and periodically saves
+the state of variables into files called "checkpoints".
 
 Guildsman expands on TensorFlow's checkpoints by maintaining a
 database with details about the saved checkpoint files. This includes:
 
 * the structure of the TensorFlow graph
-* a log of what training was done to arrive at the results
+* a log of what training was done to arrive at graph's state
 * test results
 * test dataset identifier
 
-I'd like to add support for pushing this data to a central (public or
-private, depending on the use case) repository. This central repo could
-facilitate collaboration. It might even be useful as the model source
-for a deployment system.
+In the future, I'd like to add support for pushing checkpoints and
+their metadata to a central repository. These checkpoint repos could
+be private and internal to an organization, or a public community
+resource. By serving as a locus for collaboration and organization of
+results, they could be an invaluable tool for ML teams. Perhaps a
+checkpoint repo could serve as a source for deployment as well.
 
 '''
+
 As always, I expect to have an alpha release out in the next few weeks.
+
+If you'd like to read more, or get in touch, check out the
+https://github.com/bpiel/guildsman[Guildsman README].
 
 include::footer.asciidoc[]
