@@ -2,7 +2,8 @@ include::header.asciidoc[]
 
 Mar 1, 2018
 
-= Guildsman Scope Creep 
+= Guildsman Scope Creep
+:nofooter:
 *_...and wondering about others' ML workflows_*
 
 It's been a few months in a row now that I've pushed back the
