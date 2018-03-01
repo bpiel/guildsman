@@ -1,10 +1,13 @@
+include::header.asciidoc[]
+
 Mar 1, 2018
 
 = Guildsman Scope Creep 
 *_...and Wondering About Others' ML Workflows_*
 
 It's been a few months in a row now that I've pushed back the
-Guildsman alpha deadline by a month. I'm ok with that. At work, we
+https://github.com/bpiel/guildsman[Guildsman]
+alpha deadline by a month. I'm ok with that. At work, we
 adhere to the practice of continuously shipping small, iterative
 improvements. I'm very happy that we do that. However, for better or
 worse, with personal projects, I often like to take a luxurious amount
@@ -190,3 +193,5 @@ for a deployment system.
 
 '''
 As always, I expect to have an alpha release out in the next few weeks.
+
+include::footer.asciidoc[]

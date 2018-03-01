@@ -1,0 +1,518 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN"
+    "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
+<head>
+<meta http-equiv="Content-Type" content="application/xhtml+xml; charset=UTF-8" />
+<meta name="generator" content="AsciiDoc 8.6.10" />
+<title></title>
+<style type="text/css">
+body {
+    font-family: 'Roboto', sans-serif;
+    line-height: 25px;
+    color: #333;
+}
+
+h1 {
+    color: #000;
+    font-family: 'Raleway', sans-serif;
+    letter-spacing: 2px;
+    margin: 20px 0 10px 0;
+}
+
+h2, h3, h4 {
+    color: #000;
+    font-weight: 400;
+    font-family: 'Roboto Slab', serif;
+    letter-spacing: 2px;
+    margin: 20px 0 10px 0;
+}
+
+a {
+    text-decoration: underline;
+    color: #338;
+}
+
+strong {
+    font-weight: 700;
+    letter-spacing: 1px;
+}
+
+
+</style>
+<script type="text/javascript">
+/*<![CDATA[*/
+var asciidoc = {  // Namespace.
+
+/////////////////////////////////////////////////////////////////////
+// Table Of Contents generator
+/////////////////////////////////////////////////////////////////////
+
+/* Author: Mihai Bazon, September 2002
+ * http://students.infoiasi.ro/~mishoo
+ *
+ * Table Of Content generator
+ * Version: 0.4
+ *
+ * Feel free to use this script under the terms of the GNU General Public
+ * License, as long as you do not remove or alter this notice.
+ */
+
+ /* modified by Troy D. Hanson, September 2006. License: GPL */
+ /* modified by Stuart Rackham, 2006, 2009. License: GPL */
+
+// toclevels = 1..4.
+toc: function (toclevels) {
+
+  function getText(el) {
+    var text = "";
+    for (var i = el.firstChild; i != null; i = i.nextSibling) {
+      if (i.nodeType == 3 /* Node.TEXT_NODE */) // IE doesn't speak constants.
+        text += i.data;
+      else if (i.firstChild != null)
+        text += getText(i);
+    }
+    return text;
+  }
+
+  function TocEntry(el, text, toclevel) {
+    this.element = el;
+    this.text = text;
+    this.toclevel = toclevel;
+  }
+
+  function tocEntries(el, toclevels) {
+    var result = new Array;
+    var re = new RegExp('[hH]([1-'+(toclevels+1)+'])');
+    // Function that scans the DOM tree for header elements (the DOM2
+    // nodeIterator API would be a better technique but not supported by all
+    // browsers).
+    var iterate = function (el) {
+      for (var i = el.firstChild; i != null; i = i.nextSibling) {
+        if (i.nodeType == 1 /* Node.ELEMENT_NODE */) {
+          var mo = re.exec(i.tagName);
+          if (mo && (i.getAttribute("class") || i.getAttribute("className")) != "float") {
+            result[result.length] = new TocEntry(i, getText(i), mo[1]-1);
+          }
+          iterate(i);
+        }
+      }
+    }
+    iterate(el);
+    return result;
+  }
+
+  var toc = document.getElementById("toc");
+  if (!toc) {
+    return;
+  }
+
+  // Delete existing TOC entries in case we're reloading the TOC.
+  var tocEntriesToRemove = [];
+  var i;
+  for (i = 0; i < toc.childNodes.length; i++) {
+    var entry = toc.childNodes[i];
+    if (entry.nodeName.toLowerCase() == 'div'
+     && entry.getAttribute("class")
+     && entry.getAttribute("class").match(/^toclevel/))
+      tocEntriesToRemove.push(entry);
+  }
+  for (i = 0; i < tocEntriesToRemove.length; i++) {
+    toc.removeChild(tocEntriesToRemove[i]);
+  }
+
+  // Rebuild TOC entries.
+  var entries = tocEntries(document.getElementById("content"), toclevels);
+  for (var i = 0; i < entries.length; ++i) {
+    var entry = entries[i];
+    if (entry.element.id == "")
+      entry.element.id = "_toc_" + i;
+    var a = document.createElement("a");
+    a.href = "#" + entry.element.id;
+    a.appendChild(document.createTextNode(entry.text));
+    var div = document.createElement("div");
+    div.appendChild(a);
+    div.className = "toclevel" + entry.toclevel;
+    toc.appendChild(div);
+  }
+  if (entries.length == 0)
+    toc.parentNode.removeChild(toc);
+},
+
+
+/////////////////////////////////////////////////////////////////////
+// Footnotes generator
+/////////////////////////////////////////////////////////////////////
+
+/* Based on footnote generation code from:
+ * http://www.brandspankingnew.net/archive/2005/07/format_footnote.html
+ */
+
+footnotes: function () {
+  // Delete existing footnote entries in case we're reloading the footnodes.
+  var i;
+  var noteholder = document.getElementById("footnotes");
+  if (!noteholder) {
+    return;
+  }
+  var entriesToRemove = [];
+  for (i = 0; i < noteholder.childNodes.length; i++) {
+    var entry = noteholder.childNodes[i];
+    if (entry.nodeName.toLowerCase() == 'div' && entry.getAttribute("class") == "footnote")
+      entriesToRemove.push(entry);
+  }
+  for (i = 0; i < entriesToRemove.length; i++) {
+    noteholder.removeChild(entriesToRemove[i]);
+  }
+
+  // Rebuild footnote entries.
+  var cont = document.getElementById("content");
+  var spans = cont.getElementsByTagName("span");
+  var refs = {};
+  var n = 0;
+  for (i=0; i<spans.length; i++) {
+    if (spans[i].className == "footnote") {
+      n++;
+      var note = spans[i].getAttribute("data-note");
+      if (!note) {
+        // Use [\s\S] in place of . so multi-line matches work.
+        // Because JavaScript has no s (dotall) regex flag.
+        note = spans[i].innerHTML.match(/\s*\[([\s\S]*)]\s*/)[1];
+        spans[i].innerHTML =
+          "[<a id='_footnoteref_" + n + "' href='#_footnote_" + n +
+          "' title='View footnote' class='footnote'>" + n + "</a>]";
+        spans[i].setAttribute("data-note", note);
+      }
+      noteholder.innerHTML +=
+        "<div class='footnote' id='_footnote_" + n + "'>" +
+        "<a href='#_footnoteref_" + n + "' title='Return to text'>" +
+        n + "</a>. " + note + "</div>";
+      var id =spans[i].getAttribute("id");
+      if (id != null) refs["#"+id] = n;
+    }
+  }
+  if (n == 0)
+    noteholder.parentNode.removeChild(noteholder);
+  else {
+    // Process footnoterefs.
+    for (i=0; i<spans.length; i++) {
+      if (spans[i].className == "footnoteref") {
+        var href = spans[i].getElementsByTagName("a")[0].getAttribute("href");
+        href = href.match(/#.*/)[0];  // Because IE return full URL.
+        n = refs[href];
+        spans[i].innerHTML =
+          "[<a href='#_footnote_" + n +
+          "' title='View footnote' class='footnote'>" + n + "</a>]";
+      }
+    }
+  }
+},
+
+install: function(toclevels) {
+  var timerId;
+
+  function reinstall() {
+    asciidoc.footnotes();
+    if (toclevels) {
+      asciidoc.toc(toclevels);
+    }
+  }
+
+  function reinstallAndRemoveTimer() {
+    clearInterval(timerId);
+    reinstall();
+  }
+
+  timerId = setInterval(reinstall, 500);
+  if (document.addEventListener)
+    document.addEventListener("DOMContentLoaded", reinstallAndRemoveTimer, false);
+  else
+    window.onload = reinstallAndRemoveTimer;
+}
+
+}
+asciidoc.install();
+/*]]>*/
+</script>
+</head>
+<body class="article">
+<div id="header">
+</div>
+<div id="content">
+<link href="https://fonts.googleapis.com/css?family=Raleway|Roboto|Roboto+Slab" rel="stylesheet">
+<div style="width:100%">
+ <section style="max-width:640px;margin:80px auto;">
+<div class="paragraph"><p>Mar 1, 2018</p></div>
+<h1 id="_guildsman_scope_creep">Guildsman Scope Creep</h1>
+<div class="paragraph"><p><strong><em>&#8230;and Wondering About Others' ML Workflows</em></strong></p></div>
+<div class="paragraph"><p>It&#8217;s been a few months in a row now that I&#8217;ve pushed back the
+<a href="https://github.com/bpiel/guildsman">Guildsman</a>
+alpha deadline by a month. I&#8217;m ok with that. At work, we
+adhere to the practice of continuously shipping small, iterative
+improvements. I&#8217;m very happy that we do that. However, for better or
+worse, with personal projects, I often like to take a luxurious amount
+of time to play around and explore ideas. With Guildsman, I&#8217;ve been
+thinking a lot about the differences between traditional software and
+machine learning, and how those differences affect the development
+workflow.</p></div>
+<hr />
+<div class="paragraph"><p><strong>DISCLAIMER</strong>: I&#8217;m a novice in the field of ML. I&#8217;ve spent a
+significant amount of time googling and asking questions of others,
+but my understanding of these topics covered below is not that of an
+expert.</p></div>
+<div class="paragraph"><p>If I&#8217;m getting things wrong, please get in touch and help me head in
+the right direction. Thanks</p></div>
+<hr />
+<div class="sect1">
+<h2 id="_training">Training</h2>
+<div class="sectionbody">
+<div class="sect2">
+<h3 id="_the_process_the_product_and_the_problems">The Process, The Product and The Problems</h3>
+<div class="paragraph"><p>Compared to traditional software development, machine learning
+includes the additional step of training and also an additional artifact,
+the trained model.</p></div>
+<div class="paragraph"><p>In traditional software development, you perform some sort of test on
+modified source before considering it for production use. Whether it&#8217;s
+running a full test suite or just trying a few cases from the REPL,
+there&#8217;s some process that yields feedback and informs a decisions
+about whether this development session is done.</p></div>
+</div>
+<div class="sect2">
+<h3 id="_training_can_be_slow">Training Can Be Slow</h3>
+<div class="paragraph"><p>In machine learning, there&#8217;s no exact analog to the boolean
+correctness result that a test gives you, but there is some sort of
+fitness score. "This trained model correctly identifies cats 90% of
+the time. Let&#8217;s ship it!" This fitness score is the result of testing
+a trained model. Therefore, training the model is part of the
+development process&#8201;&#8212;&#8201;a critical part. Training a model, however, can
+take orders of magnitude longer than the compilation and testing
+steps. (Ok, the time required for compilation and testing can vary
+wildly based on many factors, but I&#8217;m generalizing based on my
+experience). The duration of the development iteration cycle can
+explode; progress slows to a crawl; disillusionment sets in etc.</p></div>
+<div class="paragraph"><p>There&#8217;s only so much that can be done to accelerate model training,
+but I believe there is a lot that can be done to mitigate its negative
+impact on the development process. I&#8217;ve been noodling on this goal.</p></div>
+</div>
+<div class="sect2">
+<h3 id="_where_do_you_keep_the_trained_model">Where Do You Keep the Trained Model?</h3>
+<div class="paragraph"><p>Ok, training is done and you have a trained model. It correctly
+identifies cats at an astounding level of accuracy. Yay! But, what do
+you with that model? How do you deploy it to production? With
+Clojure/Java, deployment might mean dropping a JAR file on a
+server. What&#8217;s the equivalent for ML? Do you include your trained in
+the JAR as a resource, or drop it nearby on the file system? These
+both seem fine, I guess. But then, how do you keep track of which
+model has been deployed and what the expected performance is? In our
+deployment system, we know which git commit is on the server. We also
+have a record that all tests passed for that commit in our CI
+tool. Where do you record test results for the deployed model? (Or any
+model?) Or stepping back, running tests requires test data. There&#8217;s
+all sorts of organizational questions related to that:</p></div>
+<div class="ulist"><ul>
+<li>
+<p>
+Where is the test data kept?
+</p>
+</li>
+<li>
+<p>
+How is it made available to the test runner?
+</p>
+</li>
+<li>
+<p>
+Is the test data versioned?
+</p>
+</li>
+<li>
+<p>
+Where is it recorded which version of the test data produced which
+test result?
+</p>
+</li>
+</ul></div>
+<div class="paragraph"><p>I&#8217;m not the only one asking these questions, of course. There are
+services and software solutions that attempt to addresses at least
+some of the above. There are more in the works. For TensorFlow, Google
+offers TensorFlow Serving. I think they&#8217;re headed in the right
+direction, but seems like an incomplete solution at this point.</p></div>
+<div class="paragraph"><p>I want a <strong>high-quality</strong> ML dev experience. I don&#8217;t think we&#8217;re <strong>there</strong>
+yet.</p></div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_attempting_a_foundation_for_solutions">Attempting a Foundation for Solutions</h2>
+<div class="sectionbody">
+<div class="paragraph"><p>I haven&#8217;t solved these problems, but I have given them a lot of
+attention. Below I&#8217;ve outlined the features I&#8217;ve built into Guildsman
+and how they attempt to at least serve as a good foundation for
+possible future solutions.</p></div>
+<div class="sect2">
+<h3 id="_dataset_packages">Dataset Packages</h3>
+<div class="paragraph"><p>Think about how great git commits are.</p></div>
+<div class="ulist"><ul>
+<li>
+<p>
+They are immutable.
+</p>
+</li>
+<li>
+<p>
+They have a unique identifier.
+</p>
+</li>
+<li>
+<p>
+They expose their history (parent commits).
+</p>
+</li>
+</ul></div>
+<div class="paragraph"><p>And with a bit of context (the repo), they are easily:</p></div>
+<div class="ulist"><ul>
+<li>
+<p>
+discoverable
+</p>
+</li>
+<li>
+<p>
+obtainable
+</p>
+</li>
+</ul></div>
+<div class="paragraph"><p>The ideal dataset would have all of these properties. The ideal ML
+workflow would leverage an infrastructure that supports such
+datasets. With this in mind, I instilled in Guildsman the concept of
+packages. As is the case with most features of Guildsman, the
+implementation is minimal, but the foundation is there.</p></div>
+<div class="paragraph"><p>The goal is a scenario where you can drop a package identifier as in
+input into your graph and Guildsman will be able to:</p></div>
+<div class="ulist"><ul>
+<li>
+<p>
+determine whether the package (dataset) has been previously procured
+</p>
+</li>
+<li>
+<p>
+obtain it if necessary (ex. download from web server)
+</p>
+</li>
+<li>
+<p>
+wire up the necessary nodes and point them to wherever the dataset is
+  (likely a file on the local filesystem)
+</p>
+</li>
+</ul></div>
+<div class="paragraph"><p>Added bonus: In addition to the dataset itself, packages can contain
+portions of graphs, as well. That opens up all sorts of possibilities,
+but the primary intended use is to be able to package a dataset
+together with the TensorFlow nodes to interpret the format of the
+dataset. I&#8217;m pretty excited about the potential here.</p></div>
+<div class="paragraph"><p>Imagine a world where repos of versioned, publicly accessible datasets
+are plentiful. Guildsman&#8217;s packaging system could integrate into such
+repos. For more on that, check out <a href="https://qri.io/">https://qri.io/</a>.</p></div>
+</div>
+<div class="sect2">
+<h3 id="_workflows_and_plugins">Workflows and Plugins</h3>
+<div class="paragraph"><p>How do you make the training process faster? By training on high-end
+GPUs! But these resources are expensive. It&#8217;s not cost-effective for
+every dev to have their own. Instead, training server resources must
+be shared somehow. The development workflow now extends outside the
+local machine (or the one the REPL) to include these servers. For me,
+this is not typical or ideal.</p></div>
+<div class="paragraph"><p>We&#8217;ve improved the development iteration cycle in one respect, but
+potentially worsened in another. Ideally, these resources would be
+made available for development use in a seamless manner. That&#8217;s my
+goal with Guildsman&#8217;s workflow feature.</p></div>
+<div class="paragraph"><p>Workflows are how Guildsman carries out activities such as training
+and prediction. They are a series of actions to perform on a
+TensorFlow graph. In that respect, they are like a function. An
+important difference though is that Guildsman provides mechanisms to
+allow workflows to be specified as a data structure. I guess it&#8217;s a
+DSL of some kind. The data structure gets <em>compiled</em> to Clojure code
+and then eval&#8217;d to produce an actual funcion. Data-defined workflows
+buy you two things:</p></div>
+<div class="ulist"><ul>
+<li>
+<p>
+easy transmission to a remote server (for a seamless dev
+  experience!)
+</p>
+</li>
+<li>
+<p>
+ample surface area for plugins to hook in and augment functionality
+</p>
+</li>
+</ul></div>
+<div class="paragraph"><p>Why are plugins useful here? I don&#8217;t have a lot of ideas about
+possible pluggable functionality, but the two I do have are critical.</p></div>
+<div class="ulist"><ul>
+<li>
+<p>
+a plugin to neatly interleave behavior and features useful for
+development, but not necessary for production.
+</p>
+</li>
+<li>
+<p>
+a plugin to seamlessly coordinate with remote training servers
+</p>
+</li>
+</ul></div>
+<div class="paragraph"><p>If you are familiar with TensorFlow&#8217;s
+<a href="https://www.tensorflow.org/programmers_guide/estimators">estimators</a>,
+it might be helpful to think of workflows as a generalizaion of those.</p></div>
+</div>
+<div class="sect2">
+<h3 id="_checkpoint_repo">Checkpoint Repo</h3>
+<div class="paragraph"><p>As training occurs, TensorFlow saves the state of variables into files
+called "checkpoints". These are use to recover&#8230; other uses?</p></div>
+<div class="paragraph"><p>Guildsman expands on TensorFlow&#8217;s checkpoints by maintaining a
+database with details about the saved checkpoint files. This includes:</p></div>
+<div class="ulist"><ul>
+<li>
+<p>
+the structure of the TensorFlow graph
+</p>
+</li>
+<li>
+<p>
+a log of what training was done to arrive at the results
+</p>
+</li>
+<li>
+<p>
+test results
+</p>
+</li>
+<li>
+<p>
+test dataset identifier
+</p>
+</li>
+</ul></div>
+<div class="paragraph"><p>I&#8217;d like to add support for pushing this data to a central (public or
+private, depending on the use case) repository. This central repo could
+facilitate collaboration. It might even be useful as the model source
+for a deployment system.</p></div>
+<hr />
+<div class="paragraph"><p>As always, I expect to have an alpha release out in the next few weeks.</p></div>
+</section></div>
+</div>
+</div>
+</div>
+</div>
+<div id="footnotes"><hr /></div>
+<div id="footer">
+<div id="footer-text">
+Last updated
+ 2018-02-28 22:07:53 EST
+</div>
+</div>
+</body>
+</html>
