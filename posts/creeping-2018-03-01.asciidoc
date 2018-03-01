@@ -115,8 +115,8 @@ datasets. With this in mind, I instilled in Guildsman the concept of
 packages. As is the case with most features of Guildsman, the
 implementation is minimal, but the foundation is there.
 
-The goal is a scenario where you can drop a package identifier as in
-input into your graph and Guildsman will be able to:
+The goal is a scenario where you can drop a package identifier as an
+input to your graph and Guildsman will be able to:
 
 * determine whether the package (dataset) has been previously procured
 * obtain it if necessary (ex. download from web server)
