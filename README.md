@@ -2,6 +2,12 @@
 
 **NOTE** : This project is in pre-release status. My current goal is to release a *friendly* (docs, examples, tests) alpha sometime in March 2018.
 
+---
+## UPDATE -- Mar 1, 2018
+https://bpiel.github.io/guildsman/posts/creeping-2018-03-01/
+
+---
+
 ## Resources
 
 I spoke about, and demonstrated, Guildsman at Conj 2017 in Baltimore. You can watch here:
