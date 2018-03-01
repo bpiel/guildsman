@@ -1,5 +1,17 @@
 ++++
+
+<!-- Global site tag (gtag.js) - Google Analytics -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=UA-46290114-3"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'UA-46290114-3');
+</script>
+
 <link href="https://fonts.googleapis.com/css?family=Raleway|Roboto|Roboto+Slab" rel="stylesheet">
+
 <div style="width:100%">
  <section style="max-width:640px;margin:80px auto;">
 ++++
