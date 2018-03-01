@@ -3,7 +3,7 @@ include::header.asciidoc[]
 Mar 1, 2018
 
 = Guildsman Scope Creep 
-*_...and Wondering About Others' ML Workflows_*
+*_...and wondering about others' ML workflows_*
 
 It's been a few months in a row now that I've pushed back the
 https://github.com/bpiel/guildsman[Guildsman]
@@ -37,23 +37,22 @@ the trained model.
 
 In traditional software development, you perform some sort of test on
 modified source before considering it for production use. Whether it's
-running a full test suite or just trying a few cases from the REPL,
-there's some process that yields feedback and informs a decisions
-about whether this development session is done.
+running a full test suite or just exercising a few cases from the
+REPL, there's some process that yields feedback and informs decisions
+about whether this development session is complete.
 
 === Training Can Be Slow
 
 In machine learning, there's no exact analog to the boolean
 correctness result that a test gives you, but there is some sort of
-fitness score. "This trained model correctly identifies cats 90% of
-the time. Let's ship it!" This fitness score is the result of testing
+fitness score. _"This trained model correctly identifies cats 90% of
+the time. Let's ship it!"_ This fitness score is the result of testing
 a trained model. Therefore, training the model is part of the
 development process -- a critical part. Training a model, however, can
-take orders of magnitude longer than the compilation and testing
-steps. (Ok, the time required for compilation and testing can vary
-wildly based on many factors, but I'm generalizing based on my
-experience). The duration of the development iteration cycle can
-explode; progress slows to a crawl; disillusionment sets in etc.
+take orders of magnitude longer than the typical automated steps of
+the development workflow -- compilation and testing. The length of the
+development iteration cycle can explode; progress slows to a crawl;
+disillusionment sets in etc.
 
 There's only so much that can be done to accelerate model training,
 but I believe there is a lot that can be done to mitigate its negative
@@ -63,17 +62,17 @@ impact on the development process. I've been noodling on this goal.
 
 Ok, training is done and you have a trained model. It correctly
 identifies cats at an astounding level of accuracy. Yay! But, what do
-you with that model? How do you deploy it to production? With
-Clojure/Java, deployment might mean dropping a JAR file on a
-server. What's the equivalent for ML? Do you include your trained in
-the JAR as a resource, or drop it nearby on the file system? These
-both seem fine, I guess. But then, how do you keep track of which
-model has been deployed and what the expected performance is? In our
-deployment system, we know which git commit is on the server. We also
-have a record that all tests passed for that commit in our CI
-tool. Where do you record test results for the deployed model? (Or any
-model?) Or stepping back, running tests requires test data. There's
-all sorts of organizational questions related to that: 
+you with that model? How do you deploy it to production? In then
+normal Clojure/Java world, deployment might mean dropping a JAR file
+on a server. What's the equivalent for ML? Do you include your trained
+model in the JAR as a resource, or drop it nearby on the file system?
+These both seem fine, I guess. But then, how do you keep track of
+which model has been deployed and what the expected performance is? My
+team's deployment system remembers which git commit is on the
+server. We also have a record that all tests passed for that commit in
+our CI tool. Where do you record test results for the deployed model?
+(Or any model?) Or stepping back, we need data to run these
+tests. There's all sorts of organizational questions related to that:
 
 * Where is the test data kept? 
 * How is it made available to the test runner? 
@@ -85,7 +84,7 @@ I'm not the only one asking these questions, of course. There are
 services and software solutions that attempt to addresses at least
 some of the above. There are more in the works. For TensorFlow, Google
 offers TensorFlow Serving. I think they're headed in the right
-direction, but seems like an incomplete solution at this point. 
+direction, but it is far from addressing everything above.
 
 I want a *high-quality* ML dev experience. I don't think we're *there*
 yet.
@@ -139,7 +138,7 @@ repos. For more on that, check out https://qri.io/.
 
 How do you make the training process faster? By training on high-end
 GPUs! But these resources are expensive. It's not cost-effective for
-every dev to have their own. Instead, training server resources must
+every dev to have their own. Instead, training-server resources must
 be shared somehow. The development workflow now extends outside the
 local machine (or the one the REPL) to include these servers. For me,
 this is not typical or ideal.
