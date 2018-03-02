@@ -21,9 +21,13 @@
 ;; - split out some props from branches
 ;; - don't use branch count as id (branches may get deleted)
 
+;; need to be able to lookup (chkpt,repo) => branch
+
 #_ (def repo  (volatile! nil))
 
 (defonce repos (atom {}))
+
+(defonce branches (atom {}))
 
 #_ (-> @repo :mvms :branches .keyList)
 
@@ -51,7 +55,7 @@
     (swap! repo-atom assoc :next-id (inc idn))
     id))
 
-(defn- mk-init-repo
+#_(defn- mk-init-repo
   [store]
   (let [br-base-mvm (open-map "branches-base" store)]
     {:store store
@@ -62,6 +66,27 @@
                        :step (open-map "branches-step" store)
                        :indexed (open-map "branches-indexed" store)}
             :log nil}}))
+
+(defn- mk-init-repo
+  [path store]
+  {:path path
+   :store store
+   :next-id (-> br-base-mvm .size inc)
+   :mvms {;; maps to branch ids
+          :chkpts (open-map "checkpoints" store)}
+   ;; map of atoms??
+   :branches {}})
+
+(defn- mk-init-branch
+  [repo br-store br-id]
+  (let [log (open-map "branches-log" store)]
+    {:repo repo
+     :store store
+     :id br-id
+     :mvms {:base (open-map "base" store)
+            :log (open-map "log" store)
+            :chkpts (open-map "checkpoints" store)}
+     :log (mvm->sorted-map log)}))
 
 (defn open-repo! [path]
   (when-not (nil? (@repos path))

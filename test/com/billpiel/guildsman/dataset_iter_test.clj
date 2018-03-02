@@ -593,7 +593,8 @@
                                                [add-ds-plan])}}
              :predict {:feed-args [features]
                        :fetch-return [pred1]}}
-     :chkpt {:use [repo1 #_:ch#####????]
+     :chkpt {:repo "/tmp/repo1"
+             ;; :id :chGUID###
              :keep-min err}}))
 
 ;; -- wf -- what goes in def? what goes in args?
