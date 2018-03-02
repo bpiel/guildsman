@@ -522,7 +522,7 @@
                       ~'current nil
                       ~'todo (list :workflow)
                       ~'state ~'init]
-                 (clojure.pprint/pprint ~'current)
+                 #_(clojure.pprint/pprint ~'current)
                  (let [~'result (case ~'current
                                   nil nil
                                   ~@(render-loop-cases

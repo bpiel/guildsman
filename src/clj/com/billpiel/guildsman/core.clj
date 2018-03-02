@@ -11,6 +11,7 @@
             [com.billpiel.guildsman.special-utils :as sput]
             [com.billpiel.guildsman.ops.composite :as c]
             [com.billpiel.guildsman.tensor-scope :as tsc]
+            [com.billpiel.guildsman.checkpoint-repo2 :as ckpt]
             com.billpiel.guildsman.gradients
             com.billpiel.guildsman.grad-desc-opt
             com.billpiel.guildsman.gradients-clj
@@ -445,22 +446,38 @@ provided an existing Graph defrecord and feed map."
   [`(gm-plugin-create-session-main (-> ~'state :global :gm :graph)
                                    (-> ~'state :global :gm :session))])
 
-;; TODO make correct
+;; TODO do it!
 (defn restore-checkpoint
   [ws-use-chkpt]
   (throw (Exception. "NOT IMPLEMENTED")))
 
-(defn gm-plugin-init-varis-main
-  [session ws-use-chkpt]
-  (if ws-use-chkpt
-    (restore-checkpoint ws-use-chkpt)
+(defn- setup-chkpt-branch!
+  "A `nil` repo-path opens an in-mem repo. A `nil` init-chkpt starts
+  new branch with random init values."
+  [plans session & [repo-path init-chkpt]]
+  (let [repo (ckpt/open-repo! repo-path)]
+    (if-let [{:keys [id avail?] :as chkpt} (and init-chkpt
+                                                (ckpt/get-chkpt repo init-chkpt))]
+      (if avail?
+        (let [br (ckpt/get-branch-by-chkpt repo id)]
+          (restore-checkpoint session chkpt)
+          br)
+        (throw (Exception. (str "Checkpoint not available. id = " init-chkpt))))
+      (do (run-global-vars-init session)
+          (ckpt/mk-new-branch plans repo)))))
+
+(defn gm-plugin-init-varis-main 
+  [session plans {:keys [path init-chkpt]}]
+#_  (if init-chkpt
+    (restore-checkpoint init-chkpt)
     (run-global-vars-init session))
-  {:global {:varis-set true}})
+  {:global {:branch (setup-chkpt-branch! plans path init-chkpt)}})
 
 (defn gm-plugin-setup-init-varis-main
   [wf-def & _]
   [`(gm-plugin-init-varis-main (-> ~'state :global :gm :session)
-                               (some-> ~'ws-cfg :chkpt :use))])
+                               (-> ~'ws-cfg :plans)
+                               (-> ~'ws-cfg :repo))])
 
 ;; TODO make more efficient??
 (defn gm-plugin-compile-modes-run-req

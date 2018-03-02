@@ -595,7 +595,9 @@
                        :fetch-return [pred1]}}
      :chkpt {:repo "/tmp/repo1"
              ;; :id :chGUID###
-             :keep-min err}}))
+             :keep-min err}
+     :repo {:path "/tmp/repo1"
+            :init-chkpt :chGUID###}}))
 
 ;; -- wf -- what goes in def? what goes in args?
 
@@ -632,3 +634,5 @@
     clojure.pprint/pprint )
 
 (clojure.pprint/pprint ws-splitter)
+
+o/restore-v2
