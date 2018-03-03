@@ -459,12 +459,11 @@ provided an existing Graph defrecord and feed map."
     (if-let [{:keys [id avail?] :as chkpt} (and init-chkpt
                                                 (cpr/get-chkpt repo init-chkpt))]
       (if avail?
-        (let [br (cpr/get-branch-by-chkpt repo id)]
-          (restore-checkpoint session chkpt)
-          br)
+        (do (restore-checkpoint session chkpt)
+            (cpr/mk-new-branch! plans repo id))
         (throw (Exception. (str "Checkpoint not available. id = " init-chkpt))))
       (do (run-global-vars-init session)
-          (cpr/mk-new-branch plans repo)))))
+          (cpr/mk-new-branch! plans repo)))))
 
 (defn gm-plugin-init-varis-main 
   [session branch plans {:keys [path init-chkpt]}]

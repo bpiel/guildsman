@@ -396,17 +396,12 @@
                                 ~'(-> state :global ::plugin :ws-ns))])
 
 (defn plugin-interval-post
-  [^Graph g ws-ns #_log-atom fetched step]
-#_  (swap! log-atom
-         assoc step
-         {:step step
-          :fetched (fetched->log-entry g fetched)}) ;;; TODO <<=========== hmmmmmmmmmm
-  #_(send-web-view-updater g ws-ns
-                         (:log @tr-db/db) ;; TODO <<=========== hmmmmmmmmmmm
-                         #_@log-atom)
+  [^Graph g ws-ns branch-atom]
+  (send-web-view-updater g ws-ns
+                         (:log @branch-atom))
   #_(clojure.pprint/pprint [fetched step]))
 
-(defn plugin-setup-interval-post
+#_(defn plugin-setup-interval-post
   [ws-cfg]
   [`(plugin-interval-post
      ~'(-> state :global :gm :graph) 
@@ -414,6 +409,13 @@
 ;;     ~'(-> state :global ::plugin :log)
      ~'(-> state :interval ::plugin :fetched)
      ~'(-> state :stage :gm :pos :step))])
+
+(defn plugin-setup-interval-post
+  [ws-cfg]
+  [`(plugin-interval-post
+     ~'(-> state :global :gm :graph) 
+     ~'(-> state :global ::plugin :ws-ns) ;; TODO hard code ns instead of lookup??
+     ~'(-> state :gloabl :gm :branch))])
 
 (def plugin
   {:meta {:kw ::plugin
