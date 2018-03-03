@@ -36,3 +36,6 @@
 
 (defn mk-new-branch
   [plans repo])
+
+(defn append-to-log
+  [branch-atom pos-step entry])

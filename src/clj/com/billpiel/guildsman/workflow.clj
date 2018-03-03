@@ -2,9 +2,11 @@
   (:require [clojure.core.async :as a]
             [com.billpiel.guildsman.util :as ut]
             [com.billpiel.guildsman.special-utils :as sput]
+            [com.billpiel.guildsman.summary-output :as sumout]
             [com.billpiel.guildsman.tensor-scope :as tsc]
             [com.billpiel.guildsman.ops.basic :as o]
-            [com.billpiel.guildsman.ops.composite :as c]))
+            [com.billpiel.guildsman.ops.composite :as c]
+            [com.billpiel.guildsman.checkpoint-repo2 :as cpr]))
 
 (defn filter-modes
   [ws-cfg modes]
@@ -319,7 +321,7 @@
                        (-> state :global :gm :graph)))
       state'')))
 
-(defn deliver-fetched
+#_(defn deliver-fetched
   [{:keys [modes interval] :as state}]
   (if-let [fetched-raw (-> interval :gm :fetched-raw not-empty)]
     (->> (for [[pk pv] (dissoc modes :-compiled)
@@ -333,6 +335,45 @@
                  interval)
          (assoc state :interval))
     state))
+
+(defn find-output-processors*
+  [op-kw]
+  (case op-kw
+    :HistogramSummary sumout/histogram-summary-output-processor
+    :ScalarSummary sumout/scalar-summary-output-processor
+    identity))
+
+(defn find-output-processors
+  [{:keys [modes global]}]
+  (let [output-procs (-> global :gm :output-procs)
+        fetch (-> modes :-compiled :-current :fetch)
+        id->op (-> (for [{:keys [id op]} fetch]
+                     [id op])
+                   (into {}))]
+    {:global
+     {:output-procs
+      (->> output-procs
+           keys
+           (apply dissoc id->op)
+           (ut/fmap find-output-processors*)
+           (merge output-procs))}}))
+
+(defn process-outputs
+  [procs fetched]
+  (-> (for [[k v] fetched]
+        [k ((procs k identity) v)])
+      (into {})))
+
+(defn append-fetched-to-log
+  [{:keys [modes interval global stage] :as state}]
+  (when-let [fetched-raw (-> interval :gm :fetched-raw not-empty)]
+    (let [branch (-> global :gm :branch)
+          procs (-> global :gm :output-procs)
+          pos-step (-> stage :gm :pos :step)]
+      (->> fetched-raw
+           (process-outputs procs)
+           (cpr/append-to-log branch
+                              pos-step)))))
 
 (defn- mk-default-form-bindings*
   [[plugin-kw frms]]

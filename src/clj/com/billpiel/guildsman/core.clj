@@ -11,7 +11,7 @@
             [com.billpiel.guildsman.special-utils :as sput]
             [com.billpiel.guildsman.ops.composite :as c]
             [com.billpiel.guildsman.tensor-scope :as tsc]
-            [com.billpiel.guildsman.checkpoint-repo2 :as ckpt]
+            [com.billpiel.guildsman.checkpoint-repo2 :as cpr]
             com.billpiel.guildsman.gradients
             com.billpiel.guildsman.grad-desc-opt
             com.billpiel.guildsman.gradients-clj
@@ -400,9 +400,9 @@ provided an existing Graph defrecord and feed map."
                   fetched-raw 
                   {mode
                    (fetch-map session
-                                 fetch
-                                 feed
-                                 [])})}}))
+                              fetch
+                              feed
+                              [])})}}))
 
 (defn gm-plugin-setup-init-main
   [wf-def & _]
@@ -455,27 +455,29 @@ provided an existing Graph defrecord and feed map."
   "A `nil` repo-path opens an in-mem repo. A `nil` init-chkpt starts
   new branch with random init values."
   [plans session & [repo-path init-chkpt]]
-  (let [repo (ckpt/open-repo! repo-path)]
+  (let [repo (cpr/open-repo! repo-path)]
     (if-let [{:keys [id avail?] :as chkpt} (and init-chkpt
-                                                (ckpt/get-chkpt repo init-chkpt))]
+                                                (cpr/get-chkpt repo init-chkpt))]
       (if avail?
-        (let [br (ckpt/get-branch-by-chkpt repo id)]
+        (let [br (cpr/get-branch-by-chkpt repo id)]
           (restore-checkpoint session chkpt)
           br)
         (throw (Exception. (str "Checkpoint not available. id = " init-chkpt))))
       (do (run-global-vars-init session)
-          (ckpt/mk-new-branch plans repo)))))
+          (cpr/mk-new-branch plans repo)))))
 
 (defn gm-plugin-init-varis-main 
-  [session plans {:keys [path init-chkpt]}]
+  [session branch plans {:keys [path init-chkpt]}]
 #_  (if init-chkpt
     (restore-checkpoint init-chkpt)
     (run-global-vars-init session))
-  {:global {:branch (setup-chkpt-branch! plans path init-chkpt)}})
+  (when (nil? branch) ;; continue from current state, if available
+    {:global {:branch (setup-chkpt-branch! plans path init-chkpt)}}))
 
 (defn gm-plugin-setup-init-varis-main
   [wf-def & _]
   [`(gm-plugin-init-varis-main (-> ~'state :global :gm :session)
+                               (-> ~'state :global :gm :branch)
                                (-> ~'ws-cfg :plans)
                                (-> ~'ws-cfg :repo))])
 
@@ -538,10 +540,14 @@ provided an existing Graph defrecord and feed map."
   [hook-frms wf-def _]
   `(let [~'dlvr-sco (tsc/mk-orphan-scope :standard)]
      (->> ~'state :interval :gm :fetched-raw (tsc/add-to-scope! ~'dlvr-sco))
-     (future (try (let [~'state (wf/deliver-fetched ~'state) ;; TODO replace with write to train log db?????????
-                        ~@(wf/mk-default-form-bindings hook-frms)])
-                  (finally
-                    (tsc/close-scope! ~'dlvr-sco))))
+     (future (try
+
+               (let [ ;; ~'state (wf/deliver-fetched ~'state)
+                     ~'state (wf/find-output-processors ~'state)
+                     _ (wf/append-fetched-to-log ~'state)
+                     ~@(wf/mk-default-form-bindings hook-frms)])
+               (finally
+                 (tsc/close-scope! ~'dlvr-sco))))
      nil))
 
 (defn gm-plugin-interval-block
