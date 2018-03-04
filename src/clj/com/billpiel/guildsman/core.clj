@@ -284,9 +284,10 @@ provided an existing Graph defrecord and feed map."
         {:keys [heartbeat]} o]
     {:status (:status o)
      :heartbeat heartbeat
-     :heartbeat-ago-s (quot (- (System/currentTimeMillis)
-                               heartbeat)
-                            1000)
+     :heartbeat-ago-s (when heartbeat
+                        (quot (- (System/currentTimeMillis)
+                                 heartbeat)
+                              1000))
      :step (-> sgo :pos :step)
      :interval (-> sgo :pos :interval)
      :stage (-> wgo :pos :stage)
@@ -454,7 +455,7 @@ provided an existing Graph defrecord and feed map."
 (defn- setup-chkpt-branch!
   "A `nil` repo-path opens an in-mem repo. A `nil` init-chkpt starts
   new branch with random init values."
-  [plans session & [repo-path init-chkpt]]
+  [session plans & [repo-path init-chkpt]]
   (let [repo (cpr/open-repo! repo-path)]
     (if-let [{:keys [id avail?] :as chkpt} (and init-chkpt
                                                 (cpr/get-chkpt repo init-chkpt))]
@@ -471,7 +472,7 @@ provided an existing Graph defrecord and feed map."
     (restore-checkpoint init-chkpt)
     (run-global-vars-init session))
   (when (nil? branch) ;; continue from current state, if available
-    {:global {:branch (setup-chkpt-branch! plans path init-chkpt)}}))
+    {:global {:branch (setup-chkpt-branch! session plans path init-chkpt)}}))
 
 (defn gm-plugin-setup-init-varis-main
   [wf-def & _]
@@ -540,10 +541,10 @@ provided an existing Graph defrecord and feed map."
   `(let [~'dlvr-sco (tsc/mk-orphan-scope :standard)]
      (->> ~'state :interval :gm :fetched-raw (tsc/add-to-scope! ~'dlvr-sco))
      (future (try
-
                (let [ ;; ~'state (wf/deliver-fetched ~'state)
-                     ~'state (wf/find-output-processors ~'state)
-                     _ (wf/append-fetched-to-log ~'state)
+                     ~'state (wf/merge-state :gm ~'state
+                                             (wf/find-output-processors ~'state))
+                     ~'_ (wf/append-fetched-to-log ~'state)
                      ~@(wf/mk-default-form-bindings hook-frms)])
                (finally
                  (tsc/close-scope! ~'dlvr-sco))))
@@ -771,6 +772,7 @@ provided an existing Graph defrecord and feed map."
 ;; WORKSPACES ========================
 (defn- mk-train-test-kernel
   [{:keys [duration interval] :as wf-def}]
+  ^{:doc "A default implementation of a train-test workflow....TODO"}
   [:block {:type :workflow
            :span {:steps (second duration)}}
    [:block {:type :stage
@@ -852,16 +854,15 @@ provided an existing Graph defrecord and feed map."
          (when (and (some-> ~'existing :wf-out deref :status (= :running))
                     (not (ws-interrupt ~'existing)))
            (throw (Exception. "Could not interrupt running workflow.")))
-         (doseq [close-fn# (:close ~'existing)]
-           (close-fn# ~'existing))))
+         (ws-close ~'existing)))
      (let [ws-cfg# (do ~@body)
            [ws# meta#] (mk-workspace '~ws-name ws-cfg#)]
        (def ~ws-name ws#)
        (alter-meta! (var ~ws-name)
                     assoc
                     :wf-meta meta#)
-       (doseq [init-fn# (:init ~ws-name)]
-         (init-fn# ~ws-name))
+       (doseq [auto-fn# (:auto ws-cfg#)]
+         (auto-fn# ~ws-name))
        (var ~ws-name))))
 
 ;; END WORKSPACES ========================
@@ -924,13 +925,14 @@ provided an existing Graph defrecord and feed map."
         src (wf/render-wf-fn-src kernel wf-cfg)
         wf-fn (eval src)
         init-wf-fn (render-init-workflow wf-cfg)]
+    ;; TODO make def-wf macro so this meta will be on var??
     (vary-meta (fn [ws]
                  (swap! (:wf-closers ws)
                         into plugins)
                  (when (a/<!! (init-wf-fn ws))
                    (wf-fn ws)))
                assoc
-               :doc "A default implementation of a train-test workflow....TODO"
+               :doc (-> kernel meta :doc) 
                :source src
                :wf-kernel kernel)))
 
@@ -946,5 +948,6 @@ provided an existing Graph defrecord and feed map."
 
 (defn ws-close
   [{:keys [wf-closers] :as ws}]
-  (a/<!! ((render-close-workflow {:plugins @wf-closers})
+  (a/<!! ((render-close-workflow {:plugins (conj @wf-closers
+                                                 gm-plugin)})
           ws)))

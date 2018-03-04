@@ -49,9 +49,6 @@
   [ns-sym]
   (when-let [dev-ns (and (@dev-nses ns-sym)
                          (the-ns ns-sym))]
-    ;; TODO check if graph/session is running
-    (g/close (ns-resolve dev-ns 'graph))
-    (g/close (ns-resolve dev-ns 'session))
     (remove-ns ns-sym)
     (swap! dev-nses disj ns-sym)
     (println "removed ns " ns-sym)))
@@ -72,8 +69,6 @@
 (defn stack [^Op op-node] (-> op-node meta :stack))
 
 (defn get-ns [op] (-> op meta :ns))
-(defn get-log [op] @(ns-resolve (get-ns op)
-                                '$log))
 
 ;; CYTO ===============================================
 
@@ -358,13 +353,11 @@
   [ws-ns ws-name]
   (when-not ws-ns
     (let [ns-sym (mk-ns-sym ws-name)
-          _ (release-dev-ns ns-sym) ;; TODO necessary?
+          _ (release-dev-ns ns-sym) ;; TODO move to closer
           ws-ns (create-ns ns-sym)
           log (atom (sorted-map))]
       (swap! dev-nses conj ns-sym)
-      (intern ws-ns '$log log)
-      {:global {:ws-ns ws-ns
-                :log log}})))
+      {:global {:ws-ns ws-ns}})))
 
 (defn plugin-setup-init-post [{:keys [ws-name]} & _]
   [`(plugin-init-post ~'(-> state :global ::plugin :ws-ns)
@@ -415,7 +408,7 @@
   [`(plugin-interval-post
      ~'(-> state :global :gm :graph) 
      ~'(-> state :global ::plugin :ws-ns) ;; TODO hard code ns instead of lookup??
-     ~'(-> state :gloabl :gm :branch))])
+     ~'(-> state :global :gm :branch))])
 
 (def plugin
   {:meta {:kw ::plugin

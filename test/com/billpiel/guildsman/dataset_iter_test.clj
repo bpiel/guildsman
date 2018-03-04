@@ -540,7 +540,7 @@
   (g/mk-train-test-wf
    {:plugins [dev/plugin g/gm-plugin]
     :duration [:steps 1000]
-    :interval [:steps 1000]}))
+    :interval [:steps 100]}))
 
 (g/start-wf wf-train-test ws-splitter)
 
@@ -593,13 +593,17 @@
                                                [add-ds-plan])}}
              :predict {:feed-args [features]
                        :fetch-return [pred1]}}
-     :chkpt {:repo "/tmp/repo1"
-             ;; :id :chGUID###
-             :keep-min err}
-     :repo {:path "/tmp/repo1"
-            :init-chkpt :chGUID###}}))
+     :repo {:path "/tmp/repo2"
+            #_ (:init-chkpt :chGUID###)
+            }}))
 
 ;; -- wf -- what goes in def? what goes in args?
+
+(def wf-train-test
+  (g/mk-train-test-wf
+   {:plugins [dev/plugin g/gm-plugin]
+    :duration [:steps 1000]
+    :interval [:steps 100]}))
 
 (g/start-wf wf-train-test ws-add1)
 

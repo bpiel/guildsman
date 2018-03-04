@@ -19,11 +19,16 @@
    ;; br-id => atoms
    :branches (atom {})})
 
+(defn- open-mvstore
+  [path]
+  (clojure.java.io/make-parents path)
+  (MVStore/open path))
+
 (defn open-repo! [path]
   (if-let [repo (@repos path)]
     repo
-    (if-let [store (MVStore/open (str path "/repo.db"))]
-      (let [repo (mk-init-repo! store)]
+    (if-let [store (open-mvstore (str path "/repo.db"))]
+      (let [repo (mk-init-repo! path store)]
         (swap! repos assoc path repo)
         repo)
       (throw (Exception. (str "Could not open train-repo " path))))))
@@ -49,14 +54,14 @@
   [repo-path plans {:keys [id steps]}]
   (let [br-id (gen-branch-id)
         ;; TODO win compatible paths
-        br-store-path-base (str repo-path "/" br-id)
-        br-store-path-props (str br-store-path-base "/props.db")
-        br-store-path-log (str br-store-path-base "/log.db")]
+        br-store-path (str repo-path "/" br-id)
+        store (open-mvstore (str br-store-path "/branch.db"))]
     {:id br-id
      :repo-path repo-path
-     :path br-store-path-base
-     :stores {:props (MVStore/open br-store-path-props)
-              :log (MVStore/open br-store-path-log)}
+     :path br-store-path
+     :store store
+     :mvms {:log (open-map! "log" store)
+            :props (open-map! "props" store)}
      :plans plans
      :parent-chkpt-id id
      :parent-steps (or steps 0)
@@ -64,11 +69,11 @@
      :log (sorted-map)}))
 
 (defn mk-new-branch!
-  [plans {:keys [path] :as repo} & [chkpt-id]]
-  (let [branch (mk-init-branch! path plans chkpt-id)
+  [plans {:keys [path] :as repo} & [chkpt]]
+  (let [branch (mk-init-branch! path plans chkpt)
         branch-atom (atom branch)]
     (swap! (:branches repo)
-           assoc (:br-id branch) branch-atom)
+           assoc (:id branch) branch-atom)
     branch-atom))
 
 (defn append-to-log*
@@ -79,54 +84,20 @@
 
 (defn append-to-log!
   [branch-atom pos-step fetched]
-  (let [entry {:step pos-step :fetched fetched}]
-    (swap! append-to-log*
+  (def ba1 branch-atom)
+  (def ps1 pos-step)
+  (def f1 fetched)
+  (let [entry {:step pos-step :fetched fetched}
+        mvms (:mvms @branch-atom)]
+    (swap! branch-atom append-to-log*
            pos-step entry)
-    (-> @branch-atom
-        :log
-        (assoc pos-step (npy/freeze entry))))
+    (.put (:log mvms) pos-step (npy/freeze entry))
+    ;; TODO use max steps
+    (.put (:props mvms) "step" pos-step))
   true)
 
+#_
+(-> repos deref vals first :branches deref  (get "br-11031454-121d-4bfa-bfd0-9876f6408ed4") deref :log clojure.pprint/pprint )
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+#_
+(-> repos deref vals first :branches deref  keys clojure.pprint/pprint )

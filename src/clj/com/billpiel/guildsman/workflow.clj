@@ -117,11 +117,7 @@
                               ~frm)))
        frms))
 
-(defn mk-default-form-bindings
-  [hook-frms]
-  (interleave (repeat 100 'state)
-              (mapcat mk-default-form-bindings*
-                      hook-frms)))
+(declare mk-default-form-bindings)
 
 
 (defn default-form-renderer
@@ -346,8 +342,8 @@
 (defn find-output-processors
   [{:keys [modes global]}]
   (let [output-procs (-> global :gm :output-procs)
-        fetch (-> modes :-compiled :-current :fetch)
-        id->op (-> (for [{:keys [id op]} fetch]
+        fetch (->> modes :-compiled vals (mapcat :fetch) distinct) ;; TODO unused mode are getting included
+        id->op (->> (for [{:keys [id op]} fetch]
                      [id op])
                    (into {}))]
     {:global
@@ -360,9 +356,9 @@
 
 (defn process-outputs
   [procs fetched]
-  (-> (for [[k v] fetched]
-        [k ((procs k identity) v)])
-      (into {})))
+  (->> (for [[k v] fetched]
+         [k ((procs k identity) v)])
+       (into {})))
 
 (defn append-fetched-to-log
   [{:keys [modes interval global stage] :as state}]
@@ -371,9 +367,9 @@
           procs (-> global :gm :output-procs)
           pos-step (-> stage :gm :pos :step)]
       (->> fetched-raw
-           (process-outputs procs)
-           (cpr/append-to-log branch
-                              pos-step)))))
+           (ut/fmap (partial process-outputs procs))
+           (cpr/append-to-log! branch
+                               pos-step)))))
 
 (defn- mk-default-form-bindings*
   [[plugin-kw frms]]
