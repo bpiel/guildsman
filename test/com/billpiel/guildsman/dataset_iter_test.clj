@@ -641,3 +641,52 @@
 
 o/restore-v2
 
+(def v1 (c/vari :v1 [1. 2.]))
+
+(def v2 (c/vari :v2 [3. 4. 5.]))
+
+(def saver (o/save-v2 :saver
+                      {:dtypes [g/dt-float g/dt-float]}
+                      "/tmp/chkpt"
+                      ["v1" "v2"]
+                      ["" ""]
+                      [v1 v2]))
+
+
+(def gr (g/build->graph saver))
+
+(def se (g/graph->session gr))
+
+(g/run-global-vars-init se)
+
+
+(g/with-tensor-conversion-scope
+  (g/fetch-all se [v1 v2]))
+
+(g/run se saver)
+
+(def av1 (o/assign :av1 v1 [0. 0.]))
+
+(def av2 (o/assign :av2 v2 [0. 0. 0.]))
+
+(g/build-all->graph gr [av1 av2])
+
+(g/run-all se [av1 av2])
+
+(def restorer
+  (o/restore-v2 :restorer
+                {:dtypes [g/dt-float g/dt-float]}
+                "/tmp/chkpt"
+                ["v1" "v2"]
+                ["" ""]))
+
+(g/build-all->graph gr [restorer])
+
+(g/with-tensor-conversion-scope
+  (g/fetch se (assoc restorer
+                     :output-idx 1)))
+
+
+(g/close se)
+
+(g/close gr)
