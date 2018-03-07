@@ -65,7 +65,10 @@
    :varis varis})
 
 (defn add-chkpt!
-  [id prefix avail? br-id step vari-ids])
+  [branch id prefix avail? br-id step varis]
+  (.put (-> branch :mvms :chkpts)
+        id
+        (mk-init-chkpt id prefix avail? br-id step varis)))
 
 (defn- mk-init-branch!
   [repo-path plans {:keys [id steps]}]
@@ -118,6 +121,8 @@
 
 #_
 (-> repos deref vals first :branches deref  keys clojure.pprint/pprint )
+
+
 
 
 

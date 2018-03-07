@@ -448,19 +448,23 @@ provided an existing Graph defrecord and feed map."
                      (sort-by :id)
                      vec)
           vari-ids (mapv :id varis)
+          vari-types (mapv (comp first :dtypes) varis)
+          vari-s+s (vec (repeat (count varis) ""))
           prefix (ops-b/placeholder :gm-chkpt-prefix dt-string [])
           restore-node (ops-b/restore-v2 :gm-chkpt-restore
-                                         {}
+                                         {:dtypes vari-types} 
                                          prefix
                                          vari-ids
-                                         "")]
+                                         vari-s+s)
+          save-node (ops-b/save-v2 :gm-chkpt-save
+                                   {:dtypes vari-types} 
+                                   prefix
+                                   vari-ids
+                                   vari-s+s
+                                   varis)]
+      (build-all->graph graph [save-node restore-node])
       {:global {:chkpt-prefix-node prefix
-                :chkpt-save-node (ops-b/save-v2 :gm-chkpt-save
-                                                {}
-                                                prefix
-                                                vari-ids
-                                                ""
-                                                varis)
+                :chkpt-save-node save-node
                 :chkpt-restore-node (mk-restore-assign-noop restore-node
                                                             varis)}})))
 
@@ -468,11 +472,11 @@ provided an existing Graph defrecord and feed map."
   [wf-def & _]
   [`(gm-plugin-build-main (-> ~'state :global :gm :graph)
                           (:plans ~'ws-cfg))
-   `(let [modes (->> ~'ws-cfg
-                     :modes
-                     (gm-plugin-build-modes (-> ~'state :global :gm :graph))
-                     wf/setup-modes)])
-   `(gm-plugin-build-chkpt-saver (-> ~'state :global :gm :graph))])
+   `(->> ~'ws-cfg
+         :modes
+         (gm-plugin-build-modes (-> ~'state :global :gm :graph))
+         wf/setup-modes)
+   `(gm-plugin-build-chkpt-nodes (-> ~'state :global :gm :graph))])
 
 (defn gm-plugin-create-session-main
   [graph session]
@@ -507,19 +511,22 @@ provided an existing Graph defrecord and feed map."
           (cpr/mk-new-branch! plans repo)))))
 
 (defn gm-plugin-init-varis-main 
-  [session branch plans {:keys [path init-chkpt]}]
-#_  (if init-chkpt
-    (restore-checkpoint init-chkpt)
-    (run-global-vars-init session))
+  [session branch plans {:keys [path init-chkpt]} chkpt-restore-node chkpt-prefix-node]
   (when (nil? branch) ;; continue from current state, if available
+    (if init-chkpt
+      (run session chkpt-restore-node {chkpt-prefix-node (.getBytes (str (:path @branch) "/" (name init-chkpt)))})
+      (run-global-vars-init session))
     {:global {:branch (setup-chkpt-branch! session plans path init-chkpt)}}))
 
 (defn gm-plugin-setup-init-varis-main
   [wf-def & _]
-  [`(gm-plugin-init-varis-main (-> ~'state :global :gm :session)
-                               (-> ~'state :global :gm :branch)
-                               (-> ~'ws-cfg :plans)
-                               (-> ~'ws-cfg :repo))])
+  [`(let [~'gm (-> ~'state :global :gm)]
+      (gm-plugin-init-varis-main (:session ~'gm)
+                                 (:branch ~'gm)
+                                 (-> ~'ws-cfg :plans)
+                                 (-> ~'ws-cfg :repo)
+                                 (:chkpt-restore-node ~'gm)
+                                 (:chkpt-prefix-node ~'gm)))])
 
 ;; TODO make more efficient??
 (defn gm-plugin-compile-modes-run-req
@@ -722,7 +729,8 @@ provided an existing Graph defrecord and feed map."
 ;; TODO delete old chkpts? update repo too! where should this happen?
 (defn gm-plugin-save-chkpt
   [[units secs] session branch last-chkpt-ts pos-step chkpt-save-node chkpt-prefix-node]
-  (when-not (= units :secs)
+  (when-not (or (nil? units)
+                (= units :secs))
     (throw (Exception. (str "chkpt-interval only supports units of :secs. Given: "
                             units))))
   (let [now-ts (System/currentTimeMillis)]
@@ -732,24 +740,31 @@ provided an existing Graph defrecord and feed map."
              (<= secs)
              (or (nil? secs)
                  (nil? last-chkpt-ts)))
-      (let [chkpt-id (cpr/gen-chkpt-id)
-            chkpt-prefix (str (:path branch) "/" chkpt-id)]
-        (run session chkpt-save-node {chkpt-prefix-node chkpt-prefix})
-        (cpr/add-chkpt! chkpt-id chkpt-prefix true (:id branch) pos-step)
+      (let [branch' @branch
+            chkpt-id (cpr/gen-chkpt-id)
+            chkpt-prefix (str (:path branch') "/" chkpt-id)]
+        (run session chkpt-save-node {chkpt-prefix-node (.getBytes chkpt-prefix)})
+        (cpr/add-chkpt! branch'
+                        chkpt-id
+                        chkpt-prefix
+                        true
+                        (:id branch')
+                        pos-step
+                        (-> chkpt-save-node :inputs last)) ;; TODO pass vari shapes&types too
         {:interval {:chkpt-id chkpt-id}
          :stage {:last-chkpt-ts now-ts}})
       {:interval {:chkpt-id nil}})))
 
 (defn gm-plugin-setup-save-chkpt-main
-  [wf-cfg chkpt-interval & _]
+  [wf-cfg & [chkpt-interval]]
   [`(let [~'gm ~'(-> state :global :gm)]
       (gm-plugin-save-chkpt ~chkpt-interval
-                            ~'(:session ~'gm)
-                            ~'(:branch ~'gm)
+                            (:session ~'gm)
+                            (:branch ~'gm)
                             ~'(-> state :stage :gm :last-chkpt-ts)
                             ~'(-> state :stage :pos :step)
-                            ~'(:chkpt-save-node ~'gm)
-                            ~'(:chkpt-prefix-node ~'gm)))])
+                            (:chkpt-save-node ~'gm)
+                            (:chkpt-prefix-node ~'gm)))])
 
 (defn gm-plugin-wait-take-feed-args
   [modes feed-ops input-ch]
@@ -998,7 +1013,10 @@ provided an existing Graph defrecord and feed map."
   [kernel-fn {:keys [plugins] :as wf-cfg}]
   (let [kernel (kernel-fn wf-cfg)
         src (wf/render-wf-fn-src kernel wf-cfg)
-        wf-fn (eval src)
+        wf-fn (try (eval src)
+                   (catch Exception e
+                     (clojure.pprint/pprint src)
+                     (throw e)))
         init-wf-fn (render-init-workflow wf-cfg)]
     ;; TODO make def-wf macro so this meta will be on var??
     (vary-meta (fn [ws]

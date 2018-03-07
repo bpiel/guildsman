@@ -562,6 +562,8 @@
                   [[-0.1 0.] [-0.1]]
                   [[0. -0.1] [-0.1]]]))
 
+(-> ws-add1 :wf-out deref :global :gm :branch deref :path)
+
 (g/def-workspace ws-add1
   (g/let+ [{:keys [features labels socket]}
            (->> (c/dsi-socket :socket
