@@ -594,7 +594,7 @@
              :predict {:feed-args [features]
                        :fetch-return [pred1]}}
      :repo {:path "/tmp/repo2"
-            #_ (:init-chkpt :chGUID###)
+            ;; :init-chkpt :chkGUID###
             }}))
 
 ;; -- wf -- what goes in def? what goes in args?
@@ -603,7 +603,8 @@
   (g/mk-train-test-wf
    {:plugins [dev/plugin g/gm-plugin]
     :duration [:steps 1000]
-    :interval [:steps 100]}))
+    :interval [:steps 100]
+    :chkpt-interval [:secs 3600]}))
 
 (g/start-wf wf-train-test ws-add1)
 
@@ -690,3 +691,4 @@ o/restore-v2
 (g/close se)
 
 (g/close gr)
+

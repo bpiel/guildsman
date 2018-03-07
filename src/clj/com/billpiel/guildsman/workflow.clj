@@ -365,11 +365,13 @@
   (when-let [fetched-raw (-> interval :gm :fetched-raw not-empty)]
     (let [branch (-> global :gm :branch)
           procs (-> global :gm :output-procs)
-          pos-step (-> stage :gm :pos :step)]
+          pos-step (-> stage :gm :pos :step)
+          chkpt-id (-> interval :gm :chkpt-id)]
       (->> fetched-raw
            (ut/fmap (partial process-outputs procs))
            (cpr/append-to-log! branch
-                               pos-step)))))
+                               pos-step
+                               chkpt-id)))))
 
 (defn- mk-default-form-bindings*
   [[plugin-kw frms]]

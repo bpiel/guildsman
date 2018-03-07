@@ -50,6 +50,23 @@
 (defn- gen-branch-id []
   (str "br-" (java.util.UUID/randomUUID)))
 
+(defn gen-chkpt-id []
+  (str "chkpt-" (java.util.UUID/randomUUID)))
+
+(defn mk-init-chkpt
+  [id prefix avail? br-id step varis]
+  {:id id
+   :prefix prefix
+   :avail? avail?
+   :created (System/currentTimeMillis)
+   :br-id br-id
+   :step step
+   ;; [{:id :shape :type}...]
+   :varis varis})
+
+(defn add-chkpt!
+  [id prefix avail? br-id step vari-ids])
+
 (defn- mk-init-branch!
   [repo-path plans {:keys [id steps]}]
   (let [br-id (gen-branch-id)
@@ -61,6 +78,7 @@
      :path br-store-path
      :store store
      :mvms {:log (open-map! "log" store)
+            :chkpts (open-map! "checkpoints" store)
             :props (open-map! "props" store)}
      :plans plans
      :parent-chkpt-id id
@@ -83,11 +101,8 @@
          :steps (max steps pos-step)))
 
 (defn append-to-log!
-  [branch-atom pos-step fetched]
-  (def ba1 branch-atom)
-  (def ps1 pos-step)
-  (def f1 fetched)
-  (let [entry {:step pos-step :fetched fetched}
+  [branch-atom pos-step chkpt-id fetched]
+  (let [entry {:step pos-step :chkpt chkpt-id :fetched fetched}
         mvms (:mvms @branch-atom)]
     (swap! branch-atom append-to-log*
            pos-step entry)
@@ -96,8 +111,15 @@
     (.put (:props mvms) "step" pos-step))
   true)
 
+
+
 #_
 (-> repos deref vals first :branches deref  (get "br-11031454-121d-4bfa-bfd0-9876f6408ed4") deref :log clojure.pprint/pprint )
 
 #_
 (-> repos deref vals first :branches deref  keys clojure.pprint/pprint )
+
+
+
+
+

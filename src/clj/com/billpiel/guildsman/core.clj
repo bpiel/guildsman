@@ -9,7 +9,8 @@
             [com.billpiel.guildsman.util :as ut]
             [com.billpiel.guildsman.dx :as dx]
             [com.billpiel.guildsman.special-utils :as sput]
-            [com.billpiel.guildsman.ops.composite :as c]
+            [com.billpiel.guildsman.ops.basic :as ops-b]
+            [com.billpiel.guildsman.ops.composite :as ops-c]
             [com.billpiel.guildsman.tensor-scope :as tsc]
             [com.billpiel.guildsman.checkpoint-repo2 :as cpr]
             com.billpiel.guildsman.gradients
@@ -409,14 +410,14 @@ provided an existing Graph defrecord and feed map."
   [wf-def & _]
   [])
 
-(defn gm-plugin-build-main [graph plans]
+(defn gm-plugin-build-main [graph plans] ;; TODO reuse graph if exists
   {:global {:graph (build-all->graph plans)}})
 
 (defn- gm-plugin-build-mode
   [graph {:keys [iters] :as mode}]
   (if (not-empty iters)
     (->> (for [[s p] iters]
-           (let [dsi-cn (c/dsi-connector s p)]
+           (let [dsi-cn (ops-c/dsi-connector s p)]
              ;; TODO build-all and find-ops instead?
              (build->graph graph dsi-cn) 
              (sput/->op-node graph dsi-cn)))
@@ -428,14 +429,50 @@ provided an existing Graph defrecord and feed map."
   (ut/fmap (partial gm-plugin-build-mode graph)
            modes))
 
+(defn- mk-restore-assign-noop
+  [restore-node varis]
+  (ops-b/no-op
+   {:ctrl-inputs (->> varis
+                      (map-indexed (fn [i v]
+                                     (->> i
+                                          (assoc restore-node
+                                                 :output-idx)
+                                          (ops-b/assign v))))
+                      vec)}))
+
+(defn gm-plugin-build-chkpt-nodes
+  [graph]
+  (when-not (sput/->op-node graph :gm-chkpt-prefix)
+    (let [varis (->> :varis
+                     (gr/get-nodes-in-collection graph)
+                     (sort-by :id)
+                     vec)
+          vari-ids (mapv :id varis)
+          prefix (ops-b/placeholder :gm-chkpt-prefix dt-string [])
+          restore-node (ops-b/restore-v2 :gm-chkpt-restore
+                                         {}
+                                         prefix
+                                         vari-ids
+                                         "")]
+      {:global {:chkpt-prefix-node prefix
+                :chkpt-save-node (ops-b/save-v2 :gm-chkpt-save
+                                                {}
+                                                prefix
+                                                vari-ids
+                                                ""
+                                                varis)
+                :chkpt-restore-node (mk-restore-assign-noop restore-node
+                                                            varis)}})))
+
 (defn gm-plugin-setup-build-main
   [wf-def & _]
   [`(gm-plugin-build-main (-> ~'state :global :gm :graph)
                           (:plans ~'ws-cfg))
-   `(->> ~'ws-cfg
-         :modes
-         (gm-plugin-build-modes (-> ~'state :global :gm :graph))
-         wf/setup-modes)])
+   `(let [modes (->> ~'ws-cfg
+                     :modes
+                     (gm-plugin-build-modes (-> ~'state :global :gm :graph))
+                     wf/setup-modes)])
+   `(gm-plugin-build-chkpt-saver (-> ~'state :global :gm :graph))])
 
 (defn gm-plugin-create-session-main
   [graph session]
@@ -456,9 +493,12 @@ provided an existing Graph defrecord and feed map."
   "A `nil` repo-path opens an in-mem repo. A `nil` init-chkpt starts
   new branch with random init values."
   [session plans & [repo-path init-chkpt]]
-  (let [repo (cpr/open-repo! repo-path)]
-    (if-let [{:keys [id avail?] :as chkpt} (and init-chkpt
-                                                (cpr/get-chkpt repo init-chkpt))]
+  (let [repo (cpr/open-repo! repo-path)
+        chkpt (and init-chkpt
+                   (cpr/get-chkpt repo init-chkpt))]
+    (when (and init-chkpt (nil? chkpt))
+      (throw (Exception. (str "Checkpoint not found in repo. id = " init-chkpt " ; repo path = " repo-path))))
+    (if-let [{:keys [id avail?]} chkpt]
       (if avail?
         (do (restore-checkpoint session chkpt)
             (cpr/mk-new-branch! plans repo id))
@@ -541,9 +581,9 @@ provided an existing Graph defrecord and feed map."
   `(let [~'dlvr-sco (tsc/mk-orphan-scope :standard)]
      (->> ~'state :interval :gm :fetched-raw (tsc/add-to-scope! ~'dlvr-sco))
      (future (try
-               (let [ ;; ~'state (wf/deliver-fetched ~'state)
-                     ~'state (wf/merge-state :gm ~'state
+               (let [~'state (wf/merge-state :gm ~'state
                                              (wf/find-output-processors ~'state))
+                     ;; check for chkpt and save it also
                      ~'_ (wf/append-fetched-to-log ~'state)
                      ~@(wf/mk-default-form-bindings hook-frms)])
                (finally
@@ -679,6 +719,38 @@ provided an existing Graph defrecord and feed map."
                           (-> ~'ws-cfg :modes :predict :feed-args)
                           (-> ~'ws-cfg :modes :predict :fetch-return))])
 
+;; TODO delete old chkpts? update repo too! where should this happen?
+(defn gm-plugin-save-chkpt
+  [[units secs] session branch last-chkpt-ts pos-step chkpt-save-node chkpt-prefix-node]
+  (when-not (= units :secs)
+    (throw (Exception. (str "chkpt-interval only supports units of :secs. Given: "
+                            units))))
+  (let [now-ts (System/currentTimeMillis)]
+    (if (->> last-chkpt-ts
+             (- now-ts)
+             (/ 1000)
+             (<= secs)
+             (or (nil? secs)
+                 (nil? last-chkpt-ts)))
+      (let [chkpt-id (cpr/gen-chkpt-id)
+            chkpt-prefix (str (:path branch) "/" chkpt-id)]
+        (run session chkpt-save-node {chkpt-prefix-node chkpt-prefix})
+        (cpr/add-chkpt! chkpt-id chkpt-prefix true (:id branch) pos-step)
+        {:interval {:chkpt-id chkpt-id}
+         :stage {:last-chkpt-ts now-ts}})
+      {:interval {:chkpt-id nil}})))
+
+(defn gm-plugin-setup-save-chkpt-main
+  [wf-cfg chkpt-interval & _]
+  [`(let [~'gm ~'(-> state :global :gm)]
+      (gm-plugin-save-chkpt ~chkpt-interval
+                            ~'(:session ~'gm)
+                            ~'(:branch ~'gm)
+                            ~'(-> state :stage :gm :last-chkpt-ts)
+                            ~'(-> state :stage :pos :step)
+                            ~'(:chkpt-save-node ~'gm)
+                            ~'(:chkpt-prefix-node ~'gm)))])
+
 (defn gm-plugin-wait-take-feed-args
   [modes feed-ops input-ch]
   (let [[[input return-ch] ch] (a/alts!! [input-ch
@@ -732,7 +804,6 @@ provided an existing Graph defrecord and feed map."
     (close session))
   {:global {:session nil}})
 
-
 (defn gm-plugin-setup-close-session
   [wf-def & _]
   [`(gm-plugin-close-session ~'(-> state :global :gm :session))])
@@ -742,7 +813,7 @@ provided an existing Graph defrecord and feed map."
    :init {:main #'gm-plugin-setup-init-main}
    :build {:main #'gm-plugin-setup-build-main}
    :create-session {:main #'gm-plugin-setup-create-session-main}
-   :init-varis {:main #'gm-plugin-setup-init-varis-main}
+   :init-varis {:main #'gm-plugin-setup-init-varis-main} ;; TODO restore chkpt 
    :run-repeat {:inline #'gm-plugin-setup-run-repeat-inline}
    :fetch-map {:inline #'gm-plugin-setup-fetch-map-inline}
    :mode {:form #'gm-plugin-mode-form
@@ -760,6 +831,7 @@ provided an existing Graph defrecord and feed map."
    :require-span-completable {:inline #'gm-plugin-setup-require-span-completable}
    :require-span-repeatable {:inline #'gm-plugin-setup-require-span-repeatable}
    :query-steps {:inline #'gm-plugin-setup-query-steps}
+   :save-chkpt {:main #'gm-plugin-setup-save-chkpt-main} ;; TODO
    :init-fn-io {:main #'gm-plugin-setup-init-fn-io-main}
    :wait-take-feed-args {:main #'gm-plugin-setup-wait-take-feed-args}
    :offer-fetched-return {:main #'gm-plugin-setup-offer-fetched-return}
@@ -771,7 +843,7 @@ provided an existing Graph defrecord and feed map."
 
 ;; WORKSPACES ========================
 (defn- mk-train-test-kernel
-  [{:keys [duration interval] :as wf-def}]
+  [{:keys [duration interval chkpt-interval] :as wf-def}]
   ^{:doc "A default implementation of a train-test workflow....TODO"}
   [:block {:type :workflow
            :span {:steps (second duration)}}
@@ -782,11 +854,12 @@ provided an existing Graph defrecord and feed map."
     [:init-varis] ;; TODO :init-all (includes ds-iter inits)
     ;; TODO option for step 0 fetch/summaries
     #_[:block {:type :interval
-             :span {}}
-     [:mode :train]
-     [:fetch-map]
-     [:mode :test]
-     [:fetch-map]]
+               :span {}}
+       [:mode :train]
+       [:fetch-map]
+       [:mode :test]
+       [:fetch-map]]
+    [:save-chkpt]
     [:block {:type :interval
              :span {:intervals 1
                     :steps (second interval)}
@@ -799,7 +872,9 @@ provided an existing Graph defrecord and feed map."
      [:mode :train]
      [:fetch-map]
      [:mode :test]
-     [:fetch-map]]]])
+     [:fetch-map]
+     [:save-chkpt chkpt-interval]]
+    [:save-chkpt]]])
 
 (defn default-train-test-wf
   [ws-cfg]
