@@ -6,6 +6,16 @@
 
 (defonce repos (atom {}))
 
+(defn close-all
+  []
+  (doseq [[_ {:keys [store branches]}] @repos]
+    (.close store)
+    (doseq [[_ b] @branches]
+      (.close (:store @b))))
+  (reset! repos {}))
+
+#_ (close-all)
+
 (defn- open-map!
   [map-name store]
   (.openMap store map-name))
@@ -73,7 +83,7 @@
 (defn- mk-init-branch!
   [repo-path plans {:keys [id steps]}]
   (let [br-id (gen-branch-id)
-        ;; TODO win compatible paths
+        ;; TODO windows compatible paths
         br-store-path (str repo-path "/" br-id)
         store (open-mvstore (str br-store-path "/branch.db"))]
     {:id br-id
@@ -106,12 +116,14 @@
 (defn append-to-log!
   [branch-atom pos-step chkpt-id fetched]
   (let [entry {:step pos-step :chkpt chkpt-id :fetched fetched}
-        mvms (:mvms @branch-atom)]
+        {:keys [path mvms store]} @branch-atom]
     (swap! branch-atom append-to-log*
            pos-step entry)
-    (.put (:log mvms) pos-step (npy/freeze entry))
+    (.put (:log mvms) pos-step (npy/fast-freeze entry))
     ;; TODO use max steps
-    (.put (:props mvms) "step" pos-step))
+    (.put (:props mvms) "step" pos-step)
+    (.commit store)
+    (def x1 [path pos-step]))
   true)
 
 
@@ -122,9 +134,43 @@
 #_
 (-> repos deref vals first :branches deref  keys clojure.pprint/pprint )
 
+(defn inpect-mvm
+  [map-name mvm]
+  (let [val-fn (case map-name
+                 ;; TODO fast thaw
+                 ["log" "checkpoints"] npy/fast-thaw
+                 identity)]
+    (def e1
+      (-> mvm .entrySet))
+    (clojure.pprint/pprint  e1)))
 
+(defn inspect-store
+  [store]
+  (->> (for [m (.getMapNames store)]
+         [m (inpect-mvm m (open-map! m store))])
+       (into {})))
 
+(defn inspect-repo
+  [repo-path]
+  (let [{:keys [store] :as repo} (open-repo! repo-path)]
+    (->> (for [m (.getMapNames store)]
+           [m (inpect-mvm m (open-map! m store))])
+         (into {}))))
 
+#_ ((.getMapNames (:store s1))
 
+    (inspect-repo "/tmp/repo3")
 
+    (def bs1 (:store (@repos "/tmp/repo3")))
 
+    (def bs1 (open-mvstore "/tmp/repo3/repo.db"))
+
+    (def bs2 (open-mvstore "/tmp/repo4/br-c996a946-ecb6-4912-9cf6-92f3e54d7bfd/branch.db"))
+
+    (inspect-store bs1)
+
+    (inspect-store bs2)
+
+    (.getMapNames bs2)
+    
+    (.close bs2))

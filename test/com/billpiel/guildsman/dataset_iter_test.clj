@@ -562,7 +562,7 @@
                   [[-0.1 0.] [-0.1]]
                   [[0. -0.1] [-0.1]]]))
 
-(-> ws-add1 :wf-out deref :global :gm :branch deref :path)
+(some-> ws-add1 :wf-out deref :global :gm :branch deref :path)
 
 (g/def-workspace ws-add1
   (g/let+ [{:keys [features labels socket]}
@@ -595,7 +595,7 @@
                                                [add-ds-plan])}}
              :predict {:feed-args [features]
                        :fetch-return [pred1]}}
-     :repo {:path "/tmp/repo2"
+     :repo {:path "/tmp/repo5"
             ;; :init-chkpt :chkGUID###
             }}))
 
