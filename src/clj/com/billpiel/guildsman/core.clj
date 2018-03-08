@@ -750,7 +750,7 @@ provided an existing Graph defrecord and feed map."
                         true
                         (:id branch')
                         pos-step
-                        (-> chkpt-save-node :inputs last)) ;; TODO pass vari shapes&types too
+                        (->> chkpt-save-node :inputs last (mapv (juxt :id :shapes :dtypes))))
         {:interval {:chkpt-id chkpt-id}
          :stage {:last-chkpt-ts now-ts}})
       {:interval {:chkpt-id nil}})))

@@ -78,7 +78,7 @@
   [branch id prefix avail? br-id step varis]
   (.put (-> branch :mvms :chkpts)
         id
-        (mk-init-chkpt id prefix avail? br-id step varis)))
+        (npy/fast-thaw (mk-init-chkpt id prefix avail? br-id step varis))))
 
 (defn- mk-init-branch!
   [repo-path plans {:keys [id steps]}]
@@ -137,12 +137,13 @@
 (defn inpect-mvm
   [map-name mvm]
   (let [val-fn (case map-name
-                 ;; TODO fast thaw
-                 ["log" "checkpoints"] npy/fast-thaw
+                 ("log" #_"checkpoints") npy/fast-thaw
                  identity)]
-    (def e1
-      (-> mvm .entrySet))
-    (clojure.pprint/pprint  e1)))
+    (->> (for [e (.entrySet mvm)]
+           [(.getKey e) (-> e .getValue val-fn)])
+         (into {}))))
+
+(def e1-1 (first e1))
 
 (defn inspect-store
   [store]
@@ -165,11 +166,11 @@
 
     (def bs1 (open-mvstore "/tmp/repo3/repo.db"))
 
-    (def bs2 (open-mvstore "/tmp/repo4/br-c996a946-ecb6-4912-9cf6-92f3e54d7bfd/branch.db"))
+    (def bs2 (open-mvstore "/tmp/repo5/br-ceaf36af-1c7c-4653-8512-e6fc38ceaf9c/branch.db"))
 
     (inspect-store bs1)
 
-    (inspect-store bs2)
+    (clojure.pprint/pprint (inspect-store bs2))
 
     (.getMapNames bs2)
     
