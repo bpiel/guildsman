@@ -78,7 +78,7 @@
   [branch id prefix avail? br-id step varis]
   (.put (-> branch :mvms :chkpts)
         id
-        (npy/fast-thaw (mk-init-chkpt id prefix avail? br-id step varis))))
+        (npy/fast-freeze (mk-init-chkpt id prefix avail? br-id step varis))))
 
 (defn- mk-init-branch!
   [repo-path plans {:keys [id steps]}]
@@ -142,8 +142,6 @@
     (->> (for [e (.entrySet mvm)]
            [(.getKey e) (-> e .getValue val-fn)])
          (into {}))))
-
-(def e1-1 (first e1))
 
 (defn inspect-store
   [store]
