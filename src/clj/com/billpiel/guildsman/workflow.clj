@@ -504,9 +504,9 @@
   (let [[head & tail] stack
         [current' todo'] head
         
-        [stack state]
+        [stack' state]
         [tail (pop-state state)]]
-    (loop-push pop-push stack current' todo state)))
+    (loop-push pop-push stack' current' todo' state)))
 
 (defn loop-push-pop
   [push-pop stack current todo state]
