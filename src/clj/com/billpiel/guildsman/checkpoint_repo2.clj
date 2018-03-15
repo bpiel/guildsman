@@ -4,6 +4,9 @@
   (:import [org.h2.mvstore MVStore MVMap]))
 
 
+;; TODO doc entire repo structure in detail, and workflows
+
+
 (defonce repos (atom {}))
 
 (defn close-all
@@ -155,6 +158,8 @@
     (->> (for [m (.getMapNames store)]
            [m (inpect-mvm m (open-map! m store))])
          (into {}))))
+
+
 
 #_ ((.getMapNames (:store s1))
 

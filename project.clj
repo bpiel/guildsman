@@ -14,8 +14,10 @@
    
   :dependencies [[org.clojure/clojure "1.9.0-RC1"]
                  [org.clojure/core.async "0.3.465"]
+                 [org.clojure/java.jdbc "0.7.5"]
                  [org.clojars.ghaskins/protobuf "3.3.1-1"]
                  [com.h2database/h2 "1.4.196"]
+                 [honeysql "0.9.2"]
                  [com.taoensso/nippy "2.14.0"]
 
                  ;; web app
