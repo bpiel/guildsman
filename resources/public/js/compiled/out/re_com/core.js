@@ -70,4 +70,4 @@ re_com.core.make_tour = re_com.tour.make_tour;
 re_com.core.start_tour = re_com.tour.start_tour;
 re_com.core.make_tour_nav = re_com.tour.make_tour_nav;
 
-//# sourceMappingURL=core.js.map?rel=1506917870188
+//# sourceMappingURL=core.js.map?rel=1521112590247
