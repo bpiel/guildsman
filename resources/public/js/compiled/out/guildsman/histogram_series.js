@@ -4,11 +4,11 @@ goog.require('cljs.core');
 goog.require('re_frame.core');
 goog.require('reagent.core');
 goog.require('re_com.core');
-guildsman.histogram_series.histos_state__GT_histos_gen_map = (function guildsman$histogram_series$histos_state__GT_histos_gen_map(p__19416){
-var map__19417 = p__19416;
-var map__19417__$1 = ((((!((map__19417 == null)))?((((map__19417.cljs$lang$protocol_mask$partition0$ & (64))) || ((cljs.core.PROTOCOL_SENTINEL === map__19417.cljs$core$ISeq$)))?true:false):false))?cljs.core.apply.call(null,cljs.core.hash_map,map__19417):map__19417);
-var id = cljs.core.get.call(null,map__19417__$1,new cljs.core.Keyword(null,"id","id",-1388402092));
-var value = cljs.core.get.call(null,map__19417__$1,new cljs.core.Keyword(null,"value","value",305978217));
+guildsman.histogram_series.histos_state__GT_histos_gen_map = (function guildsman$histogram_series$histos_state__GT_histos_gen_map(p__16989){
+var map__16990 = p__16989;
+var map__16990__$1 = ((((!((map__16990 == null)))?((((map__16990.cljs$lang$protocol_mask$partition0$ & (64))) || ((cljs.core.PROTOCOL_SENTINEL === map__16990.cljs$core$ISeq$)))?true:false):false))?cljs.core.apply.call(null,cljs.core.hash_map,map__16990):map__16990);
+var id = cljs.core.get.call(null,map__16990__$1,new cljs.core.Keyword(null,"id","id",-1388402092));
+var value = cljs.core.get.call(null,map__16990__$1,new cljs.core.Keyword(null,"value","value",305978217));
 return cljs.core.clj__GT_js.call(null,cljs.core.merge.call(null,value,new cljs.core.PersistentArrayMap(null, 2, [new cljs.core.Keyword(null,"container","container",-1736937707),document.getElementById(id),new cljs.core.Keyword(null,"tooltip","tooltip",-1809677058),document.getElementById("tooltip")], null)));
 });
 guildsman.histogram_series.gen_histos = (function guildsman$histogram_series$gen_histos(state_SINGLEQUOTE_){
@@ -18,29 +18,29 @@ guildsman.histogram_series.histos_comp_did_mount = (function guildsman$histogram
 return cljs.core._vreset_BANG_.call(null,state,cljs.core.assoc.call(null,cljs.core._deref.call(null,state),new cljs.core.Keyword(null,"instance","instance",-2121349050),guildsman.histogram_series.gen_histos.call(null,cljs.core.deref.call(null,state))));
 });
 guildsman.histogram_series.histos_reagent_render = (function guildsman$histogram_series$histos_reagent_render(state,value){
-var map__19419 = cljs.core.deref.call(null,state);
-var map__19419__$1 = ((((!((map__19419 == null)))?((((map__19419.cljs$lang$protocol_mask$partition0$ & (64))) || ((cljs.core.PROTOCOL_SENTINEL === map__19419.cljs$core$ISeq$)))?true:false):false))?cljs.core.apply.call(null,cljs.core.hash_map,map__19419):map__19419);
-var id = cljs.core.get.call(null,map__19419__$1,new cljs.core.Keyword(null,"id","id",-1388402092));
+var map__16992 = cljs.core.deref.call(null,state);
+var map__16992__$1 = ((((!((map__16992 == null)))?((((map__16992.cljs$lang$protocol_mask$partition0$ & (64))) || ((cljs.core.PROTOCOL_SENTINEL === map__16992.cljs$core$ISeq$)))?true:false):false))?cljs.core.apply.call(null,cljs.core.hash_map,map__16992):map__16992);
+var id = cljs.core.get.call(null,map__16992__$1,new cljs.core.Keyword(null,"id","id",-1388402092));
 cljs.core.println.call(null,"histos-reagent-render");
 
 cljs.core.println.call(null,id);
 
 return new cljs.core.PersistentVector(null, 3, 5, cljs.core.PersistentVector.EMPTY_NODE, [new cljs.core.Keyword(null,"div","div",1057191632),new cljs.core.PersistentVector(null, 2, 5, cljs.core.PersistentVector.EMPTY_NODE, [new cljs.core.Keyword(null,"div","div",1057191632),new cljs.core.PersistentArrayMap(null, 1, [new cljs.core.Keyword(null,"id","id",-1388402092),"tooltip"], null)], null),new cljs.core.PersistentVector(null, 3, 5, cljs.core.PersistentVector.EMPTY_NODE, [new cljs.core.Keyword(null,"svg","svg",856789142),new cljs.core.PersistentArrayMap(null, 2, [new cljs.core.Keyword(null,"id","id",-1388402092),id,new cljs.core.Keyword(null,"class","class",-2030961996),"histos"], null),new cljs.core.PersistentVector(null, 8, 5, cljs.core.PersistentVector.EMPTY_NODE, [new cljs.core.Keyword(null,"g","g",1738089905),new cljs.core.PersistentVector(null, 2, 5, cljs.core.PersistentVector.EMPTY_NODE, [new cljs.core.Keyword(null,"g","g",1738089905),new cljs.core.PersistentArrayMap(null, 1, [new cljs.core.Keyword(null,"class","class",-2030961996),"axis x"], null)], null),new cljs.core.PersistentVector(null, 2, 5, cljs.core.PersistentVector.EMPTY_NODE, [new cljs.core.Keyword(null,"g","g",1738089905),new cljs.core.PersistentArrayMap(null, 1, [new cljs.core.Keyword(null,"class","class",-2030961996),"axis y"], null)], null),new cljs.core.PersistentVector(null, 2, 5, cljs.core.PersistentVector.EMPTY_NODE, [new cljs.core.Keyword(null,"g","g",1738089905),new cljs.core.PersistentArrayMap(null, 1, [new cljs.core.Keyword(null,"class","class",-2030961996),"axis y slice"], null)], null),new cljs.core.PersistentVector(null, 3, 5, cljs.core.PersistentVector.EMPTY_NODE, [new cljs.core.Keyword(null,"g","g",1738089905),new cljs.core.PersistentArrayMap(null, 1, [new cljs.core.Keyword(null,"class","class",-2030961996),"stage"], null),new cljs.core.PersistentVector(null, 2, 5, cljs.core.PersistentVector.EMPTY_NODE, [new cljs.core.Keyword(null,"rect","rect",-108902628),new cljs.core.PersistentArrayMap(null, 1, [new cljs.core.Keyword(null,"class","class",-2030961996),"background"], null)], null)], null),new cljs.core.PersistentVector(null, 2, 5, cljs.core.PersistentVector.EMPTY_NODE, [new cljs.core.Keyword(null,"g","g",1738089905),new cljs.core.PersistentArrayMap(null, 1, [new cljs.core.Keyword(null,"class","class",-2030961996),"x-axis-hover"], null)], null),new cljs.core.PersistentVector(null, 2, 5, cljs.core.PersistentVector.EMPTY_NODE, [new cljs.core.Keyword(null,"g","g",1738089905),new cljs.core.PersistentArrayMap(null, 1, [new cljs.core.Keyword(null,"class","class",-2030961996),"y-axis-hover"], null)], null),new cljs.core.PersistentVector(null, 2, 5, cljs.core.PersistentVector.EMPTY_NODE, [new cljs.core.Keyword(null,"g","g",1738089905),new cljs.core.PersistentArrayMap(null, 1, [new cljs.core.Keyword(null,"class","class",-2030961996),"y-slice-axis-hover"], null)], null)], null)], null)], null);
 });
-guildsman.histogram_series.histos_comp_will_update = (function guildsman$histogram_series$histos_comp_will_update(state,this$,p__19421){
-var vec__19422 = p__19421;
-var _ = cljs.core.nth.call(null,vec__19422,(0),null);
-var new_value = cljs.core.nth.call(null,vec__19422,(1),null);
+guildsman.histogram_series.histos_comp_will_update = (function guildsman$histogram_series$histos_comp_will_update(state,this$,p__16994){
+var vec__16995 = p__16994;
+var _ = cljs.core.nth.call(null,vec__16995,(0),null);
+var new_value = cljs.core.nth.call(null,vec__16995,(1),null);
 return cljs.core._vreset_BANG_.call(null,state,cljs.core.assoc.call(null,cljs.core._deref.call(null,state),new cljs.core.Keyword(null,"value","value",305978217),new_value));
 });
-guildsman.histogram_series.histos_comp_did_update = (function guildsman$histogram_series$histos_comp_did_update(state,this$,p__19425){
-var vec__19426 = p__19425;
-var _ = cljs.core.nth.call(null,vec__19426,(0),null);
-var old_val = cljs.core.nth.call(null,vec__19426,(1),null);
-var map__19429 = cljs.core.deref.call(null,state);
-var map__19429__$1 = ((((!((map__19429 == null)))?((((map__19429.cljs$lang$protocol_mask$partition0$ & (64))) || ((cljs.core.PROTOCOL_SENTINEL === map__19429.cljs$core$ISeq$)))?true:false):false))?cljs.core.apply.call(null,cljs.core.hash_map,map__19429):map__19429);
-var state_SINGLEQUOTE_ = map__19429__$1;
-var value = cljs.core.get.call(null,map__19429__$1,new cljs.core.Keyword(null,"value","value",305978217));
+guildsman.histogram_series.histos_comp_did_update = (function guildsman$histogram_series$histos_comp_did_update(state,this$,p__16998){
+var vec__16999 = p__16998;
+var _ = cljs.core.nth.call(null,vec__16999,(0),null);
+var old_val = cljs.core.nth.call(null,vec__16999,(1),null);
+var map__17002 = cljs.core.deref.call(null,state);
+var map__17002__$1 = ((((!((map__17002 == null)))?((((map__17002.cljs$lang$protocol_mask$partition0$ & (64))) || ((cljs.core.PROTOCOL_SENTINEL === map__17002.cljs$core$ISeq$)))?true:false):false))?cljs.core.apply.call(null,cljs.core.hash_map,map__17002):map__17002);
+var state_SINGLEQUOTE_ = map__17002__$1;
+var value = cljs.core.get.call(null,map__17002__$1,new cljs.core.Keyword(null,"value","value",305978217));
 if(cljs.core.not_EQ_.call(null,value,old_val)){
 cljs.core.println.call(null,"generate");
 
@@ -56,4 +56,4 @@ var state = cljs.core.volatile_BANG_.call(null,new cljs.core.PersistentArrayMap(
 return reagent.core.create_class.call(null,new cljs.core.PersistentArrayMap(null, 4, [new cljs.core.Keyword(null,"component-did-mount","component-did-mount",-1126910518),cljs.core.partial.call(null,guildsman.histogram_series.histos_comp_did_mount,state),new cljs.core.Keyword(null,"component-did-update","component-did-update",-1468549173),cljs.core.partial.call(null,guildsman.histogram_series.histos_comp_did_update,state),new cljs.core.Keyword(null,"component-will-update","component-will-update",335247566),cljs.core.partial.call(null,guildsman.histogram_series.histos_comp_will_update,state),new cljs.core.Keyword(null,"reagent-render","reagent-render",-985383853),cljs.core.partial.call(null,guildsman.histogram_series.histos_reagent_render,state)], null));
 });
 
-//# sourceMappingURL=histogram_series.js.map?rel=1506917871098
+//# sourceMappingURL=histogram_series.js.map?rel=1521112591500
