@@ -497,7 +497,7 @@ provided an existing Graph defrecord and feed map."
   "A `nil` repo-path opens an in-mem repo. A `nil` init-chkpt starts
   new branch with random init values."
   [session plans & [repo-path init-chkpt]]
-  (let [repo (cpr/open-repo! repo-path)
+  (let [repo (cpr/get-repo! repo-path)
         chkpt (and init-chkpt
                    (cpr/get-chkpt repo init-chkpt))]
     (when (and init-chkpt (nil? chkpt))
@@ -505,10 +505,10 @@ provided an existing Graph defrecord and feed map."
     (if-let [{:keys [id avail?]} chkpt]
       (if avail?
         (do (restore-checkpoint session chkpt)
-            (cpr/mk-new-branch! plans repo id))
+            (cpr/mk-new-branch! "WS-NAME-HERE" "WF-NAME-HERE" plans repo id))
         (throw (Exception. (str "Checkpoint not available. id = " init-chkpt))))
       (do (run-global-vars-init session)
-          (cpr/mk-new-branch! plans repo)))))
+          (cpr/mk-new-branch! "WS-NAME-HERE" "WF-NAME-HERE" plans repo)))))
 
 (defn gm-plugin-init-varis-main 
   [session branch plans {:keys [path init-chkpt]} chkpt-restore-node chkpt-prefix-node]

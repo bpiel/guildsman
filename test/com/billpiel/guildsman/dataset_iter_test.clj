@@ -595,7 +595,7 @@
                                                [add-ds-plan])}}
              :predict {:feed-args [features]
                        :fetch-return [pred1]}}
-     :repo {:path "/tmp/repo7"
+     :repo {:path "/tmp/repo2"
             :chkpt {:restore nil #_ :chkGUID###
                     :props {:arbitrary? :things?}}}}))
 
