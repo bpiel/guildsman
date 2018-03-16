@@ -12,7 +12,7 @@
             [com.billpiel.guildsman.ops.basic :as ops-b]
             [com.billpiel.guildsman.ops.composite :as ops-c]
             [com.billpiel.guildsman.tensor-scope :as tsc]
-            [com.billpiel.guildsman.checkpoint-repo2 :as cpr]
+            [com.billpiel.guildsman.checkpoint-repo3 :as cpr]
             com.billpiel.guildsman.gradients
             com.billpiel.guildsman.grad-desc-opt
             com.billpiel.guildsman.gradients-clj
@@ -748,9 +748,9 @@ provided an existing Graph defrecord and feed map."
                         chkpt-id
                         chkpt-prefix
                         true
-                        (:id branch')
                         pos-step
-                        (->> chkpt-save-node :inputs last (mapv (juxt :id :shapes :dtypes))))
+                        "WF-NAME-HERE"  ;; TODO
+                        (->> chkpt-save-node :inputs last (mapv #(select-keys % [:id :shapes :dtypes]))))
         {:interval {:chkpt-id chkpt-id}
          :stage {:last-chkpt-ts now-ts}})
       {:interval {:chkpt-id nil}})))

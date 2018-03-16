@@ -16,7 +16,7 @@
                  [org.clojure/core.async "0.3.465"]
                  [org.clojure/java.jdbc "0.7.5"]
                  [org.clojars.ghaskins/protobuf "3.3.1-1"]
-                 [com.h2database/h2 "1.4.196"]
+                 [org.xerial/sqlite-jdbc "3.21.0.1"]
                  [honeysql "0.9.2"]
                  [com.taoensso/nippy "2.14.0"]
 

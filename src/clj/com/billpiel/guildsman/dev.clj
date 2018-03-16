@@ -1,7 +1,7 @@
 (ns com.billpiel.guildsman.dev
   (:require [clojure.core.async :as a]
             [com.billpiel.guildsman.core :as g]
-            [com.billpiel.guildsman.checkpoint-repo2 :as chkpt]
+            [com.billpiel.guildsman.checkpoint-repo3 :as chkpt]
             [com.billpiel.guildsman.scope :as sc]
             [com.billpiel.guildsman.shape :as sh]
             [com.billpiel.guildsman.ops.basic :as o]

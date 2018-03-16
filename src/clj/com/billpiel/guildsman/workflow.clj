@@ -6,7 +6,7 @@
             [com.billpiel.guildsman.tensor-scope :as tsc]
             [com.billpiel.guildsman.ops.basic :as o]
             [com.billpiel.guildsman.ops.composite :as c]
-            [com.billpiel.guildsman.checkpoint-repo2 :as cpr]))
+            [com.billpiel.guildsman.checkpoint-repo3 :as cpr]))
 
 (defn filter-modes
   [ws-cfg modes]
