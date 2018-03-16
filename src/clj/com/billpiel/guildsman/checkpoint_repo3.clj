@@ -80,6 +80,10 @@
   [db]
   (exec-sql-resource! (ensure-db-conn! db) "sql/create-table-chkpts.sql"))
 
+(defn- create-table-chkpts-varis!
+  [db]
+  (exec-sql-resource! (ensure-db-conn! db) "sql/create-table-chkpts-varis.sql"))
+
 (defn- create-table-log!
   [db]
   (exec-sql-resource! (ensure-db-conn! db) "sql/create-table-log.sql"))
@@ -99,20 +103,18 @@
          (hny/format {:select [:*]
                       :from [:branches]}))
 
-#_
 (defn close-all
   []
-  (doseq [[_ {:keys [store branches]}] @repos]
-    (.close store)
-    (doseq [[_ b] @branches]
-      (.close (:store @b))))
-  (reset! repos {}))
+  (doseq [[_ {:keys [connection]}] @dbs]
+    (.close connection))
+  (reset! dbs {}))
 
 #_ (close-all)
 
 (defn- init-db! [db]
   (create-table-branches! db)
-  (create-table-chkpts! db))
+  (create-table-chkpts! db)
+  (create-table-chkpts-varis! db))
 
 (defn- init-branch-db! [db]
   (create-table-log! db)
@@ -218,17 +220,17 @@
                      :protected (->sql-bool protected?)})))
 
 (defn- prep-vari-for-insert
-  [chkpt-id {:keys [id shapes dtype]}]
+  [chkpt-id {:keys [id shapes dtypes]}]
   {:chkpt_id chkpt-id
    :vari_id id
-   :shapes (str shapes)
-   :dtype (name dtype)})
+   :shape (-> shapes first str)
+   :dtype (-> dtypes first name)})
 
 (defn- insert-chkpt-varis-to-db!
   [db chkpt-id varis]
   (->> varis
        (mapv (partial prep-vari-for-insert chkpt-id))
-       (insert-multi! :chkpt_varis)))
+       (insert-multi! db :chkpts_varis)))
 
 (defn add-chkpt!
   [{:keys [id repo] :as branch} chkpt-id prefix exists-local? step wf-name varis]
@@ -241,3 +243,5 @@
   [repo chkpt-id]
   (throw (Exception. "NOT IMPLEMENTED")))
 
+(defn inspect-repo
+  [path])
