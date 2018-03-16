@@ -244,4 +244,14 @@
   (throw (Exception. "NOT IMPLEMENTED")))
 
 (defn inspect-repo
-  [path])
+  [path]
+  (let [{:keys [db]} (get-repo! path)
+        db' (ensure-db-conn! db)]
+    {:branches (j/query db'
+                        (hny/format {:select [:*]
+                                     :from [:branches]}))
+     :chkpts (j/query db'
+                        (hny/format {:select [:*]
+                                     :from [:chkpts]}))}))
+
+(clojure.pprint/pprint  (inspect-repo "/tmp/repo2"))
