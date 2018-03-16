@@ -596,8 +596,8 @@
              :predict {:feed-args [features]
                        :fetch-return [pred1]}}
      :repo {:path "/tmp/repo7"
-            ;; :init-chkpt :chkGUID###
-            }}))
+            :chkpt {:restore nil #_ :chkGUID###
+                    :props {:arbitrary? :things?}}}}))
 
 ;; -- wf -- what goes in def? what goes in args?
 
