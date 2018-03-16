@@ -162,6 +162,8 @@
      :parent-offset-steps ((fnil + 0 0) steps parent-offset-steps)
      :parent-offset-elapsed-sec 0
      :steps 0
+     :final-chkpt? false
+     :last-chkpt nil
      :log (sorted-map)
      :ws-name ws-name
      :wf-name wf-name}))
@@ -187,10 +189,13 @@
        (j/execute! (ensure-db-conn! db))))
 
 (defn- append-to-log*
-  [{:keys [log steps] :as branch} pos-step entry]
+  [{:keys [log steps last-chkpt] :as branch} pos-step entry chkpt-id]
   (assoc branch
          :log (assoc log pos-step entry)
-         :steps (max steps pos-step)))
+         :steps (max steps pos-step)
+         ;; TODO set these in add-chkpt too
+         :last-chkpt (or chkpt-id last-chkpt)
+         :final-chkpt? (-> chkpt-id nil? not)))
 
 (defn append-to-log!
   [branch-atom pos-step chkpt-id fetched]
@@ -254,4 +259,4 @@
                         (hny/format {:select [:*]
                                      :from [:chkpts]}))}))
 
-(clojure.pprint/pprint  (inspect-repo "/tmp/repo2"))
+#_(clojure.pprint/pprint  (inspect-repo "/tmp/repo2"))
