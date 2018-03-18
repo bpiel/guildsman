@@ -501,6 +501,21 @@ provided an existing Graph defrecord and feed map."
       (throw (Exception. (str "Checkpoint not available. id = " parent-chkpt-id))))
     (cpr/mk-new-branch! "WS-NAME-HERE" "WF-NAME-HERE" plans repo id)))
 
+(defn- save-chkpt
+  [branch-atom session pos-step chkpt-save-node chkpt-prefix-node]
+  (let [branch @branch-atom
+        chkpt-id (cpr/gen-chkpt-id)
+        chkpt-prefix (str (:path branch) "/" chkpt-id)]
+    (run session chkpt-save-node {chkpt-prefix-node (.getBytes chkpt-prefix)})
+    (cpr/add-chkpt! branch-atom
+                    chkpt-id
+                    chkpt-prefix
+                    true
+                    pos-step
+                    "WF-NAME-HERE" ;; TODO
+                    (->> chkpt-save-node :inputs last (mapv #(select-keys % [:id :shapes :dtypes]))))
+    chkpt-id))
+
 (defn gm-plugin-init-varis-main 
   [session branch plans {:keys [path init-chkpt]} chkpt-save-node chkpt-restore-node chkpt-prefix-node]
   (let [{:keys [final-chkpt? last-chkpt steps] br-path :path :as branch'} (when branch
@@ -509,7 +524,7 @@ provided an existing Graph defrecord and feed map."
                           (if final-chkpt?
                             last-chkpt
                             ;; BAD? won't get written to log
-                            (save-chkpt branch' session steps chkpt-save-node chkpt-prefix-node))
+                            (save-chkpt branch session steps chkpt-save-node chkpt-prefix-node))
                           init-chkpt)]
     (cond (nil? parent-chkpt-id)
           (run-global-vars-init session)
@@ -728,20 +743,6 @@ provided an existing Graph defrecord and feed map."
                           (-> ~'ws-cfg :modes :predict :feed-args)
                           (-> ~'ws-cfg :modes :predict :fetch-return))])
 
-(defn- save-chkpt
-  [branch session pos-step chkpt-save-node chkpt-prefix-node]
-  (let [chkpt-id (cpr/gen-chkpt-id)
-        chkpt-prefix (str (:path branch) "/" chkpt-id)]
-    (run session chkpt-save-node {chkpt-prefix-node (.getBytes chkpt-prefix)})
-    (cpr/add-chkpt! branch
-                    chkpt-id
-                    chkpt-prefix
-                    true
-                    pos-step
-                    "WF-NAME-HERE" ;; TODO
-                    (->> chkpt-save-node :inputs last (mapv #(select-keys % [:id :shapes :dtypes]))))
-    chkpt-id))
-
 ;; TODO delete old chkpts? where should this happen?
 (defn gm-plugin-save-chkpt
   [[units secs] session branch last-chkpt-ts pos-step chkpt-save-node chkpt-prefix-node]
@@ -756,7 +757,7 @@ provided an existing Graph defrecord and feed map."
              (<= secs)
              (or (nil? secs)
                  (nil? last-chkpt-ts)))
-      (let [chkpt-id (save-chkpt @branch session pos-step chkpt-save-node chkpt-prefix-node)]
+      (let [chkpt-id (save-chkpt branch session pos-step chkpt-save-node chkpt-prefix-node)]
         {:interval {:chkpt-id chkpt-id}
          :stage {:last-chkpt-ts now-ts}})
       {:interval {:chkpt-id nil}})))

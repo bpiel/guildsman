@@ -210,7 +210,7 @@
 
 (defn- ->sql-bool [v]
   (if v 1 0))
-
+m                            mhr          hjk       
 (defn- insert-chkpt-to-db!
   [db chkpt-id prefix exists-local? br-id step wf-name protected?]
   (let [now (now-sql-ts)]
