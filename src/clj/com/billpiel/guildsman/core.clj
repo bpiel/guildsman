@@ -769,7 +769,7 @@ provided an existing Graph defrecord and feed map."
                             (:session ~'gm)
                             (:branch ~'gm)
                             ~'(-> state :stage :gm :last-chkpt-ts)
-                            ~'(-> state :stage :pos :step)
+                            ~'(-> state :stage :gm :pos :step)
                             (:chkpt-save-node ~'gm)
                             (:chkpt-prefix-node ~'gm)))])
 

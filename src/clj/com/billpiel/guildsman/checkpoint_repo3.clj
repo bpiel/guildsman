@@ -202,7 +202,7 @@
   (let [entry {:step pos-step :chkpt chkpt-id :fetched fetched}
         {:keys [id path db repo]} @branch-atom]
     (swap! branch-atom append-to-log*
-           pos-step entry)
+           pos-step entry chkpt-id)
     (insert-log-entry-to-branch-db! db entry)
     ;; TODO use max steps
     (update-branch-steps! (:db repo) id pos-step))
@@ -267,4 +267,5 @@
                         (hny/format {:select [:*]
                                      :from [:chkpts]}))}))
 
-#_(clojure.pprint/pprint  (inspect-repo "/tmp/repo1"))
+#_(clojure.pprint/pprint  (inspect-repo "/tmp/repo4"))
+
