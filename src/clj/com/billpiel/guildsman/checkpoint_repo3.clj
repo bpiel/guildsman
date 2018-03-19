@@ -208,8 +208,32 @@
     (update-branch-steps! (:db repo) id pos-step))
   true)
 
-(defn- ->sql-bool [v]
+
+(defn- bool->sql [v]
   (if v 1 0))
+
+(defn- sql->bool [v]
+  (= v 1))
+
+(defn- chkpt-db->clj
+  [{:keys [id branch_id step created updated wf_name exists_local protected]}]
+  {:id id
+   :branch-id branch_id
+   :step step
+   :created created
+   :updated updated
+   :wf-name wf_name
+   :exists-local? (sql->bool exists_local)
+   :protected? (sql->bool protected)})
+
+(defn- select-chkpt
+  [db chkpt-id]
+  (->> {:select [:*]
+        :from [:chkpts]
+        :where [:= :id chkpt-id]}
+       hny/format
+       (j/query db)
+       chkpt-db->clj))
 
 (defn- insert-chkpt-to-db!
   [db chkpt-id prefix exists-local? br-id step wf-name protected?]
@@ -221,8 +245,8 @@
                      :created now 
                      :updated now
                      :wf_name wf-name
-                     :exists_local (->sql-bool exists-local?)
-                     :protected (->sql-bool protected?)})))
+                     :exists_local (bool->sql exists-local?)
+                     :protected (bool->sql protected?)})))
 
 (defn- prep-vari-for-insert
   [chkpt-id {:keys [id shapes dtypes]}]
@@ -253,8 +277,8 @@
     true))
 
 (defn get-chkpt
-  [repo chkpt-id]
-  (throw (Exception. "NOT IMPLEMENTED")))
+  [{:keys [db]} chkpt-id]
+  (select-chkpt db chkpt-id))
 
 (defn inspect-repo
   [path]
@@ -267,5 +291,5 @@
                         (hny/format {:select [:*]
                                      :from [:chkpts]}))}))
 
-#_(clojure.pprint/pprint  (inspect-repo "/tmp/repo4"))
+#_(clojure.pprint/pprint  (inspect-repo "/tmp/repo6"))
 

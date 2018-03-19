@@ -493,11 +493,11 @@ provided an existing Graph defrecord and feed map."
   new branch with random init values."
   [session plans & [repo-path parent-chkpt-id]]
   (let [repo (cpr/get-repo! repo-path)
-        {:keys [id avail-local?]} (when parent-chkpt-id
+        {:keys [id exists-local?]} (when parent-chkpt-id
                                     (cpr/get-chkpt repo parent-chkpt-id))]
     (when (and parent-chkpt-id (nil? id))
       (throw (Exception. (str "Checkpoint not found in repo. id = " parent-chkpt-id " ; repo path = " repo-path))))
-    (when (and id (not avail-local?))
+    (when (and id (not exists-local?))
       (throw (Exception. (str "Checkpoint not available. id = " parent-chkpt-id))))
     (cpr/mk-new-branch! "WS-NAME-HERE" "WF-NAME-HERE" plans repo id)))
 
