@@ -233,6 +233,7 @@
         :where [:= :id chkpt-id]}
        hny/format
        (j/query db)
+       first
        chkpt-db->clj))
 
 (defn- insert-chkpt-to-db!
@@ -291,5 +292,4 @@
                         (hny/format {:select [:*]
                                      :from [:chkpts]}))}))
 
-#_(clojure.pprint/pprint  (inspect-repo "/tmp/repo6"))
-
+#_(clojure.pprint/pprint  (inspect-repo "/tmp/repo1"))
