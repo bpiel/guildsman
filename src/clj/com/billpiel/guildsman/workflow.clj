@@ -2,9 +2,11 @@
   (:require [clojure.core.async :as a]
             [com.billpiel.guildsman.util :as ut]
             [com.billpiel.guildsman.special-utils :as sput]
+            [com.billpiel.guildsman.summary-output :as sumout]
             [com.billpiel.guildsman.tensor-scope :as tsc]
             [com.billpiel.guildsman.ops.basic :as o]
-            [com.billpiel.guildsman.ops.composite :as c]))
+            [com.billpiel.guildsman.ops.composite :as c]
+            [com.billpiel.guildsman.checkpoint-repo3 :as cpr]))
 
 (defn filter-modes
   [ws-cfg modes]
@@ -115,11 +117,7 @@
                               ~frm)))
        frms))
 
-(defn mk-default-form-bindings
-  [hook-frms]
-  (interleave (repeat 100 'state)
-              (mapcat mk-default-form-bindings*
-                      hook-frms)))
+(declare mk-default-form-bindings)
 
 
 (defn default-form-renderer
@@ -319,20 +317,46 @@
                        (-> state :global :gm :graph)))
       state'')))
 
-(defn deliver-fetched
-  [{:keys [modes interval] :as state}]
-  (if-let [fetched-raw (-> interval :gm :fetched-raw not-empty)]
-    (->> (for [[pk pv] (dissoc modes :-compiled)
-               [mk {:keys [fetch]}] pv
-               f fetch]
-           (let [f-id-str (:id f)
-                 fetched (get-in fetched-raw [mk f-id-str])]
-             [[pk :fetched mk f-id-str] fetched]))
-         (reduce (fn [agg [path v]]
-                   (assoc-in agg path v))
-                 interval)
-         (assoc state :interval))
-    state))
+(defn find-output-processors*
+  [op-kw]
+  (case op-kw
+    :HistogramSummary sumout/histogram-summary-output-processor
+    :ScalarSummary sumout/scalar-summary-output-processor
+    identity))
+
+(defn find-output-processors
+  [{:keys [modes global]}]
+  (let [output-procs (-> global :gm :output-procs)
+        fetch (->> modes :-compiled vals (mapcat :fetch) distinct) ;; TODO unused mode are getting included
+        id->op (->> (for [{:keys [id op]} fetch]
+                     [id op])
+                   (into {}))]
+    {:global
+     {:output-procs
+      (->> output-procs
+           keys
+           (apply dissoc id->op)
+           (ut/fmap find-output-processors*)
+           (merge output-procs))}}))
+
+(defn process-outputs
+  [procs fetched]
+  (->> (for [[k v] fetched]
+         [k ((procs k identity) v)])
+       (into {})))
+
+(defn append-fetched-to-log
+  [{:keys [modes interval global stage] :as state}]
+  (when-let [fetched-raw (-> interval :gm :fetched-raw not-empty)]
+    (let [branch (-> global :gm :branch)
+          procs (-> global :gm :output-procs)
+          pos-step (-> stage :gm :pos :step)
+          chkpt-id (-> interval :gm :chkpt-id)]
+      (->> fetched-raw
+           (ut/fmap (partial process-outputs procs))
+           (cpr/append-to-log! branch
+                               pos-step
+                               chkpt-id)))))
 
 (defn- mk-default-form-bindings*
   [[plugin-kw frms]]
@@ -465,9 +489,9 @@
   (let [[head & tail] stack
         [current' todo'] head
         
-        [stack state]
+        [stack' state]
         [tail (pop-state state)]]
-    (loop-push pop-push stack current' todo state)))
+    (loop-push pop-push stack' current' todo' state)))
 
 (defn loop-push-pop
   [push-pop stack current todo state]

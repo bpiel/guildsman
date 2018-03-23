@@ -61,7 +61,7 @@
           vari (-> (o/variable :variable
                                (merge (opn/get-desc-of-output init)
                                       attrs))
-                   (ut/append-collections [:trainable-varis]))]
+                   (ut/append-collections [:varis :trainable-varis]))]
       [(o/identity-tf :read {} vari)
        (-> (o/assign :init {} vari init)
            (ut/append-collections [:global-var-inits])

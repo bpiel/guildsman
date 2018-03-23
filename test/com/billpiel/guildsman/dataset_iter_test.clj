@@ -540,7 +540,7 @@
   (g/mk-train-test-wf
    {:plugins [dev/plugin g/gm-plugin]
     :duration [:steps 1000]
-    :interval [:steps 1000]}))
+    :interval [:steps 100]}))
 
 (g/start-wf wf-train-test ws-splitter)
 
@@ -561,6 +561,10 @@
                   [[-0.1 -0.1] [-0.2]]
                   [[-0.1 0.] [-0.1]]
                   [[0. -0.1] [-0.1]]]))
+
+(some-> ws-add1 :wf-out deref :global :gm :branch deref :last-chkpt)
+
+(some-> ws-add1 :wf-out deref :status (= :running))
 
 (g/def-workspace ws-add1
   (g/let+ [{:keys [features labels socket]}
@@ -592,9 +596,20 @@
                                                 :epoch-size 7}
                                                [add-ds-plan])}}
              :predict {:feed-args [features]
-                       :fetch-return [pred1]}}}))
+                       :fetch-return [pred1]}}
+     :repo {:path "/tmp/repo1"
+            :chkpt {:restore :chkpt-28f80b1a-5216-4fe1-8bed-ec84033ccc1f
+                    #_nil #_ :chkGUID###
+                    :props {:arbitrary? :things?}}}}))
 
+;; -- wf -- what goes in def? what goes in args?
 
+(def wf-train-test
+  (g/mk-train-test-wf
+   {:plugins [dev/plugin g/gm-plugin]
+    :duration [:steps 1000]
+    :interval [:steps 100]
+    :chkpt-interval [:secs 3600]}))
 
 (g/start-wf wf-train-test ws-add1)
 
@@ -610,6 +625,7 @@
 
 (g/start-wf g/ws-close ws-add1)
 
+(g/ws-pr-workflow-source wf-predict)
 
 
 (g/ws-pr-workflow-source wf-train-test)
@@ -629,3 +645,87 @@
     clojure.pprint/pprint )
 
 (clojure.pprint/pprint ws-splitter)
+
+o/restore-v2
+
+(def v1 (c/vari :v1 [1. 2.]))
+
+(def v2 (c/vari :v2 [3. 4. 5.]))
+
+(def saver (o/save-v2 :saver
+                      {:dtypes [g/dt-float g/dt-float]}
+                      "/tmp/chkpt"
+                      ["v1" "v2"]
+                      ["" ""]
+                      [v1 v2]))
+
+
+(def gr (g/build->graph saver))
+
+(def se (g/graph->session gr))
+
+(g/run-global-vars-init se)
+
+
+(g/with-tensor-conversion-scope
+  (g/fetch-all se [v1 v2]))
+
+(g/run se saver)
+
+(def av1 (o/assign :av1 v1 [0. 0.]))
+
+(def av2 (o/assign :av2 v2 [0. 0. 0.]))
+
+(g/build-all->graph gr [av1 av2])
+
+(g/run-all se [av1 av2])
+
+(def restorer
+  (o/restore-v2 :restorer
+                {:dtypes [g/dt-float g/dt-float]}
+                "/tmp/chkpt"
+                ["v1" "v2"]
+                ["" ""]))
+
+(g/build-all->graph gr [restorer])
+
+(g/with-tensor-conversion-scope
+  (g/fetch se (assoc restorer
+                     :output-idx 1)))
+
+(g/close se)
+
+(g/close gr)
+
+
+(clojure.pprint/pprint restorer)
+
+(g/with-tensor-conversion-scope
+  (g/produce
+   {:op :RestoreV2,
+    :inputs ["/tmp/chkpt" ["v1" "v2"] ["" ""]],
+    :ctrl-inputs nil,
+    :id :restorer,
+    :attrs {:dtypes [:float :float]},
+    :scope []}))
+
+(g/with-tensor-conversion-scope
+  (g/produce {:op :RestoreV2
+              :inputs ["/tmp/chkpt2"
+                       ["pred1/bias/variable" "pred1/kernel/variable"]
+                       ["" ""]]
+              :ctrl-inputs nil
+              :id :gm-chkpt-restore
+              :attrs {:dtypes [:float :float]}
+              :scope []
+              :output-idx 0}))
+
+(g/produce {:op :RestoreV2
+                           :inputs ["/tmp/chkpt2"
+                                    ["pred1/bias/variable" "pred1/kernel/variable"]
+                                    ["" ""]]
+                           :ctrl-inputs nil
+                           :id :gm-chkpt-restore
+                           :attrs {:dtypes [:float :float]}
+                           :scope []
+                           :output-idx 0})

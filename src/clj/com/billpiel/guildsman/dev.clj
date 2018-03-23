@@ -1,6 +1,7 @@
 (ns com.billpiel.guildsman.dev
   (:require [clojure.core.async :as a]
             [com.billpiel.guildsman.core :as g]
+            [com.billpiel.guildsman.checkpoint-repo3 :as chkpt]
             [com.billpiel.guildsman.scope :as sc]
             [com.billpiel.guildsman.shape :as sh]
             [com.billpiel.guildsman.ops.basic :as o]
@@ -48,9 +49,6 @@
   [ns-sym]
   (when-let [dev-ns (and (@dev-nses ns-sym)
                          (the-ns ns-sym))]
-    ;; TODO check if graph/session is running
-    (g/close (ns-resolve dev-ns 'graph))
-    (g/close (ns-resolve dev-ns 'session))
     (remove-ns ns-sym)
     (swap! dev-nses disj ns-sym)
     (println "removed ns " ns-sym)))
@@ -71,8 +69,6 @@
 (defn stack [^Op op-node] (-> op-node meta :stack))
 
 (defn get-ns [op] (-> op meta :ns))
-(defn get-log [op] @(ns-resolve (get-ns op)
-                                '$log))
 
 ;; CYTO ===============================================
 
@@ -275,9 +271,7 @@
               (sput/search-ops g $)
               (filter #(-> % :op #{:VariableV2})
                       $))
-       (into [(->> target
-                   #_(mcro/macro-plan->op-plan g)
-                   (sput/->op-node g))])
+       (into [(sput/->op-node g target)])
        distinct))
 
 (defn agd->delta-ratio-smry
@@ -322,10 +316,7 @@
 
 (defn mk-summary-plans
   [g vari->agd target]
-  (->> #_(if-let [target' (sput/->op-node g target)]
-           [target']
-           (find-ops-to-summarize g target))
-       (find-ops-to-summarize g target)
+  (->> (find-ops-to-summarize g target)
        (into [])
        (map (partial mk-summary-plan g vari->agd))
        flatten
@@ -349,78 +340,6 @@
     (g/build-all->graph g added)
     added))
 
-(defn pb-load-summary [ba] (pr/protobuf-load SummaryP ba))
-
-(defn hist-bytes->histo-bins
-  [smry]
-  (let [h smry
-        {:keys [bucket-limit bucket] mx :max mn :min}
-        (-> h
-            :value
-            first
-            :histo)]
-    {:mx (or mx (-> bucket-limit drop-last last))
-     :mn (or mn (first bucket-limit)) ;; because :min is null sometimes?
-     :bins (mapv (fn [x x' y]
-                   {:x x
-                    :y y
-                    :dx (- x' x)})
-                 bucket-limit
-                 (-> bucket-limit
-                     rest
-                     drop-last)
-                 bucket)}))
-
-(defn merge-hists
-  [{x1 :x y1 :y dx1 :dx} {y2 :y dx2 :dx}]
-  {:x x1
-   :y (+ y1 y2)
-   :dx (+ dx1 dx2)})
-
-(defn normalize-hist
-  [scale {:keys [y dx] :as h}]
-  (assoc h :y (* scale (/ y dx))))
-
-(defn hist-bytes->histo-bins2
-  [smry]
-  (let [{:keys [mx mn bins]} (hist-bytes->histo-bins smry)
-        spread (- mx mn)
-        min-dx (/ spread 100.)]
-    (loop [[head & tail] bins
-           agg []
-           current nil]
-      (cond (nil? head)
-            (->> current
-                 (conj agg)
-                 (remove nil?)
-                 (mapv (partial normalize-hist
-                                min-dx)))
-
-            (nil? current)
-            (recur tail agg head)
-
-            :else (let [{:keys [dx] :as nxt} (merge-hists current head)]
-                    (if (> dx min-dx)
-                      (recur tail
-                             (conj agg nxt)
-                             nil)
-                      (recur tail
-                             agg
-                             nxt)))))))
-
-(defn fetched->log-entry*
-  [ba]
-  (let [smry (pb-load-summary ba)]
-    (if-let [value (-> smry :value first :simple-value )]
-      value
-      (hist-bytes->histo-bins2 smry))))
-
-(defn- fetched->log-entry
-  [^Graph g fetched]
-  (ut/$- -> fetched
-         (ut/fmap (partial ut/fmap fetched->log-entry*)
-                  $)))
-
 ;; END SUMMARIES ==============================
 
 ;; PLUGIN =====================================
@@ -429,13 +348,11 @@
   [ws-ns ws-name]
   (when-not ws-ns
     (let [ns-sym (mk-ns-sym ws-name)
-          _ (release-dev-ns ns-sym) ;; TODO necessary?
+          _ (release-dev-ns ns-sym) ;; TODO move to closer
           ws-ns (create-ns ns-sym)
           log (atom (sorted-map))]
       (swap! dev-nses conj ns-sym)
-      (intern ws-ns '$log log)
-      {:global {:ws-ns ws-ns
-                :log log}})))
+      {:global {:ws-ns ws-ns}})))
 
 (defn plugin-setup-init-post [{:keys [ws-name]} & _]
   [`(plugin-init-post ~'(-> state :global ::plugin :ws-ns)
@@ -467,22 +384,16 @@
                                 ~'(-> state :global ::plugin :ws-ns))])
 
 (defn plugin-interval-post
-  [^Graph g ws-ns log-atom fetched step]
-  (swap! log-atom
-         assoc step
-         {:step step
-          :fetched (fetched->log-entry g fetched)})
-  (send-web-view-updater g ws-ns @log-atom)
-  #_(clojure.pprint/pprint [fetched step]))
+  [^Graph g ws-ns branch-atom]
+  (send-web-view-updater g ws-ns
+                         (:log @branch-atom)))
 
 (defn plugin-setup-interval-post
   [ws-cfg]
   [`(plugin-interval-post
      ~'(-> state :global :gm :graph) 
      ~'(-> state :global ::plugin :ws-ns) ;; TODO hard code ns instead of lookup??
-     ~'(-> state :global ::plugin :log)
-     ~'(-> state :interval ::plugin :fetched)
-     ~'(-> state :stage :gm :pos :step))])
+     ~'(-> state :global :gm :branch))])
 
 (def plugin
   {:meta {:kw ::plugin
@@ -494,3 +405,5 @@
 
 
 ;; END PLUGIN =================================
+
+
