@@ -488,19 +488,6 @@ provided an existing Graph defrecord and feed map."
   [`(gm-plugin-create-session-main (-> ~'state :global :gm :graph)
                                    (-> ~'state :global :gm :session))])
 
-#_(defn- setup-chkpt-branch!
-  "A `nil` repo-path opens an in-mem repo. A `nil` init-chkpt starts
-  new branch with random init values."
-  [session plans & [repo-path parent-chkpt-id]]
-  (let [repo (cpr/get-repo! repo-path)
-        {:keys [exists-local?] :as chkpt} (when parent-chkpt-id
-                                            (cpr/get-chkpt repo parent-chkpt-id))]
-    (when (and parent-chkpt-id (nil? chkpt))
-      (throw (Exception. (str "Checkpoint not found in repo. id = " parent-chkpt-id " ; repo path = " repo-path))))
-    (when (and chkpt (not exists-local?))
-      (throw (Exception. (str "Checkpoint not available. id = " parent-chkpt-id))))
-    (cpr/mk-new-branch! "WS-NAME-HERE" "WF-NAME-HERE" plans repo chkpt)))
-
 (defn- ensure-chkpt-local
   [repo-path chkpt-id]
   (let [repo (cpr/get-repo! repo-path)
