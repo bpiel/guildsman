@@ -235,7 +235,7 @@
   [db chkpt-id]
   (->> {:select [:*]
         :from [:chkpts]
-        :where [:= :id chkpt-id]}
+        :where [:= :id (name chkpt-id)]}
        hny/format
        (j/query db)
        first

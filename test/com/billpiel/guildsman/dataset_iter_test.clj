@@ -596,7 +596,8 @@
              :predict {:feed-args [features]
                        :fetch-return [pred1]}}
      :repo {:path "/tmp/repo1"
-            :chkpt {:restore nil #_ :chkGUID###
+            :chkpt {:restore :chkpt-28f80b1a-5216-4fe1-8bed-ec84033ccc1f
+                    #_nil #_ :chkGUID###
                     :props {:arbitrary? :things?}}}}))
 
 ;; -- wf -- what goes in def? what goes in args?
@@ -690,8 +691,39 @@ o/restore-v2
   (g/fetch se (assoc restorer
                      :output-idx 1)))
 
-
 (g/close se)
 
 (g/close gr)
 
+
+(clojure.pprint/pprint restorer)
+
+(g/with-tensor-conversion-scope
+  (g/produce
+   {:op :RestoreV2,
+    :inputs ["/tmp/chkpt" ["v1" "v2"] ["" ""]],
+    :ctrl-inputs nil,
+    :id :restorer,
+    :attrs {:dtypes [:float :float]},
+    :scope []}))
+
+(g/with-tensor-conversion-scope
+  (g/produce {:op :RestoreV2
+              :inputs ["/tmp/chkpt2"
+                       ["pred1/bias/variable" "pred1/kernel/variable"]
+                       ["" ""]]
+              :ctrl-inputs nil
+              :id :gm-chkpt-restore
+              :attrs {:dtypes [:float :float]}
+              :scope []
+              :output-idx 0}))
+
+(g/produce {:op :RestoreV2
+                           :inputs ["/tmp/chkpt2"
+                                    ["pred1/bias/variable" "pred1/kernel/variable"]
+                                    ["" ""]]
+                           :ctrl-inputs nil
+                           :id :gm-chkpt-restore
+                           :attrs {:dtypes [:float :float]}
+                           :scope []
+                           :output-idx 0})

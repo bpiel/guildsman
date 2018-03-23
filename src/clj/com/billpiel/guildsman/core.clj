@@ -431,7 +431,7 @@ provided an existing Graph defrecord and feed map."
 
 (defn- mk-restore-assign-noop
   [restore-node varis]
-  (ops-b/no-op
+  (ops-b/no-op :gm-restore-assign
    {:ctrl-inputs (->> varis
                       (map-indexed (fn [i v]
                                      (->> i
@@ -451,11 +451,12 @@ provided an existing Graph defrecord and feed map."
           vari-types (mapv (comp first :dtypes) varis)
           vari-s+s (vec (repeat (count varis) ""))
           prefix (ops-b/placeholder :gm-chkpt-prefix dt-string [])
-          restore-node (ops-b/restore-v2 :gm-chkpt-restore
-                                         {:dtypes vari-types} 
-                                         prefix
-                                         vari-ids
-                                         vari-s+s)
+          restore-node (-> (ops-b/restore-v2 :gm-chkpt-restore
+                                             {:dtypes vari-types} 
+                                             prefix
+                                             vari-ids
+                                             vari-s+s)
+                           (mk-restore-assign-noop varis))
           save-node (ops-b/save-v2 :gm-chkpt-save
                                    {:dtypes vari-types} 
                                    prefix
@@ -465,8 +466,7 @@ provided an existing Graph defrecord and feed map."
       (build-all->graph graph [save-node restore-node])
       {:global {:chkpt-prefix-node prefix
                 :chkpt-save-node save-node
-                :chkpt-restore-node (mk-restore-assign-noop restore-node
-                                                            varis)}})))
+                :chkpt-restore-node restore-node}})))
 
 (defn gm-plugin-setup-build-main
   [wf-def & _]
@@ -488,7 +488,7 @@ provided an existing Graph defrecord and feed map."
   [`(gm-plugin-create-session-main (-> ~'state :global :gm :graph)
                                    (-> ~'state :global :gm :session))])
 
-(defn- setup-chkpt-branch!
+#_(defn- setup-chkpt-branch!
   "A `nil` repo-path opens an in-mem repo. A `nil` init-chkpt starts
   new branch with random init values."
   [session plans & [repo-path parent-chkpt-id]]
@@ -500,6 +500,17 @@ provided an existing Graph defrecord and feed map."
     (when (and chkpt (not exists-local?))
       (throw (Exception. (str "Checkpoint not available. id = " parent-chkpt-id))))
     (cpr/mk-new-branch! "WS-NAME-HERE" "WF-NAME-HERE" plans repo chkpt)))
+
+(defn- ensure-chkpt-local
+  [repo-path chkpt-id]
+  (let [repo (cpr/get-repo! repo-path)
+        {:keys [exists-local?] :as chkpt} (when chkpt-id
+                                            (cpr/get-chkpt repo chkpt-id))]
+    (when (and chkpt-id (nil? chkpt))
+      (throw (Exception. (str "Checkpoint not found in repo. id = " chkpt-id " ; repo path = " repo-path))))
+    (when (and chkpt (not exists-local?))
+      (throw (Exception. (str "Checkpoint not available. id = " chkpt-id))))
+    chkpt))
 
 (defn- save-chkpt
   [branch-atom session pos-step chkpt-save-node chkpt-prefix-node]
@@ -517,22 +528,27 @@ provided an existing Graph defrecord and feed map."
     chkpt-id))
 
 (defn gm-plugin-init-varis-main 
-  [session branch plans {:keys [path init-chkpt]} chkpt-save-node chkpt-restore-node chkpt-prefix-node]
-  (let [{:keys [final-chkpt? last-chkpt steps] br-path :path :as branch'} (when branch
-                                                                            @branch)
+  [session branch plans {:keys [path] repo-chkpt :chkpt} chkpt-save-node chkpt-restore-node chkpt-prefix-node]
+  (let [{:keys [restore props]} repo-chkpt
+        {:keys [final-chkpt? last-chkpt steps] :as branch'} (when branch
+                                                              @branch)
         parent-chkpt-id (if branch'
                           (if final-chkpt?
                             last-chkpt
                             ;; BAD? won't get written to log
                             (save-chkpt branch session steps chkpt-save-node chkpt-prefix-node))
-                          init-chkpt)]
+                          restore)
+        chkpt (when restore
+                (ensure-chkpt-local path restore))
+        repo (cpr/get-repo! path)
+        new-branch (cpr/mk-new-branch! "WS-NAME-HERE" "WF-NAME-HERE" plans repo chkpt)]
     (cond (nil? parent-chkpt-id)
           (run-global-vars-init session)
           
-          (= parent-chkpt-id init-chkpt)
-          (run session chkpt-restore-node {chkpt-prefix-node (.getBytes (str br-path "/" (name init-chkpt)))}))
-    
-    {:global {:branch (setup-chkpt-branch! session plans path parent-chkpt-id)}}))
+          (= parent-chkpt-id restore)
+          (do (def p1 (str path "/" (-> chkpt :branch-id name) "/" (name restore)))
+              (run session chkpt-restore-node {chkpt-prefix-node (.getBytes p1)})))
+    {:global {:branch new-branch}}))
 
 (defn gm-plugin-setup-init-varis-main
   [wf-def & _]
@@ -925,8 +941,7 @@ provided an existing Graph defrecord and feed map."
                      {:repeat? [:require-span-repeatable]}}}
     [:build]
     [:create-session]
-    (when restore-varis
-      [:restore-varis restore-varis]) 
+    [:init-varis] 
     [:init-fn-io]
     [:wait-take-feed-args]
     [:block {:type :interval
