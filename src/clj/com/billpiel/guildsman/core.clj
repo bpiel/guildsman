@@ -64,6 +64,8 @@
   [tensors & body]
   `(tsc/with-scope-containing ~tensors ~@body))
 
+(defn set-global-tensor-conversion-scope! [] (tsc/set-global-conversion-scope!))
+(defn set-global-tensor-standard-scope! [] (tsc/set-global-standard-scope!))
 
 (defmulti close
   "Close a Graph or Session defrecord."
@@ -196,9 +198,9 @@ In the example below, both `graph` and `session` will be closed upon
             (fetch-all session plans feed targets))))
 
 ;; TODO rename!!
-(defn exec
+(defn exe
   {:doc (dx/dx
-         '["`exec` creates a new Session defrecord, builds plan and
+         '["`exe` creates a new Session defrecord, builds plan and
 runs the root of plan. Returns the new session. It can optionally be
 provided an existing Graph defrecord and feed map."
            [Returns "the session"]
@@ -212,14 +214,14 @@ provided an existing Graph defrecord and feed map."
   ([plan]
    (-> plan
        build->graph
-       (exec plan)))
+       (exe plan)))
   ([^Graph graph plan & [feed]]
    (-> graph
        graph->session
        (run plan feed))))
 
-(defn exec-all
-  "Like `exec` except that it takes a sequence of plans."
+(defn exe-all
+  "Like `exe` except that it takes a sequence of plans."
   ([plans]
    (-> plans
        build-all->session
