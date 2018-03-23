@@ -271,9 +271,7 @@
               (sput/search-ops g $)
               (filter #(-> % :op #{:VariableV2})
                       $))
-       (into [(->> target
-                   #_(mcro/macro-plan->op-plan g)
-                   (sput/->op-node g))])
+       (into [(sput/->op-node g target)])
        distinct))
 
 (defn agd->delta-ratio-smry
@@ -318,10 +316,7 @@
 
 (defn mk-summary-plans
   [g vari->agd target]
-  (->> #_(if-let [target' (sput/->op-node g target)]
-           [target']
-           (find-ops-to-summarize g target))
-       (find-ops-to-summarize g target)
+  (->> (find-ops-to-summarize g target)
        (into [])
        (map (partial mk-summary-plan g vari->agd))
        flatten
@@ -391,17 +386,7 @@
 (defn plugin-interval-post
   [^Graph g ws-ns branch-atom]
   (send-web-view-updater g ws-ns
-                         (:log @branch-atom))
-  #_(clojure.pprint/pprint [fetched step]))
-
-#_(defn plugin-setup-interval-post
-  [ws-cfg]
-  [`(plugin-interval-post
-     ~'(-> state :global :gm :graph) 
-     ~'(-> state :global ::plugin :ws-ns) ;; TODO hard code ns instead of lookup??
-;;     ~'(-> state :global ::plugin :log)
-     ~'(-> state :interval ::plugin :fetched)
-     ~'(-> state :stage :gm :pos :step))])
+                         (:log @branch-atom)))
 
 (defn plugin-setup-interval-post
   [ws-cfg]
