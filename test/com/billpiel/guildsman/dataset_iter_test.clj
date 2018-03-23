@@ -8,7 +8,9 @@
             [com.billpiel.guildsman.dev :as dev]
             [com.billpiel.guildsman.packages :as pkg]
             [com.billpiel.guildsman.tensor-scope :as tsc]
-            [flatland.protobuf.core :as pr])
+            [flatland.protobuf.core :as pr]
+            [aleph.http :as ah]
+            [manifold.stream :as ms])
   (:import [org.tensorflow.framework AttrValue OpDef]
            [com.billpiel.guildsman FunctionNI]))
 
@@ -728,3 +730,43 @@ o/restore-v2
                            :attrs {:dtypes [:float :float]}
                            :scope []
                            :output-idx 0})
+
+(def os1 (clojure.java.io/output-stream "/home/bill/dog3.jpg"))
+
+
+(def f1 (ah/get "http://ghk.h-cdn.co/assets/17/20/1495031140-gettyimages-573950777.jpg"
+                {:raw-stream? true}))
+
+#_(:body @f1)
+
+(def dl-bytes (atom 0))
+
+(ms/consume (fn [bcount] (clojure.pprint/pprint bcount) (swap! dl-bytes + bcount))
+            (ms/map
+             #(let [ba (byte-streams/to-byte-array %)]
+                (.write os1 ba)
+                (count ba))
+             (:body @f1)))
+
+(.close os1)
+
+(defn dl-async!
+  [url dest]
+  (let [counter (atom 0)
+        os (clojure.java.io/output-stream dest)
+        is (ah/get url {:raw-stream? true})]
+    [(a/thread
+       (ms/consume (fn [bcount] (swap! counter + bcount))
+                   (ms/map
+                    #(let [ba (byte-streams/to-byte-array %)]
+                       (.write os ba)
+                       (count ba))
+                    (:body @is))))
+     counter]))
+
+(let [[ch counter]
+      (dl-async! "http://ghk.h-cdn.co/assets/17/20/1495031140-gettyimages-573950777.jpg"
+                 "/home/bill/dog4.jpg")]
+  (dotimes [x 100]
+    (Thread/sleep 10)
+    (println @counter)))
