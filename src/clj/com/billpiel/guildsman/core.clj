@@ -493,13 +493,13 @@ provided an existing Graph defrecord and feed map."
   new branch with random init values."
   [session plans & [repo-path parent-chkpt-id]]
   (let [repo (cpr/get-repo! repo-path)
-        {:keys [id exists-local?]} (when parent-chkpt-id
-                                    (cpr/get-chkpt repo parent-chkpt-id))]
-    (when (and parent-chkpt-id (nil? id))
+        {:keys [exists-local?] :as chkpt} (when parent-chkpt-id
+                                            (cpr/get-chkpt repo parent-chkpt-id))]
+    (when (and parent-chkpt-id (nil? chkpt))
       (throw (Exception. (str "Checkpoint not found in repo. id = " parent-chkpt-id " ; repo path = " repo-path))))
-    (when (and id (not exists-local?))
+    (when (and chkpt (not exists-local?))
       (throw (Exception. (str "Checkpoint not available. id = " parent-chkpt-id))))
-    (cpr/mk-new-branch! "WS-NAME-HERE" "WF-NAME-HERE" plans repo id)))
+    (cpr/mk-new-branch! "WS-NAME-HERE" "WF-NAME-HERE" plans repo chkpt)))
 
 (defn- save-chkpt
   [branch-atom session pos-step chkpt-save-node chkpt-prefix-node]
@@ -608,7 +608,6 @@ provided an existing Graph defrecord and feed map."
                (let [~'state (wf/merge-state :gm ~'state
                                              (wf/find-output-processors ~'state))
                      ;; check for chkpt and save it also
-                     ~'_ (wf/append-fetched-to-log ~'state)
                      ~@(wf/mk-default-form-bindings hook-frms)])
                (finally
                  (tsc/close-scope! ~'dlvr-sco))))
@@ -718,6 +717,11 @@ provided an existing Graph defrecord and feed map."
   [wf-def & [span]]
   [`(wf/require-span-repeatable ~'state ~(or span 'span))])
 
+(defn gm-plugin-setup-append-fetched-to-log
+  [wf-def & _]
+  [(vary-meta `(wf/append-fetched-to-log ~'state)
+              assoc ::wf/no-merge-state true)])
+
 (defn gm-plugin-setup-query-steps
   [wf-def block-type q & [offset]]
   [`(wf/query-steps ~'state ~block-type ~q ~offset)])
@@ -777,7 +781,6 @@ provided an existing Graph defrecord and feed map."
   [modes feed-ops input-ch]
   (let [[[input return-ch] ch] (a/alts!! [input-ch
                                           (a/timeout 100)])]
-    (def ch1 ch)
     (if (= ch input-ch)
       ;; TODO don't hardcode :predict
       {:modes (update-in modes [:predict :feed]
@@ -806,7 +809,7 @@ provided an existing Graph defrecord and feed map."
      ~'(-> state :global :gm :return-ch)
      ~'(-> state :global :gm :fetch-return)
      ;; TODO don't hardcode predict?
-     ~'(-> state :interval :gm :fetched :predict))])
+     ~'(-> state :interval :gm :fetched-raw :predict))])
 
 ;; TODO verify session is closed
 (defn gm-plugin-close-graph
@@ -852,6 +855,7 @@ provided an existing Graph defrecord and feed map."
            :hook-forms {:repeat? #'gm-plugin-stage-repeat?-form}}
    :require-span-completable {:inline #'gm-plugin-setup-require-span-completable}
    :require-span-repeatable {:inline #'gm-plugin-setup-require-span-repeatable}
+   :append-fetched-to-log {:inline #'gm-plugin-setup-append-fetched-to-log}   
    :query-steps {:inline #'gm-plugin-setup-query-steps}
    :save-chkpt {:main #'gm-plugin-setup-save-chkpt-main} ;; TODO
    :init-fn-io {:main #'gm-plugin-setup-init-fn-io-main}
@@ -886,7 +890,8 @@ provided an existing Graph defrecord and feed map."
              :span {:intervals 1
                     :steps (second interval)}
              :plugin {:interval
-                      {:repeat? [:require-span-repeatable]}}}
+                      {:repeat? [:require-span-repeatable]
+                       :post-async [:append-fetched-to-log]}}}
      [:block {:type :step
               :span {:steps [:query-steps :interval :remaining]}}
       [:mode :train]

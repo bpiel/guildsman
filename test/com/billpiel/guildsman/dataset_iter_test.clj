@@ -622,6 +622,7 @@
 
 (g/start-wf g/ws-close ws-add1)
 
+(g/ws-pr-workflow-source wf-predict)
 
 
 (g/ws-pr-workflow-source wf-train-test)

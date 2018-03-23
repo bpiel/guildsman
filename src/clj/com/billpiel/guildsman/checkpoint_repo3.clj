@@ -5,6 +5,11 @@
             [taoensso.nippy :as npy]))
 
 #_ (def dbs (atom {}))
+
+#_ (def branches (atom {}))
+
+#_ (def repos (atom {}))
+
 (defonce dbs (atom {}))
 (defonce branches (atom {}))
 (defonce repos (atom {}))
@@ -146,7 +151,7 @@
                    :entry (npy/fast-freeze entry)}))
 
 (defn- mk-init-branch!
-  [{:keys [db path] :as repo} ws-name wf-name plans {:keys [id steps parent-offset-steps]}]
+  [{:keys [db path] :as repo} ws-name wf-name plans {:keys [id step parent-offset-steps]}]
   (let [br-id (gen-branch-id)
         ;; TODO windows compatible paths
         br-path (str (:path repo) "/" br-id)
@@ -159,7 +164,7 @@
      :db branch-db
      :plans plans
      :parent-chkpt-id id
-     :parent-offset-steps ((fnil + 0 0) steps parent-offset-steps)
+     :parent-offset-steps ((fnil + 0 0) step parent-offset-steps)
      :parent-offset-elapsed-sec 0
      :steps 0
      :final-chkpt? false
@@ -293,3 +298,5 @@
                                      :from [:chkpts]}))}))
 
 #_(clojure.pprint/pprint  (inspect-repo "/tmp/repo1"))
+
+#_ (clojure.pprint/print-table (:chkpts (inspect-repo "/tmp/repo1") ))
