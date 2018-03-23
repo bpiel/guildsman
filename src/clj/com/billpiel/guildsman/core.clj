@@ -968,6 +968,7 @@ provided an existing Graph defrecord and feed map."
      (when-let [~'existing (some-> (ns-resolve *ns* '~ws-name)
                                    deref)]
        (when (map? ~'existing)
+         ;; TODO flag to prevent auto-interrupt
          (when (and (some-> ~'existing :wf-out deref :status (= :running))
                     (not (ws-interrupt ~'existing)))
            (throw (Exception. "Could not interrupt running workflow.")))

@@ -564,6 +564,8 @@
 
 (some-> ws-add1 :wf-out deref :global :gm :branch deref :last-chkpt)
 
+(some-> ws-add1 :wf-out deref :status (= :running))
+
 (g/def-workspace ws-add1
   (g/let+ [{:keys [features labels socket]}
            (->> (c/dsi-socket :socket
