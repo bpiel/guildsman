@@ -13,7 +13,7 @@
            [com.billpiel.guildsman FunctionNI]))
 
 (pkg/register-pkg! :bpiel/parse-mnist-features-fn
-                   {:name "parse-mnist-features-fn"
+                   {:name "bpiel/parse-mnist-features-fn"
                     :function
                     (g/fn-tf parse-mnist-features-fn
                              [g/dt-float [784]]
@@ -24,7 +24,7 @@
                                      255.0)])})
 
 (pkg/register-pkg! :bpiel/parse-mnist-labels-fn
-                   {:name "parse-mnist-labels-fn"
+                   {:name "bpiel/parse-mnist-labels-fn"
                     :function
                     (g/fn-tf parse-mnist-labels-fn
                              [g/dt-int []]
@@ -35,7 +35,7 @@
                                    (c/cast-tf g/dt-int))])})
 
 (pkg/register-pkg! :bpiel/mnist-train-60k-features-file
-                   {:name "..."
+                   {:name "bpiel/mnist-train-60k-features-file"
                     :pkgs [:deps]
                     :asset {:records 60000                            
                             :sources [[{:type :local
@@ -43,7 +43,7 @@
                                         :md5hash "6bbc9ace898e44ae57da46a324031adb"}]]}})
 
 (pkg/register-pkg! :bpiel/mnist-train-60k-labels-file
-                   {:name "..."
+                   {:name "bpiel/mnist-train-60k-labels-file"
                     :pkgs [:deps]
                     :asset {:records 60000                            
                             :sources [[{:type :local
@@ -51,7 +51,7 @@
                                         :md5hash "6bbc9ace898e44ae57da46a324031adb"}]]}})
 
 (pkg/register-pkg! :bpiel/mnist-train-60k-features
-                   {:name "..."
+                   {:name "bpiel/mnist-train-60k-features"
                     :plan
                     (->> (c/asset-as-files :bpiel/mnist-train-60k-features-file)
                          (c/fixed-length-record-ds {:size 60000
@@ -63,8 +63,8 @@
                                    :bpiel/parse-mnist-features-fn))})
 
 (pkg/register-pkg! :bpiel/mnist-train-60k-labels
-                   {:name "..."
-                    :pkgs [:deps]
+                   {:name "bpiel/mnist-train-60k-labels"
+                    :deps [:bpiel/mnist-train-60k-labels-file :bpiel/parse-mnist-labels-fn]
                     :plan
                     (->> (c/asset-as-files :bpiel/mnist-train-60k-labels-file)
                          (c/fixed-length-record-ds {:size 60000
@@ -75,26 +75,25 @@
                          (c/map-ds {:fields [:labels]}
                                    :bpiel/parse-mnist-labels-fn))})
 
-
-
 (pkg/register-pkg! :bpiel/mnist-test-10k-features-file
-                   {:name "..."
-                    :pkgs [:deps]
+                   {:name "bpiel/mnist-test-10k-features-file"
+                    :deps []
                     :asset {:records 10000
                             :sources [[{:type :local
                                         :path "/home/bill/repos/guildsman-conj2017/resources/mnist/test-10k-images-idx3-ubyte"
                                         :md5hash "6bbc9ace898e44ae57da46a324031adb"}]]}})
 
 (pkg/register-pkg! :bpiel/mnist-test-10k-labels-file
-                   {:name "..."
-                    :pkgs [:deps]
+                   {:name "bpiel/mnist-test-10k-labels-file"
+                    :deps []
                     :asset {:records 10000                            
                             :sources [[{:type :local
                                         :path "/home/bill/repos/guildsman-conj2017/resources/mnist/test-10k-labels-idx1-ubyte"
                                         :md5hash "6bbc9ace898e44ae57da46a324031adb"}]]}})
 
 (pkg/register-pkg! :bpiel/mnist-test-10k-features
-                   {:name "..."
+                   {:name "bpiel/mnist-test-10k-features"
+                    :deps [:bpiel/mnist-test-10k-features-file :bpiel/parse-mnist-features-fn]
                     :plan
                     (->> (c/asset-as-files :bpiel/mnist-test-10k-features-file)
                          (c/fixed-length-record-ds {:size 10000
@@ -106,8 +105,8 @@
                                    :bpiel/parse-mnist-features-fn))})
 
 (pkg/register-pkg! :bpiel/mnist-test-10k-labels
-                   {:name "..."
-                    :pkgs [:deps]
+                   {:name "bpiel/mnist-test-10k-labels"
+                    :deps [:bpiel/mnist-test-10k-labels-file :bpiel/parse-mnist-labels-fn]
                     :plan
                     (->> (c/asset-as-files :bpiel/mnist-test-10k-labels-file)
                          (c/fixed-length-record-ds {:size 10000
