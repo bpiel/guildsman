@@ -317,21 +317,6 @@
                        (-> state :global :gm :graph)))
       state'')))
 
-#_(defn deliver-fetched
-  [{:keys [modes interval] :as state}]
-  (if-let [fetched-raw (-> interval :gm :fetched-raw not-empty)]
-    (->> (for [[pk pv] (dissoc modes :-compiled)
-               [mk {:keys [fetch]}] pv
-               f fetch]
-           (let [f-id-str (:id f)
-                 fetched (get-in fetched-raw [mk f-id-str])]
-             [[pk :fetched mk f-id-str] fetched]))
-         (reduce (fn [agg [path v]]
-                   (assoc-in agg path v))
-                 interval)
-         (assoc state :interval))
-    state))
-
 (defn find-output-processors*
   [op-kw]
   (case op-kw

@@ -610,7 +610,6 @@ provided an existing Graph defrecord and feed map."
      (future (try
                (let [~'state (wf/merge-state :gm ~'state
                                              (wf/find-output-processors ~'state))
-                     ;; check for chkpt and save it also
                      ~@(wf/mk-default-form-bindings hook-frms)])
                (finally
                  (tsc/close-scope! ~'dlvr-sco))))
