@@ -737,7 +737,10 @@ o/restore-v2
 (def f1 (ah/get "http://ghk.h-cdn.co/assets/17/20/1495031140-gettyimages-573950777.jpg"
                 {:raw-stream? true}))
 
-#_(:body @f1)
+#_ (type (:body @f1))
+
+( (:headers @f1) "content-length")
+
 
 (def dl-bytes (atom 0))
 
@@ -750,23 +753,78 @@ o/restore-v2
 
 (.close os1)
 
+
+
 (defn dl-async!
   [url dest]
   (let [counter (atom 0)
         os (clojure.java.io/output-stream dest)
-        is (ah/get url {:raw-stream? true})]
-    [(a/thread
-       (ms/consume (fn [bcount] (swap! counter + bcount))
-                   (ms/map
-                    #(let [ba (byte-streams/to-byte-array %)]
-                       (.write os ba)
-                       (count ba))
-                    (:body @is))))
-     counter]))
+        is (ah/get url {:raw-stream? true})
+        body (:body @is)
+        cl (some-> "content-length" ((:headers @is)) Long/parseLong)]
+    (if (= (type body) (type (byte-array 0)))
+      [(a/thread
+         (.write os body)
+         (.close os)
+         (swap! counter + (count body))
+         true)
+       counter
+       cl]
+      [(a/thread
+         @(ms/consume (fn [bcount] (swap! counter + bcount))
+                      (ms/map
+                       #(let [ba (byte-streams/to-byte-array %)]
+                          (.write os ba)
+                          (count ba))
+                       body))
+         (.close os)
+         true)
+       counter
+       cl])))
 
-(let [[ch counter]
+(defn dl-async-pr!
+  [url dest]
+  (a/go
+    (try
+      (let [[ch counter size] (dl-async! url dest)]
+        (println (format
+                  "Downloading %s
+to %s
+%d bytes expected
+"
+                  url dest size))
+        (while (not= ch (second (a/alts! [ch (a/timeout 1000)])))
+          (println (format "%d bytes received" @counter)))
+        (println (format "%d bytes received" @counter))
+        (println "done")
+        @counter)
+      (catch Exception e
+        (clojure.pprint/pprint e)
+        e))))
+
+(dl-async-pr! "http://ghk.h-cdn.co/assets/17/20/1495031140-gettyimages-573950777.jpg"
+              "/home/bill/dog6.jpg")
+
+(dl-async-pr!
+ "https://s3-us-west-2.amazonaws.com/thinktopic.datasets/mnist/t10k-labels-idx1-ubyte.gz"
+ "/home/bill/t10k-labels-idx1-ubyte.gz")
+
+(dl-async-pr!
+ "https://s3-us-west-2.amazonaws.com/thinktopic.datasets/mnist/train-images-idx3-ubyte.gz"
+ "/home/bill/train-images-idx3-ubyte.gz")
+
+(String.
+ (:headers @(ah/get "https://s3-us-west-2.amazonaws.com/thinktopic.datasets/mnist/t10k-labels-idx1-ubyte.gz"
+                 {:raw-stream? true})))
+
+(type
+ (:body @(ah/get "https://s3-us-west-2.amazonaws.com/thinktopic.datasets/mnist/t10k-labels-idx1-ubyte.gz"
+                 {:raw-stream? true})))
+
+(let [[ch counter size]
       (dl-async! "http://ghk.h-cdn.co/assets/17/20/1495031140-gettyimages-573950777.jpg"
                  "/home/bill/dog4.jpg")]
+  (println size)
   (dotimes [x 100]
     (Thread/sleep 10)
     (println @counter)))
