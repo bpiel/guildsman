@@ -102,6 +102,7 @@
   {:macro :pkg-plan
    :id id
    :pkg pkg-kw
+   :gm/pkg-deps [pkg-kw] ;; for auto-prefetch
    :inputs []})
 
 

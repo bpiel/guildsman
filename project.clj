@@ -19,7 +19,8 @@
                  [org.xerial/sqlite-jdbc "3.21.0.1"]
                  [honeysql "0.9.2"]
                  [com.taoensso/nippy "2.14.0"]
-
+                 [digest "1.4.7"]
+                 
                  ;; web app
                  [org.clojure/clojurescript "1.9.908"]
                  [aleph "0.4.3"]

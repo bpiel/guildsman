@@ -10,9 +10,19 @@
             [com.billpiel.guildsman.tensor-scope :as tsc]
             [flatland.protobuf.core :as pr]
             [aleph.http :as ah]
-            [manifold.stream :as ms])
+            [manifold.stream :as ms]
+            digest
+            [clojure.java.io :as io])
   (:import [org.tensorflow.framework AttrValue OpDef]
-           [com.billpiel.guildsman FunctionNI]))
+           [com.billpiel.guildsman FunctionNI]
+           (java.util.zip ZipFile GZIPInputStream)))
+
+(io/copy (-> "/home/bill/train-images-idx3-ubyte.gz"
+             io/as-file
+             io/input-stream
+             GZIPInputStream.)
+         (io/output-stream  "/home/bill/train-images-idx3-ubyte"))
+
 
 (pkg/register-pkg! :bpiel/parse-mnist-features-fn
                    {:name "bpiel/parse-mnist-features-fn"
@@ -38,7 +48,6 @@
 
 (pkg/register-pkg! :bpiel/mnist-train-60k-features-file
                    {:name "bpiel/mnist-train-60k-features-file"
-                    :pkgs [:deps]
                     :asset {:records 60000                            
                             :sources [[{:type :local
                                         :path "/home/bill/repos/guildsman-conj2017/resources/mnist/train-60k-images-idx3-ubyte"
@@ -46,7 +55,6 @@
 
 (pkg/register-pkg! :bpiel/mnist-train-60k-labels-file
                    {:name "bpiel/mnist-train-60k-labels-file"
-                    :pkgs [:deps]
                     :asset {:records 60000                            
                             :sources [[{:type :local
                                         :path "/home/bill/repos/guildsman-conj2017/resources/mnist/train-60k-labels-idx1-ubyte"
@@ -603,6 +611,20 @@
                     #_nil #_ :chkGUID###
                     :props {:arbitrary? :things?}}}}))
 
+(->> ws-add1
+     :cfg
+     (tree-seq coll? seq)
+     (keep :gm/pkg-deps)
+     (apply concat)
+     distinct)
+
+;; find all pkg deps
+;; recur find all assets
+;; check for existing
+;; dl asset to temp file
+;; compare md5
+;; move to final file
+
 ;; -- wf -- what goes in def? what goes in args?
 
 (def wf-train-test
@@ -782,6 +804,15 @@ o/restore-v2
        counter
        cl])))
 
+(defn dl-async-pr!*
+  [total c-atom]
+  (let [c @c-atom]
+    (println (format "%.0f%% -- %d bytes received"
+                     (-> c
+                         (/ total)
+                         (* 100.))
+                     c))))
+
 (defn dl-async-pr!
   [url dest]
   (a/go
@@ -794,8 +825,8 @@ to %s
 "
                   url dest size))
         (while (not= ch (second (a/alts! [ch (a/timeout 1000)])))
-          (println (format "%d bytes received" @counter)))
-        (println (format "%d bytes received" @counter))
+          (dl-async-pr!* size counter))
+        (dl-async-pr!* size counter)
         (println "done")
         @counter)
       (catch Exception e
@@ -828,3 +859,4 @@ to %s
   (dotimes [x 100]
     (Thread/sleep 10)
     (println @counter)))
+
