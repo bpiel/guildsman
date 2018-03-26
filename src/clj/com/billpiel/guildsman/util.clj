@@ -208,10 +208,8 @@
         steps (map (fn [step] `(if (~pred ~g) (-> ~g ~step) ~g))
                    forms)]
     `(let [~g ~expr
-           ~@(interleave (repeat g) (butlast steps))]
-       ~(if (empty? steps)
-          g
-          (last steps)))))
+           ~@(interleave (repeat g) steps)]
+       (~pred ~g))))
 
 (defmacro for->map
   [bindings & body]

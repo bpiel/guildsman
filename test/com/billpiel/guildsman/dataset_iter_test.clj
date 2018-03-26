@@ -57,9 +57,14 @@
                    {:name "bpiel/mnist-train-60k-features-file"
                     :asset {:records 60000                            
                             :parts [{:name "http://hhhh.com/train-60k-images-idx3-ubyte"
-                                     :md5hash "6bbc9ace898e44ae57da46a324031adb"
+                                     :sha1hash "abcdefghi"
                                      :instr [[:http :get "http://hhhhhhhheeeeeeyyyyy"]
                                              :gunzip]}]}})
+
+(pkg/prefetch-all-assets-sync
+ {:cfg [(c/pkg-plan :bpiel/mnist-train-60k-features-file)]})
+
+#_(pkg/set-repo-path! "/tmp/gmpkgs")
 
 (pkg/register-pkg! :bpiel/mnist-train-60k-labels-file
                    {:name "bpiel/mnist-train-60k-labels-file"
@@ -626,12 +631,7 @@
      (apply concat)
      distinct)
 
-;; find all pkg deps
-;; recur find all assets
-;; check for existing
-;; dl asset to temp file
-;; compare md5
-;; move to final file
+
 
 ;; -- wf -- what goes in def? what goes in args?
 

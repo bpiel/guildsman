@@ -117,8 +117,9 @@
   (let [counter (atom 0)
         os (clojure.java.io/output-stream dest)
         is (ah/get url {:raw-stream? true})
-        body (:body @is)
+        {:keys [body status]} @is
         cl (some-> "content-length" ((:headers @is)) Long/parseLong)]
+    (clojure.pprint/pprint status)
     (if (= (type body) (type (byte-array 0)))
       [(a/thread
          (.write os body)
@@ -142,11 +143,14 @@
 (defn dl-async-pr!*
   [total c-atom]
   (let [c @c-atom]
-    (println (format "%.0f%% -- %d bytes received"
-                     (-> c
-                         (/ total)
-                         (* 100.))
-                     c))))
+    (if total
+      (println (format "%.0f%% -- %d bytes received"
+                       (-> c
+                           (/ total)
+                           (* 100.))
+                       c))
+      (println (format "??%% -- %d bytes received"
+                       c)))))
 
 (defn dl-async-pr!
   [url dest]
@@ -162,8 +166,8 @@ to %s
         (while (not= ch (second (a/alts! [ch (a/timeout 1000)])))
           (dl-async-pr!* size counter))
         (dl-async-pr!* size counter)
-        (println "done")
+        (println "done download")
         @counter)
       (catch Exception e
         (clojure.pprint/pprint e)
-        e))))
+        (ex-info "Download failed" {:ex e} )))))

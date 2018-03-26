@@ -1,14 +1,21 @@
 (ns com.billpiel.guildsman.packages
-  (:require [aleph.http :as ah]
+  (:require [clojure.core.async :as a]
+            [aleph.http :as ah]
             [com.billpiel.guildsman.util :as ut]
             [com.billpiel.guildsman.special-utils :as sput]
             [clojure.java.io :as io]
             digest)
-  (:import [java.util.zip ZipFile GZIPInputStream]))
+  (:import [java.util.zip GZIPInputStream]
+           [java.nio.file Files CopyOption]))
 
-(def repo (atom nil))
+#_ (def repo (atom nil))
+(defonce repo (atom nil))
 
-(def registry (atom {}))
+(defonce registry (atom {}))
+
+(defn set-repo-path!
+  [path]
+  (swap! repo assoc :path path))
 
 (defn register-pkg!
   [pkg-kw pkg]
@@ -31,14 +38,21 @@
 (defmulti exec-instr (fn [_ instr & _] instr))
 
 (defmethod exec-instr :http
-  [path _ method url]
+  [{:keys [repo] :as bag} _ method url]
   (when (not= method :get)
     (throw (Exception. "NOT IMPLEMENTED")))
-  (let [dest (format "%s/download-%d"
-                     path
+  (let [f (format "%s/tmp/download-%d"
+                     (:path repo)
                      (System/currentTimeMillis))]
-    (sput/dl-async-pr! url dest)
-    dest))
+    (io/make-parents f)
+    ;; TODO use anomalies!?!?!
+    (let [r (a/<!! (sput/dl-async-pr! url f))
+          ex (ex-data r)]
+      (when ex
+        (throw (:ex ex)))) 
+    (assoc bag
+           :current
+           f)))
 
 (defmethod exec-instr :gunzip
   [{:keys [path]} _]
@@ -55,7 +69,7 @@
 (defmethod exec-instr :local [_ _ localpath] localpath)
 
 (defn exec-all-instrs
-  [bag]
+  [{:keys [instr] :as bag}]
   (loop [[head & tail] instr
          bag' bag]
     (if (->> bag' :failed? false? (and head))
@@ -64,46 +78,51 @@
       bag')))
 
 (defn verify-hash
-  [sha1hash filename]
-  (when (-> filename
-            io/as-file
-            digest/sha1
-            (= sha1hash))
-    filename))
+  [{:keys [sha1hash current] :as bag}]
+  (let [computed (-> current
+                     io/as-file
+                     digest/sha1)
+        bag' (assoc bag
+                    :sha1hash-comp
+                    computed)]
+    (if sha1hash
+      (if (= sha1hash computed)
+        bag'
+        (do (println (format "SHA-1 hashes did not match: %s \n%s\n%s"
+                             current sha1hash computed))
+            (assoc bag' :failed? true)))
+      bag')))
 
 (defn deliver-asset-part
-  [{:keys [path sha1hash]} filename]
-  (let [dest (format "%s/assets/%s/payload" path sha1hash)]
+  [{:keys [current dest] :as bag}]
+  (when (not= current dest)
     (io/make-parents dest)
-    (io/copy filename dest)))
-
-;; TODO return type of failure
-#_(defn fetch-asset-part
-  [repo {:keys [sha1hash instr]}]
-  (some->> instr
-           (exec-all-instrs repo)
-           (verify-hash sha1hash) 
-           (deliver-asset-part repo sha1hash)))
-
-(defn asset-part-exists?
-  [{:keys [path]} {:keys [sha1hash]}]
-  (-> (format "%s/assets/%s/payload" path sha1hash)
-      io/as-file
-      .exists))
+    ;; TODO use raynes/fs ???
+    (println (format "Moving %s to %s"
+                     current dest))
+    (Files/move (.toPath (io/as-file current))
+                (.toPath (io/as-file dest))
+                (into-array CopyOption [])))
+  (assoc bag :current dest))
 
 (defn mk-asset-dest-path
   [path sha1hash]
-  (format "%s/assets/%s/payload"
+  (format "%s/assets/%s.part"
           path sha1hash))
 
 (defn ensure-part-exists
   [{:keys [path] :as repo} {:keys [sha1hash] :as part}]
   (let [dest (mk-asset-dest-path path sha1hash)]
-    (or (-> dest io/as-file .exists)
-        (while-> (comp not :failed?)
-          (merge repo part
-                 {:failed? false
-                  :dest dest})
+    (or (when (-> dest io/as-file .exists)
+          (println (format "File %s exists."
+                           dest))
+          true)
+        (ut/while-> (comp not :failed?)
+          (assoc part
+                 :repo repo
+                 :failed? false
+                 :dest dest
+                 :current nil)
           exec-all-instrs
           verify-hash
           deliver-asset-part))))
@@ -112,10 +131,11 @@
   [repo {:keys [asset] :as pkg}]
   (loop [fails #{}
          [part & tail] (:parts asset)]
-    (if (or (asset-part-exists? repo part)
-            (fetch-asset-part repo part))
-      (recur fails tail)
-      (recur (conj fails (:name part)) tail))))
+    (if part
+      (if (ensure-part-exists repo part)
+        (recur fails tail)
+        (recur (conj fails (:name part)) tail))
+      fails)))
 
 (defn find-pkg-deps
   [cfg]
@@ -128,31 +148,34 @@
 (defn traverse-find-asset-pkgs
   [reg pkg-kws]
   (loop [[head & tail] pkg-kws
-         return #{}
+         return {}
          visited #{}]
     (if head
       (if (visited head)
         (recur tail return visited)
-        (let [deps (-> head reg :deps)]
-          (recur (into tail deps)
-                 (->> deps
-                      (map reg)
-                      (filter :asset)
-                      (into return))
-                 (conj visited head))))
+        (recur tail
+               (let [pkg (reg head)]
+                 (if (:asset pkg)
+                   (assoc return
+                          head pkg)
+                   return))
+               (conj visited head)))
       return)))
 
-(defn prefetch-all-assets
+;; TODO make async/thread later
+(defn prefetch-all-assets-sync
   [{:keys [cfg] :as ws}]
   (let [repo' @repo
         conj-set (fnil conj #{})]
+    (when-not (:path repo')
+      (throw (Exception. "Cannot fetch package assets. Package repo not set.")))
     (loop [success #{}
            fail {}
            [[k pkg] & tail] (->> cfg
                                  find-pkg-deps
                                  (traverse-find-asset-pkgs @registry))]
       (if k
-        (if-let [fails (fetch-asset repo' pkg)]
+        (if-let [fails (not-empty (fetch-asset repo' pkg))]
           (recur success (update fail k conj-set fails) tail)
           (recur (conj success k) fail tail))
         {:success success
