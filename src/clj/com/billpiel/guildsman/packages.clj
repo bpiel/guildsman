@@ -55,16 +55,16 @@
            f)))
 
 (defmethod exec-instr :gunzip
-  [{:keys [path]} _]
+  [{:keys [repo current] :as bag} _]
   (let [dest (format "%s/gunzip-%d"
-                     path
+                     (:path repo)
                      (System/currentTimeMillis))]
-    (io/copy (-> path
+    (io/copy (-> current
                  io/as-file
                  io/input-stream
                  GZIPInputStream.)
-             dest)
-    dest))
+             (io/as-file dest))
+    (assoc bag :current dest)))
 
 (defmethod exec-instr :local [_ _ localpath] localpath)
 
@@ -73,8 +73,9 @@
   (loop [[head & tail] instr
          bag' bag]
     (if (->> bag' :failed? false? (and head))
-      (apply exec-instr bag'
-             (ut/->vec head))
+      (recur tail
+             (apply exec-instr bag'
+                    (ut/->vec head)))
       bag')))
 
 (defn verify-hash

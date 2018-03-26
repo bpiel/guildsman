@@ -8,6 +8,7 @@
             [com.billpiel.guildsman.dev :as dev]
             [com.billpiel.guildsman.packages :as pkg]
             [com.billpiel.guildsman.tensor-scope :as tsc]
+            [com.billpiel.guildsman.special-utils :as sput]
             [flatland.protobuf.core :as pr]
             [aleph.http :as ah]
             [manifold.stream :as ms]
@@ -53,16 +54,25 @@
                                         :path "/home/bill/repos/guildsman-conj2017/resources/mnist/train-60k-images-idx3-ubyte"
                                         :md5hash "6bbc9ace898e44ae57da46a324031adb"}]]}})
 
+(pkg/register-pkg! :bpiel/mnist-test-10k-labels-file-v1
+                   {:name "bpiel/mnist-test-10k-labels-file-v1"
+                    :asset {:records 10000        
+                            :parts [{:name "https://s3-us-west-2.amazonaws.com/thinktopic.datasets/mnist/t10k-labels-idx1-ubyte.gz"
+                                     :sha1hash "a6d52cc628797e845885543326e9f10abb8a6f89"
+                                     :instr [[:http :get "https://s3-us-west-2.amazonaws.com/thinktopic.datasets/mnist/t10k-labels-idx1-ubyte.gz"]
+                                             :gunzip]}]}})
+
 (pkg/register-pkg! :bpiel/mnist-train-60k-features-file
                    {:name "bpiel/mnist-train-60k-features-file"
-                    :asset {:records 60000                            
-                            :parts [{:name "http://hhhh.com/train-60k-images-idx3-ubyte"
-                                     :sha1hash "abcdefghi"
-                                     :instr [[:http :get "http://hhhhhhhheeeeeeyyyyy"]
+                    :asset {:records 60000        
+                            :parts [{:name "https://s3-us-west-2.amazonaws.com/thinktopic.datasets/mnist/train-images-idx3-ubyte.gz"
+                                     :sha1hash "c3557c10f29b266e19b3eeee1553c85e0ef4a8ea"
+                                     :instr [[:http :get "https://s3-us-west-2.amazonaws.com/thinktopic.datasets/mnist/train-images-idx3-ubyte.gz"]
                                              :gunzip]}]}})
 
 (pkg/prefetch-all-assets-sync
- {:cfg [(c/pkg-plan :bpiel/mnist-train-60k-features-file)]})
+ {:cfg [(c/pkg-plan :bpiel/mnist-test-10k-labels-file-v1)
+        (c/pkg-plan :bpiel/mnist-train-60k-features-file)]})
 
 #_(pkg/set-repo-path! "/tmp/gmpkgs")
 
@@ -844,11 +854,11 @@ to %s
 (dl-async-pr! "http://ghk.h-cdn.co/assets/17/20/1495031140-gettyimages-573950777.jpg"
               "/home/bill/dog6.jpg")
 
-(dl-async-pr!
+(sput/dl-async-pr!
  "https://s3-us-west-2.amazonaws.com/thinktopic.datasets/mnist/t10k-labels-idx1-ubyte.gz"
  "/home/bill/t10k-labels-idx1-ubyte.gz")
 
-(dl-async-pr!
+(sput/dl-async-pr!
  "https://s3-us-west-2.amazonaws.com/thinktopic.datasets/mnist/train-images-idx3-ubyte.gz"
  "/home/bill/train-images-idx3-ubyte.gz")
 
