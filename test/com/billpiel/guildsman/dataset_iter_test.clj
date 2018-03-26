@@ -25,7 +25,7 @@
          (io/output-stream  "/home/bill/train-images-idx3-ubyte"))
 
 
-(pkg/register-pkg! :bpiel/parse-mnist-features-fn
+(pkg/register-pkg! :bpiel/parse-mnist-features-fn-v1
                    {:name "bpiel/parse-mnist-features-fn"
                     :function
                     (g/fn-tf parse-mnist-features-fn
@@ -36,7 +36,7 @@
                                           (c/cast-tf g/dt-float))
                                      255.0)])})
 
-(pkg/register-pkg! :bpiel/parse-mnist-labels-fn
+(pkg/register-pkg! :bpiel/parse-mnist-labels-fn-v1
                    {:name "bpiel/parse-mnist-labels-fn"
                     :function
                     (g/fn-tf parse-mnist-labels-fn
@@ -47,7 +47,7 @@
                                    (o/unpack {:num 1 :axis 0})
                                    (c/cast-tf g/dt-int))])})
 
-(pkg/register-pkg! :bpiel/mnist-train-60k-features-file
+#_(pkg/register-pkg! :bpiel/mnist-train-60k-features-file-v1
                    {:name "bpiel/mnist-train-60k-features-file"
                     :asset {:records 60000                            
                             :sources [[{:type :local
@@ -62,7 +62,7 @@
                                      :instr [[:http :get "https://s3-us-west-2.amazonaws.com/thinktopic.datasets/mnist/t10k-labels-idx1-ubyte.gz"]
                                              :gunzip]}]}})
 
-(pkg/register-pkg! :bpiel/mnist-train-60k-features-file
+(pkg/register-pkg! :bpiel/mnist-train-60k-features-file-v1
                    {:name "bpiel/mnist-train-60k-features-file"
                     :asset {:records 60000        
                             :parts [{:name "https://s3-us-west-2.amazonaws.com/thinktopic.datasets/mnist/train-images-idx3-ubyte.gz"
@@ -71,44 +71,47 @@
                                              :gunzip]}]}})
 
 (pkg/prefetch-all-assets-sync
- {:cfg [(c/pkg-plan :bpiel/mnist-test-10k-labels-file-v1)
-        (c/pkg-plan :bpiel/mnist-train-60k-features-file)]})
+ {:cfg [(c/pkg-plan :bpiel/mnist-test-10k-labels-v1)
+        (c/pkg-plan :bpiel/mnist-train-60k-features-v1)]})
 
 #_(pkg/set-repo-path! "/tmp/gmpkgs")
 
-(pkg/register-pkg! :bpiel/mnist-train-60k-labels-file
+#_(pkg/register-pkg! :bpiel/mnist-train-60k-labels-file
                    {:name "bpiel/mnist-train-60k-labels-file"
                     :asset {:records 60000                            
                             :sources [[{:type :local
                                         :path "/home/bill/repos/guildsman-conj2017/resources/mnist/train-60k-labels-idx1-ubyte"
                                         :md5hash "6bbc9ace898e44ae57da46a324031adb"}]]}})
 
-(pkg/register-pkg! :bpiel/mnist-train-60k-features
+(pkg/register-pkg! :bpiel/mnist-train-60k-features-v1
                    {:name "bpiel/mnist-train-60k-features"
+                    :deps [:bpiel/mnist-train-60k-features-file-v1
+                           :bpiel/parse-mnist-features-fn-v1]
                     :plan
-                    (->> (c/asset-as-files :bpiel/mnist-train-60k-features-file)
+                    (->> (c/asset-as-files :bpiel/mnist-train-60k-features-file-v1)
                          (c/fixed-length-record-ds {:size 60000
                                                     :header-bytes (o/c 16 g/dt-long) ;; TODO type hints for macros?
                                                     :record-bytes (o/c 784 g/dt-long)
                                                     :footer-bytes (o/c 0 g/dt-long)
                                                     :buffer-bytes (o/c 784 g/dt-long)})
                          (c/map-ds {:fields [:features]}
-                                   :bpiel/parse-mnist-features-fn))})
+                                   :bpiel/parse-mnist-features-fn-v1))})
 
-(pkg/register-pkg! :bpiel/mnist-train-60k-labels
+(pkg/register-pkg! :bpiel/mnist-train-60k-labels-v1
                    {:name "bpiel/mnist-train-60k-labels"
-                    :deps [:bpiel/mnist-train-60k-labels-file :bpiel/parse-mnist-labels-fn]
+                    :deps [:bpiel/mnist-train-60k-labels-file-v1
+                           :bpiel/parse-mnist-labels-fn-v1]
                     :plan
-                    (->> (c/asset-as-files :bpiel/mnist-train-60k-labels-file)
+                    (->> (c/asset-as-files :bpiel/mnist-train-60k-labels-file-v1)
                          (c/fixed-length-record-ds {:size 60000
                                                     :header-bytes (o/c 8 g/dt-long)
                                                     :record-bytes (o/c 1 g/dt-long)
                                                     :footer-bytes (o/c 0 g/dt-long)
                                                     :buffer-bytes (o/c 1 g/dt-long)})
                          (c/map-ds {:fields [:labels]}
-                                   :bpiel/parse-mnist-labels-fn))})
+                                   :bpiel/parse-mnist-labels-fn-v1))})
 
-(pkg/register-pkg! :bpiel/mnist-test-10k-features-file
+#_(pkg/register-pkg! :bpiel/mnist-test-10k-features-file-v
                    {:name "bpiel/mnist-test-10k-features-file"
                     :deps []
                     :asset {:records 10000
@@ -116,7 +119,7 @@
                                         :path "/home/bill/repos/guildsman-conj2017/resources/mnist/test-10k-images-idx3-ubyte"
                                         :md5hash "6bbc9ace898e44ae57da46a324031adb"}]]}})
 
-(pkg/register-pkg! :bpiel/mnist-test-10k-labels-file
+#_(pkg/register-pkg! :bpiel/mnist-test-10k-labels-file
                    {:name "bpiel/mnist-test-10k-labels-file"
                     :deps []
                     :asset {:records 10000                            
@@ -124,9 +127,10 @@
                                         :path "/home/bill/repos/guildsman-conj2017/resources/mnist/test-10k-labels-idx1-ubyte"
                                         :md5hash "6bbc9ace898e44ae57da46a324031adb"}]]}})
 
-(pkg/register-pkg! :bpiel/mnist-test-10k-features
+(pkg/register-pkg! :bpiel/mnist-test-10k-features-v1
                    {:name "bpiel/mnist-test-10k-features"
-                    :deps [:bpiel/mnist-test-10k-features-file :bpiel/parse-mnist-features-fn]
+                    :deps [:bpiel/mnist-test-10k-features-file-v1
+                           :bpiel/parse-mnist-features-fn-v1]
                     :plan
                     (->> (c/asset-as-files :bpiel/mnist-test-10k-features-file)
                          (c/fixed-length-record-ds {:size 10000
@@ -137,18 +141,19 @@
                          (c/map-ds {:fields [:features]}
                                    :bpiel/parse-mnist-features-fn))})
 
-(pkg/register-pkg! :bpiel/mnist-test-10k-labels
+(pkg/register-pkg! :bpiel/mnist-test-10k-labels-v1
                    {:name "bpiel/mnist-test-10k-labels"
-                    :deps [:bpiel/mnist-test-10k-labels-file :bpiel/parse-mnist-labels-fn]
+                    :deps [:bpiel/mnist-test-10k-labels-file-v1
+                           :bpiel/parse-mnist-labels-fn-v1]
                     :plan
-                    (->> (c/asset-as-files :bpiel/mnist-test-10k-labels-file)
+                    (->> (c/asset-as-files :bpiel/mnist-test-10k-labels-file-v1)
                          (c/fixed-length-record-ds {:size 10000
                                                     :header-bytes (o/c 8 g/dt-long)
                                                     :record-bytes (o/c 1 g/dt-long)
                                                     :footer-bytes (o/c 0 g/dt-long)
                                                     :buffer-bytes (o/c 1 g/dt-long)})
                          (c/map-ds {:fields [:labels]}
-                                   :bpiel/parse-mnist-labels-fn))})
+                                   :bpiel/parse-mnist-labels-fn-v1))})
 
 
 

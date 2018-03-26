@@ -154,13 +154,13 @@
     (if head
       (if (visited head)
         (recur tail return visited)
-        (recur tail
-               (let [pkg (reg head)]
+        (let [pkg (reg head)]
+          (recur (->> pkg :deps (into tail))
                  (if (:asset pkg)
                    (assoc return
                           head pkg)
-                   return))
-               (conj visited head)))
+                   return)
+                 (conj visited head))))
       return)))
 
 ;; TODO make async/thread later
@@ -207,31 +207,6 @@
     ;;TODO
     [(-> asset :sources first first :path)]
     (throw (Exception. (str "Package was not an asset: " pkg-kw)))))
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
