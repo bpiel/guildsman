@@ -53,6 +53,14 @@
                                         :path "/home/bill/repos/guildsman-conj2017/resources/mnist/train-60k-images-idx3-ubyte"
                                         :md5hash "6bbc9ace898e44ae57da46a324031adb"}]]}})
 
+(pkg/register-pkg! :bpiel/mnist-train-60k-features-file
+                   {:name "bpiel/mnist-train-60k-features-file"
+                    :asset {:records 60000                            
+                            :parts [{:name "http://hhhh.com/train-60k-images-idx3-ubyte"
+                                     :md5hash "6bbc9ace898e44ae57da46a324031adb"
+                                     :instr [[:http :get "http://hhhhhhhheeeeeeyyyyy"]
+                                             :gunzip]}]}})
+
 (pkg/register-pkg! :bpiel/mnist-train-60k-labels-file
                    {:name "bpiel/mnist-train-60k-labels-file"
                     :asset {:records 60000                            

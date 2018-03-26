@@ -100,7 +100,6 @@
 (defn- gen-branch-id []
   (str "br-" (java.util.UUID/randomUUID)))
 
-
 (defn gen-chkpt-id []
   (str "chkpt-" (java.util.UUID/randomUUID)))
 
