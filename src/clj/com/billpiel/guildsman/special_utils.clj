@@ -156,13 +156,15 @@
   [url dest]
   (a/go
     (try
+      (println (format
+                "Downloading %s
+to %s"
+                url dest))
       (let [[ch counter size] (dl-async! url dest)]
         (println (format
-                  "Downloading %s
-to %s
-%d bytes expected
+                  "%d bytes expected
 "
-                  url dest size))
+                   size))
         (while (not= ch (second (a/alts! [ch (a/timeout 1000)])))
           (dl-async-pr!* size counter))
         (dl-async-pr!* size counter)
@@ -170,4 +172,4 @@ to %s
         @counter)
       (catch Exception e
         (clojure.pprint/pprint e)
-        (ex-info "Download failed" {:ex e} )))))
+        (ex-info "Download failed" {:ex e})))))

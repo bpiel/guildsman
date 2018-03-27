@@ -49,13 +49,15 @@
              (select-keys m pkg-ids))]
     (swap! registry merge m')))
 
-(defn dl-repo!
+(defn dl-pkg-repo!
   [url]
-  (-> @(ah/get url)
-      :body
-      slurp
-      clojure.edn/read-string
-      import-pkg-repo!))
+  (let [pkgs (-> @(ah/get url)
+                 :body
+                 slurp
+                 clojure.edn/read-string
+                 :packages)]
+    (import-pkg-repo! pkgs)
+    (keys pkgs)))
 
 (defmulti exec-instr (fn [_ instr & _] instr))
 
@@ -78,7 +80,7 @@
 
 (defmethod exec-instr :gunzip
   [{:keys [repo current] :as bag} _]
-  (let [dest (format "%s/gunzip-%d"
+  (let [dest (format "%s/tmp/gunzip-%d"
                      (:path repo)
                      (System/currentTimeMillis))]
     (io/copy (-> current
@@ -201,8 +203,10 @@
         (if-let [fails (not-empty (fetch-asset repo' pkg))]
           (recur success (update fail k conj-set fails) tail)
           (recur (conj success k) fail tail))
-        {:success success
-         :fail fail}))))
+        (let [r {:success success
+                 :fail fail}]
+          (clojure.pprint/pprint r)
+          r)))))
 
 (defn get-pkg [pkg-kw]
   (or (pkg-kw @registry)

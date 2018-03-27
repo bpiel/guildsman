@@ -28,7 +28,19 @@
 
 #_(pkg/import-package-repo! "https://bpiel.github.io/guildsman-recipes/recipes.edn")
 
-(pkg/export-pkgs-to-file! "/home/bill/gmpkgs1.edn")
+(pkg/prefetch-all-assets-sync
+ {:cfg [(c/pkg-plan :bpiel/mnist-train-60k-labels-v1)
+        (c/pkg-plan :bpiel/mnist-train-60k-features-v1)
+        (c/pkg-plan :bpiel/mnist-test-10k-features-v1)
+        (c/pkg-plan :bpiel/mnist-test-10k-labels-v1)]})
+
+
+
+#_(pkg/set-repo-path! "/tmp/gmpkgs")
+
+(pkg/export-pkgs-to-file! "/home/bill/gm-web/pkgs.edn")
+
+(pkg/dl-pkg-repo! "http://localhost:8000/pkgs.edn")
 
 (pkg/register-pkg! :bpiel/parse-mnist-features-fn-v1
                    {:name "bpiel/parse-mnist-features-fn"
@@ -41,16 +53,6 @@
                                           (c/cast-tf g/dt-float))
                                      255.0)])})
 
-(println (pr-str {:name "bpiel/parse-mnist-features-fn"
-                    :function
-                    (g/fn-tf parse-mnist-features-fn
-                             [g/dt-float [784]]
-                             [x g/dt-string []]
-                             [(o/div (->> x
-                                          (o/decode-raw {:out_type g/dt-uint})
-                                          (c/cast-tf g/dt-float))
-                                     255.0)])}))
-
 (pkg/register-pkg! :bpiel/parse-mnist-labels-fn-v1
                    {:name "bpiel/parse-mnist-labels-fn"
                     :function
@@ -62,10 +64,18 @@
                                    (o/unpack {:num 1 :axis 0})
                                    (c/cast-tf g/dt-int))])})
 
+(pkg/register-pkg! :bpiel/mnist-test-10k-features-file-v1
+                   {:name "bpiel/mnist-test-10k-features-file-v1"
+                    :asset {:records 10000        
+                            :parts [{:name "t10k-images-idx3-ubyte"
+                                     :sha1hash "65e11ec1fd220343092a5070b58418b5c2644e26"
+                                     :instr [[:http :get "http://localhost:8000/t10k-images-idx3-ubyte.gz"]
+                                             :gunzip]}]}})
+
 (pkg/register-pkg! :bpiel/mnist-test-10k-labels-file-v1
                    {:name "bpiel/mnist-test-10k-labels-file-v1"
                     :asset {:records 10000        
-                            :parts [{:name "t10k-labels-idx1-ubyte.gz"
+                            :parts [{:name "t10k-labels-idx1-ubyte"
                                      :sha1hash "a6d52cc628797e845885543326e9f10abb8a6f89"
                                      :instr [[:http :get "http://localhost:8000/t10k-labels-idx1-ubyte.gz"]
                                              :gunzip]}]}})
@@ -73,16 +83,18 @@
 (pkg/register-pkg! :bpiel/mnist-train-60k-features-file-v1
                    {:name "bpiel/mnist-train-60k-features-file"
                     :asset {:records 60000        
-                            :parts [{:name "train-images-idx3-ubyte.gz"
+                            :parts [{:name "train-images-idx3-ubyte"
                                      :sha1hash "c3557c10f29b266e19b3eeee1553c85e0ef4a8ea"
                                      :instr [[:http :get "http://localhost:8000/train-images-idx3-ubyte.gz"]
                                              :gunzip]}]}})
 
-#_(pkg/prefetch-all-assets-sync
- {:cfg [(c/pkg-plan :bpiel/mnist-test-10k-labels-v1)
-        (c/pkg-plan :bpiel/mnist-train-60k-features-v1)]})
-
-#_(pkg/set-repo-path! "/tmp/gmpkgs")
+(pkg/register-pkg! :bpiel/mnist-train-60k-labels-file-v1
+                   {:name "bpiel/mnist-train-60k-labels-file-v1"
+                    :asset {:records 60000
+                            :parts [{:name "train-labels-idx1-ubyte"
+                                     :sha1hash "adbf52269f5d842899f287c269e2883e40b4f6e2"
+                                     :instr [[:http :get "http://localhost:8000/train-labels-idx1-ubyte.gz"]
+                                             :gunzip]}]}})
 
 (pkg/register-pkg! :bpiel/mnist-train-60k-features-v1
                    {:name "bpiel/mnist-train-60k-features"
@@ -124,7 +136,7 @@
                                                     :footer-bytes (o/c 0 g/dt-long)
                                                     :buffer-bytes (o/c 784 g/dt-long)})
                          (c/map-ds {:fields [:features]}
-                                   :bpiel/parse-mnist-features-fn))})
+                                   :bpiel/parse-mnist-features-fn-v1))})
 
 (pkg/register-pkg! :bpiel/mnist-test-10k-labels-v1
                    {:name "bpiel/mnist-test-10k-labels"
@@ -139,8 +151,6 @@
                                                     :buffer-bytes (o/c 1 g/dt-long)})
                          (c/map-ds {:fields [:labels]}
                                    :bpiel/parse-mnist-labels-fn-v1))})
-
-
 
 
 
