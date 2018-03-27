@@ -24,6 +24,11 @@
              GZIPInputStream.)
          (io/output-stream  "/home/bill/train-images-idx3-ubyte"))
 
+;; where/how would you inject a perturber? ?!?!?!?!?!?!?!?
+
+#_(pkg/import-package-repo! "https://bpiel.github.io/guildsman-recipes/recipes.edn")
+
+(pkg/export-pkgs-to-file! "/home/bill/gmpkgs1.edn")
 
 (pkg/register-pkg! :bpiel/parse-mnist-features-fn-v1
                    {:name "bpiel/parse-mnist-features-fn"
@@ -36,6 +41,16 @@
                                           (c/cast-tf g/dt-float))
                                      255.0)])})
 
+(println (pr-str {:name "bpiel/parse-mnist-features-fn"
+                    :function
+                    (g/fn-tf parse-mnist-features-fn
+                             [g/dt-float [784]]
+                             [x g/dt-string []]
+                             [(o/div (->> x
+                                          (o/decode-raw {:out_type g/dt-uint})
+                                          (c/cast-tf g/dt-float))
+                                     255.0)])}))
+
 (pkg/register-pkg! :bpiel/parse-mnist-labels-fn-v1
                    {:name "bpiel/parse-mnist-labels-fn"
                     :function
@@ -47,41 +62,27 @@
                                    (o/unpack {:num 1 :axis 0})
                                    (c/cast-tf g/dt-int))])})
 
-#_(pkg/register-pkg! :bpiel/mnist-train-60k-features-file-v1
-                   {:name "bpiel/mnist-train-60k-features-file"
-                    :asset {:records 60000                            
-                            :sources [[{:type :local
-                                        :path "/home/bill/repos/guildsman-conj2017/resources/mnist/train-60k-images-idx3-ubyte"
-                                        :md5hash "6bbc9ace898e44ae57da46a324031adb"}]]}})
-
 (pkg/register-pkg! :bpiel/mnist-test-10k-labels-file-v1
                    {:name "bpiel/mnist-test-10k-labels-file-v1"
                     :asset {:records 10000        
-                            :parts [{:name "https://s3-us-west-2.amazonaws.com/thinktopic.datasets/mnist/t10k-labels-idx1-ubyte.gz"
+                            :parts [{:name "t10k-labels-idx1-ubyte.gz"
                                      :sha1hash "a6d52cc628797e845885543326e9f10abb8a6f89"
-                                     :instr [[:http :get "https://s3-us-west-2.amazonaws.com/thinktopic.datasets/mnist/t10k-labels-idx1-ubyte.gz"]
+                                     :instr [[:http :get "http://localhost:8000/t10k-labels-idx1-ubyte.gz"]
                                              :gunzip]}]}})
 
 (pkg/register-pkg! :bpiel/mnist-train-60k-features-file-v1
                    {:name "bpiel/mnist-train-60k-features-file"
                     :asset {:records 60000        
-                            :parts [{:name "https://s3-us-west-2.amazonaws.com/thinktopic.datasets/mnist/train-images-idx3-ubyte.gz"
+                            :parts [{:name "train-images-idx3-ubyte.gz"
                                      :sha1hash "c3557c10f29b266e19b3eeee1553c85e0ef4a8ea"
-                                     :instr [[:http :get "https://s3-us-west-2.amazonaws.com/thinktopic.datasets/mnist/train-images-idx3-ubyte.gz"]
+                                     :instr [[:http :get "http://localhost:8000/train-images-idx3-ubyte.gz"]
                                              :gunzip]}]}})
 
-(pkg/prefetch-all-assets-sync
+#_(pkg/prefetch-all-assets-sync
  {:cfg [(c/pkg-plan :bpiel/mnist-test-10k-labels-v1)
         (c/pkg-plan :bpiel/mnist-train-60k-features-v1)]})
 
 #_(pkg/set-repo-path! "/tmp/gmpkgs")
-
-#_(pkg/register-pkg! :bpiel/mnist-train-60k-labels-file
-                   {:name "bpiel/mnist-train-60k-labels-file"
-                    :asset {:records 60000                            
-                            :sources [[{:type :local
-                                        :path "/home/bill/repos/guildsman-conj2017/resources/mnist/train-60k-labels-idx1-ubyte"
-                                        :md5hash "6bbc9ace898e44ae57da46a324031adb"}]]}})
 
 (pkg/register-pkg! :bpiel/mnist-train-60k-features-v1
                    {:name "bpiel/mnist-train-60k-features"
@@ -110,22 +111,6 @@
                                                     :buffer-bytes (o/c 1 g/dt-long)})
                          (c/map-ds {:fields [:labels]}
                                    :bpiel/parse-mnist-labels-fn-v1))})
-
-#_(pkg/register-pkg! :bpiel/mnist-test-10k-features-file-v
-                   {:name "bpiel/mnist-test-10k-features-file"
-                    :deps []
-                    :asset {:records 10000
-                            :sources [[{:type :local
-                                        :path "/home/bill/repos/guildsman-conj2017/resources/mnist/test-10k-images-idx3-ubyte"
-                                        :md5hash "6bbc9ace898e44ae57da46a324031adb"}]]}})
-
-#_(pkg/register-pkg! :bpiel/mnist-test-10k-labels-file
-                   {:name "bpiel/mnist-test-10k-labels-file"
-                    :deps []
-                    :asset {:records 10000                            
-                            :sources [[{:type :local
-                                        :path "/home/bill/repos/guildsman-conj2017/resources/mnist/test-10k-labels-idx1-ubyte"
-                                        :md5hash "6bbc9ace898e44ae57da46a324031adb"}]]}})
 
 (pkg/register-pkg! :bpiel/mnist-test-10k-features-v1
                    {:name "bpiel/mnist-test-10k-features"
@@ -157,9 +142,9 @@
 
 
 
-;; where/how would you inject a perturber?
 
-#_(pkg/import-package-repo! "https://bpiel.github.io/guildsman-recipes/recipes.edn")
+
+
 
 (g/def-workspace ws-dream
   (g/let+ [{:keys [features labels socket]}

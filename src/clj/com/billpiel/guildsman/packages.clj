@@ -11,6 +11,7 @@
 #_ (def repo (atom nil))
 (defonce repo (atom nil))
 
+#_ (def registry (atom {}))
 (defonce registry (atom {}))
 
 (defn set-repo-path!
@@ -26,6 +27,27 @@
   (swap! registry
          merge
          m))
+
+(defn export-pkgs-to-file!
+  [filename & pkg-ids]
+  (let [r @registry]
+    (->> (if (empty? pkg-ids)
+           r
+           (select-keys r pkg-ids))
+         (hash-map :packages)
+         pr-str
+         (spit filename))))
+
+(defn import-pkgs-from-file!
+  [filename & pkg-ids]
+  (let [m (->> filename
+               slurp
+               clojure.edn/read-string
+               :packages)
+        m' (if (empty? pkg-ids)
+             m
+             (select-keys m pkg-ids))]
+    (swap! registry merge m')))
 
 (defn dl-repo!
   [url]
