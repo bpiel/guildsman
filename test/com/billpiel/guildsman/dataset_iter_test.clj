@@ -33,8 +33,6 @@
         (c/pkg-plan :bpiel/mnist-test-10k-features-v1)
         (c/pkg-plan :bpiel/mnist-test-10k-labels-v1)]})
 
-
-
 #_(pkg/set-repo-path! "/tmp/gmpkgs")
 
 (pkg/export-pkgs-to-file! "/home/bill/gm-web/pkgs.edn")

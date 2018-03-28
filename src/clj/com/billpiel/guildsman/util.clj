@@ -209,7 +209,8 @@
                    forms)]
     `(let [~g ~expr
            ~@(interleave (repeat g) steps)]
-       (~pred ~g))))
+       (and (~pred ~g)
+            ~g))))
 
 (defmacro for->map
   [bindings & body]
