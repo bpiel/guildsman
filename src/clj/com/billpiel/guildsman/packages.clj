@@ -143,8 +143,9 @@
 
 (defn mk-asset-dest-path
   [path sha1hash]
-  (format "%s/assets/%s.part"
-          path sha1hash))
+  (when sha1hash
+    (format "%s/assets/%s.part"
+            path sha1hash)))
 
 (defn ensure-part-exists
   [{:keys [path] :as repo} {:keys [sha1hash] nm :name :as part}]
