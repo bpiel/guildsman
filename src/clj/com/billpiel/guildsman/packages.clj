@@ -8,19 +8,30 @@
   (:import [java.util.zip GZIPInputStream]
            [java.nio.file Files CopyOption]))
 
+;; TODO delete temp files
+
 #_ (def repo (atom nil))
 (defonce repo (atom nil))
 
 #_ (def registry (atom {}))
 (defonce registry (atom {}))
 
+#_ (clojure.pprint/pprint @registry)
+
 (defn set-repo-path!
   [path]
   (swap! repo assoc :path path))
 
-(defn register-pkg!
+(defn register-pkg!*
   [pkg-kw pkg]
   (swap! registry assoc pkg-kw pkg))
+
+(defmacro register-pkg!
+  [pkg-kw pkg]
+  `(register-pkg!* ~pkg-kw
+                   (assoc ~pkg
+                          :src
+                          ~(list 'quote pkg))))
 
 (defn import-pkg-repo!
   [m]
@@ -136,21 +147,22 @@
           path sha1hash))
 
 (defn ensure-part-exists
-  [{:keys [path] :as repo} {:keys [sha1hash] :as part}]
+  [{:keys [path] :as repo} {:keys [sha1hash] nm :name :as part}]
   (let [dest (mk-asset-dest-path path sha1hash)]
-    (or (when (-> dest io/as-file .exists)
-          (println (format "File %s exists."
-                           dest))
-          true)
-        (ut/while-> (comp not :failed?)
-          (assoc part
-                 :repo repo
-                 :failed? false
-                 :dest dest
-                 :current nil)
-          exec-all-instrs
-          verify-hash
-          deliver-asset-part))))
+    (or (when (some-> dest io/as-file .exists) 
+          #_(println (format "%s: File %s exists."
+                             nm dest))
+          dest)
+        (:current
+         (ut/while-> (comp not :failed?)
+           (assoc part
+                  :repo repo
+                  :failed? false
+                  :dest dest
+                  :current nil)
+           exec-all-instrs
+           verify-hash
+           deliver-asset-part)))))
 
 (defn fetch-asset
   [repo {:keys [asset] :as pkg}]
@@ -230,14 +242,8 @@
 (defn get-asset-as-files
   [pkg-kw]
   (if-let [asset (get-asset-desc pkg-kw)]
-    ;;TODO
-    [(-> asset :sources first first :path)]
+    (->> asset
+         :source
+         :parts
+         (mapv (partial ensure-part-exists @repo)))
     (throw (Exception. (str "Package was not an asset: " pkg-kw)))))
-
-
-
-
-
-
-
-

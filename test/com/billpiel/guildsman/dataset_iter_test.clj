@@ -26,7 +26,6 @@
 
 ;; where/how would you inject a perturber? ?!?!?!?!?!?!?!?
 
-#_(pkg/import-package-repo! "https://bpiel.github.io/guildsman-recipes/recipes.edn")
 
 (pkg/prefetch-all-assets-sync
  {:cfg [(c/pkg-plan :bpiel/mnist-train-60k-labels-v1)
@@ -41,6 +40,9 @@
 (pkg/export-pkgs-to-file! "/home/bill/gm-web/pkgs.edn")
 
 (pkg/dl-pkg-repo! "http://localhost:8000/pkgs.edn")
+
+
+(pkg/dl-pkg-repo! "https://bpiel.github.io/guildsman-packages/pkgs.edn")
 
 (pkg/register-pkg! :bpiel/parse-mnist-features-fn-v1
                    {:name "bpiel/parse-mnist-features-fn"
@@ -67,33 +69,33 @@
 (pkg/register-pkg! :bpiel/mnist-test-10k-features-file-v1
                    {:name "bpiel/mnist-test-10k-features-file-v1"
                     :asset {:records 10000        
-                            :parts [{:name "t10k-images-idx3-ubyte"
+                            :parts [{:name "mnist/t10k-images-idx3-ubyte"
                                      :sha1hash "65e11ec1fd220343092a5070b58418b5c2644e26"
-                                     :instr [[:http :get "http://localhost:8000/t10k-images-idx3-ubyte.gz"]
+                                     :instr [[:http :get "https://s3.amazonaws.com/guildsman/mnist/t10k-images-idx3-ubyte.gz"]
                                              :gunzip]}]}})
 
 (pkg/register-pkg! :bpiel/mnist-test-10k-labels-file-v1
                    {:name "bpiel/mnist-test-10k-labels-file-v1"
                     :asset {:records 10000        
-                            :parts [{:name "t10k-labels-idx1-ubyte"
+                            :parts [{:name "mnist/t10k-labels-idx1-ubyte"
                                      :sha1hash "a6d52cc628797e845885543326e9f10abb8a6f89"
-                                     :instr [[:http :get "http://localhost:8000/t10k-labels-idx1-ubyte.gz"]
+                                     :instr [[:http :get "https://s3.amazonaws.com/guildsman/mnist/t10k-labels-idx1-ubyte.gz"]
                                              :gunzip]}]}})
 
 (pkg/register-pkg! :bpiel/mnist-train-60k-features-file-v1
                    {:name "bpiel/mnist-train-60k-features-file"
                     :asset {:records 60000        
-                            :parts [{:name "train-images-idx3-ubyte"
+                            :parts [{:name "mnist/train-images-idx3-ubyte"
                                      :sha1hash "c3557c10f29b266e19b3eeee1553c85e0ef4a8ea"
-                                     :instr [[:http :get "http://localhost:8000/train-images-idx3-ubyte.gz"]
+                                     :instr [[:http :get "https://s3.amazonaws.com/guildsman/mnist/train-images-idx3-ubyte.gz"]
                                              :gunzip]}]}})
 
 (pkg/register-pkg! :bpiel/mnist-train-60k-labels-file-v1
                    {:name "bpiel/mnist-train-60k-labels-file-v1"
                     :asset {:records 60000
-                            :parts [{:name "train-labels-idx1-ubyte"
+                            :parts [{:name "mnist/train-labels-idx1-ubyte"
                                      :sha1hash "adbf52269f5d842899f287c269e2883e40b4f6e2"
-                                     :instr [[:http :get "http://localhost:8000/train-labels-idx1-ubyte.gz"]
+                                     :instr [[:http :get "https://s3.amazonaws.com/guildsman/mnist/train-labels-idx1-ubyte.gz"]
                                              :gunzip]}]}})
 
 (pkg/register-pkg! :bpiel/mnist-train-60k-features-v1
