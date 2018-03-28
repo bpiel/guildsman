@@ -13,6 +13,7 @@
             [com.billpiel.guildsman.ops.composite :as ops-c]
             [com.billpiel.guildsman.tensor-scope :as tsc]
             [com.billpiel.guildsman.checkpoint-repo3 :as cpr]
+            [com.billpiel.guildsman.packages :as pkg]
             com.billpiel.guildsman.gradients
             com.billpiel.guildsman.grad-desc-opt
             com.billpiel.guildsman.gradients-clj
@@ -1060,3 +1061,7 @@ provided an existing Graph defrecord and feed map."
   (a/<!! ((render-close-workflow {:plugins (conj @wf-closers
                                                  gm-plugin)})
           ws)))
+
+(defn pkg-dl-repo! [url] (pkg/dl-pkg-repo! url))
+(defn pkg-prefetch-all-assets-sync! [ws] (pkg/prefetch-all-assets-sync ws))
+(defn pkg-set-repo-path! [path] (pkg/set-repo-path! path))

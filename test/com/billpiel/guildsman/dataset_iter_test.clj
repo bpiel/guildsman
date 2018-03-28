@@ -81,7 +81,7 @@
                                              :gunzip]}]}})
 
 (pkg/register-pkg! :bpiel/mnist-train-60k-features-file-v1
-                   {:name "bpiel/mnist-train-60k-features-file"
+                   {:name "bpiel/mnist-train-60k-features-file-v1"
                     :asset {:records 60000        
                             :parts [{:name "mnist/train-images-idx3-ubyte"
                                      :sha1hash "c3557c10f29b266e19b3eeee1553c85e0ef4a8ea"
@@ -98,6 +98,7 @@
 
 (pkg/register-pkg! :bpiel/mnist-train-60k-features-v1
                    {:name "bpiel/mnist-train-60k-features"
+                    ;; TODO just auto-detect deps???
                     :deps [:bpiel/mnist-train-60k-features-file-v1
                            :bpiel/parse-mnist-features-fn-v1]
                     :plan
@@ -111,7 +112,7 @@
                                    :bpiel/parse-mnist-features-fn-v1))})
 
 (pkg/register-pkg! :bpiel/mnist-train-60k-labels-v1
-                   {:name "bpiel/mnist-train-60k-labels"
+                   {:name "bpiel/mnist-train-60k-labels-v1"
                     :deps [:bpiel/mnist-train-60k-labels-file-v1
                            :bpiel/parse-mnist-labels-fn-v1]
                     :plan
@@ -125,11 +126,11 @@
                                    :bpiel/parse-mnist-labels-fn-v1))})
 
 (pkg/register-pkg! :bpiel/mnist-test-10k-features-v1
-                   {:name "bpiel/mnist-test-10k-features"
+                   {:name "bpiel/mnist-test-10k-features-v1"
                     :deps [:bpiel/mnist-test-10k-features-file-v1
                            :bpiel/parse-mnist-features-fn-v1]
                     :plan
-                    (->> (c/asset-as-files :bpiel/mnist-test-10k-features-file)
+                    (->> (c/asset-as-files :bpiel/mnist-test-10k-features-file-v1)
                          (c/fixed-length-record-ds {:size 10000
                                                     :header-bytes (o/c 16 g/dt-long) ;; TODO type hints for macros?
                                                     :record-bytes (o/c 784 g/dt-long)
@@ -139,7 +140,7 @@
                                    :bpiel/parse-mnist-features-fn-v1))})
 
 (pkg/register-pkg! :bpiel/mnist-test-10k-labels-v1
-                   {:name "bpiel/mnist-test-10k-labels"
+                   {:name "bpiel/mnist-test-10k-labels-v1"
                     :deps [:bpiel/mnist-test-10k-labels-file-v1
                            :bpiel/parse-mnist-labels-fn-v1]
                     :plan

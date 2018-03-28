@@ -36,8 +36,8 @@
 (defn import-pkg-repo!
   [m]
   (swap! registry
-         merge
-         m))
+         (partial merge
+                  m)))
 
 (defn export-pkgs-to-file!
   [filename & pkg-ids]
@@ -244,7 +244,6 @@
   [pkg-kw]
   (if-let [asset (get-asset-desc pkg-kw)]
     (->> asset
-         :source
          :parts
          (mapv (partial ensure-part-exists @repo)))
     (throw (Exception. (str "Package was not an asset: " pkg-kw)))))
