@@ -4,7 +4,10 @@
             [com.billpiel.guildsman.macros :as mcro]
             [com.billpiel.guildsman.common :as com]
             [com.billpiel.guildsman.dx :as dx]
-            [com.billpiel.guildsman.util :as ut])
+            [com.billpiel.guildsman.util :as ut]
+            [clojure.core.async :as a]
+            [aleph.http :as ah]
+            [manifold.stream :as ms])
   (:import [com.billpiel.guildsman.common Graph]))
 
 (defn ->op-node
@@ -41,31 +44,6 @@
             `([~@inputs']
               (~name-sym nil {} ~@inputs')))]
          (remove nil?))))
-
-
-#_(defn defn-comp-op-main*
-  [name-sym {:keys [id attrs inputs assoc-scopes? with-op-meta? with-push-id-to-scopes?] :as attr-map} body]
-  (let [attrs' (some-> attrs keys not-empty)
-        inputs' (some->> inputs (map first) not-empty)
-        ctrl-inputs' (when (:ctrl-inputs-attr? attr-map true)
-                       '(ctrl-inputs))
-        arg-list (cond (and id attrs' inputs')
-                       `[~'id
-                         {:keys [~@attrs' ~@ctrl-inputs']}
-                         ~@inputs']
-                       (and id attrs')
-                       `[~'id
-                         {:keys [~@attrs' ~@ctrl-inputs']}]
-                       (and id inputs' ctrl-inputs')
-                       `[~'id
-                         {:keys [~@ctrl-inputs']}
-                         ~@inputs'])]
-    `(~arg-list
-      (sc/with-push-both-scopes (or ~'id ~id)
-        (sc/assoc-scopes-to-plan
-         (ut/with-op-meta
-           (assoc (do ~@body)
-                  :ctrl-inputs ~@ctrl-inputs')))))))
 
 (defn defn-comp-op-main*
   [name-sym {:keys [id attrs inputs assoc-scopes? with-op-meta? with-push-id-to-scopes?] :as attr-map} body]
@@ -133,3 +111,65 @@
             :with-push-id-to-scopes? false}
            attrs-map)
     body))
+
+(defn dl-async!
+  [url dest]
+  (let [counter (atom 0)
+        os (clojure.java.io/output-stream dest)
+        is (ah/get url {:raw-stream? true})
+        {:keys [body status]} @is
+        cl (some-> "content-length" ((:headers @is)) Long/parseLong)]
+    (clojure.pprint/pprint status)
+    (if (= (type body) (type (byte-array 0)))
+      [(a/thread
+         (.write os body)
+         (.close os)
+         (swap! counter + (count body))
+         true)
+       counter
+       cl]
+      [(a/thread
+         @(ms/consume (fn [bcount] (swap! counter + bcount))
+                      (ms/map
+                       #(let [ba (byte-streams/to-byte-array %)]
+                          (.write os ba)
+                          (count ba))
+                       body))
+         (.close os)
+         true)
+       counter
+       cl])))
+
+(defn dl-async-pr!*
+  [total c-atom]
+  (let [c @c-atom]
+    (if total
+      (println (format "%.0f%% -- %d bytes received"
+                       (-> c
+                           (/ total)
+                           (* 100.))
+                       c))
+      (println (format "??%% -- %d bytes received"
+                       c)))))
+
+(defn dl-async-pr!
+  [url dest]
+  (a/go
+    (try
+      (println (format
+                "Downloading %s
+to %s"
+                url dest))
+      (let [[ch counter size] (dl-async! url dest)]
+        (println (format
+                  "%d bytes expected
+"
+                   size))
+        (while (not= ch (second (a/alts! [ch (a/timeout 1000)])))
+          (dl-async-pr!* size counter))
+        (dl-async-pr!* size counter)
+        (println "done download")
+        @counter)
+      (catch Exception e
+        (clojure.pprint/pprint e)
+        (ex-info "Download failed" {:ex e})))))

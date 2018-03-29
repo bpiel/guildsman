@@ -8,6 +8,7 @@
             [com.billpiel.guildsman.dev :as dev]
             [com.billpiel.guildsman.packages :as pkg]
             [com.billpiel.guildsman.tensor-scope :as tsc]
+            [com.billpiel.guildsman.special-utils :as sput]
             [flatland.protobuf.core :as pr]
             [aleph.http :as ah]
             [manifold.stream :as ms]
@@ -23,8 +24,25 @@
              GZIPInputStream.)
          (io/output-stream  "/home/bill/train-images-idx3-ubyte"))
 
+;; where/how would you inject a perturber? ?!?!?!?!?!?!?!?
 
-(pkg/register-pkg! :bpiel/parse-mnist-features-fn
+
+(pkg/prefetch-all-assets-sync
+ {:cfg [(c/pkg-plan :bpiel/mnist-train-60k-labels-v1)
+        (c/pkg-plan :bpiel/mnist-train-60k-features-v1)
+        (c/pkg-plan :bpiel/mnist-test-10k-features-v1)
+        (c/pkg-plan :bpiel/mnist-test-10k-labels-v1)]})
+
+#_(pkg/set-repo-path! "/tmp/gmpkgs")
+
+(pkg/export-pkgs-to-file! "/home/bill/gm-web/pkgs.edn")
+
+(pkg/dl-pkg-repo! "http://localhost:8000/pkgs.edn")
+
+
+(pkg/dl-pkg-repo! "https://bpiel.github.io/guildsman-packages/pkgs.edn")
+
+(pkg/register-pkg! :bpiel/parse-mnist-features-fn-v1
                    {:name "bpiel/parse-mnist-features-fn"
                     :function
                     (g/fn-tf parse-mnist-features-fn
@@ -35,7 +53,7 @@
                                           (c/cast-tf g/dt-float))
                                      255.0)])})
 
-(pkg/register-pkg! :bpiel/parse-mnist-labels-fn
+(pkg/register-pkg! :bpiel/parse-mnist-labels-fn-v1
                    {:name "bpiel/parse-mnist-labels-fn"
                     :function
                     (g/fn-tf parse-mnist-labels-fn
@@ -46,92 +64,98 @@
                                    (o/unpack {:num 1 :axis 0})
                                    (c/cast-tf g/dt-int))])})
 
-(pkg/register-pkg! :bpiel/mnist-train-60k-features-file
-                   {:name "bpiel/mnist-train-60k-features-file"
-                    :asset {:records 60000                            
-                            :sources [[{:type :local
-                                        :path "/home/bill/repos/guildsman-conj2017/resources/mnist/train-60k-images-idx3-ubyte"
-                                        :md5hash "6bbc9ace898e44ae57da46a324031adb"}]]}})
+(pkg/register-pkg! :bpiel/mnist-test-10k-features-file-v1
+                   {:name "bpiel/mnist-test-10k-features-file-v1"
+                    :asset {:records 10000        
+                            :parts [{:name "mnist/t10k-images-idx3-ubyte"
+                                     :sha1hash "65e11ec1fd220343092a5070b58418b5c2644e26"
+                                     :instr [[:http :get "https://s3.amazonaws.com/guildsman/mnist/t10k-images-idx3-ubyte.gz"]
+                                             :gunzip]}]}})
 
-(pkg/register-pkg! :bpiel/mnist-train-60k-labels-file
-                   {:name "bpiel/mnist-train-60k-labels-file"
-                    :asset {:records 60000                            
-                            :sources [[{:type :local
-                                        :path "/home/bill/repos/guildsman-conj2017/resources/mnist/train-60k-labels-idx1-ubyte"
-                                        :md5hash "6bbc9ace898e44ae57da46a324031adb"}]]}})
+(pkg/register-pkg! :bpiel/mnist-test-10k-labels-file-v1
+                   {:name "bpiel/mnist-test-10k-labels-file-v1"
+                    :asset {:records 10000        
+                            :parts [{:name "mnist/t10k-labels-idx1-ubyte"
+                                     :sha1hash "a6d52cc628797e845885543326e9f10abb8a6f89"
+                                     :instr [[:http :get "https://s3.amazonaws.com/guildsman/mnist/t10k-labels-idx1-ubyte.gz"]
+                                             :gunzip]}]}})
 
-(pkg/register-pkg! :bpiel/mnist-train-60k-features
+(pkg/register-pkg! :bpiel/mnist-train-60k-features-file-v1
+                   {:name "bpiel/mnist-train-60k-features-file-v1"
+                    :asset {:records 60000        
+                            :parts [{:name "mnist/train-images-idx3-ubyte"
+                                     :sha1hash "c3557c10f29b266e19b3eeee1553c85e0ef4a8ea"
+                                     :instr [[:http :get "https://s3.amazonaws.com/guildsman/mnist/train-images-idx3-ubyte.gz"]
+                                             :gunzip]}]}})
+
+(pkg/register-pkg! :bpiel/mnist-train-60k-labels-file-v1
+                   {:name "bpiel/mnist-train-60k-labels-file-v1"
+                    :asset {:records 60000
+                            :parts [{:name "mnist/train-labels-idx1-ubyte"
+                                     :sha1hash "adbf52269f5d842899f287c269e2883e40b4f6e2"
+                                     :instr [[:http :get "https://s3.amazonaws.com/guildsman/mnist/train-labels-idx1-ubyte.gz"]
+                                             :gunzip]}]}})
+
+(pkg/register-pkg! :bpiel/mnist-train-60k-features-v1
                    {:name "bpiel/mnist-train-60k-features"
+                    ;; TODO just auto-detect deps???
+                    :deps [:bpiel/mnist-train-60k-features-file-v1
+                           :bpiel/parse-mnist-features-fn-v1]
                     :plan
-                    (->> (c/asset-as-files :bpiel/mnist-train-60k-features-file)
+                    (->> (c/asset-as-files :bpiel/mnist-train-60k-features-file-v1)
                          (c/fixed-length-record-ds {:size 60000
                                                     :header-bytes (o/c 16 g/dt-long) ;; TODO type hints for macros?
                                                     :record-bytes (o/c 784 g/dt-long)
                                                     :footer-bytes (o/c 0 g/dt-long)
                                                     :buffer-bytes (o/c 784 g/dt-long)})
                          (c/map-ds {:fields [:features]}
-                                   :bpiel/parse-mnist-features-fn))})
+                                   :bpiel/parse-mnist-features-fn-v1))})
 
-(pkg/register-pkg! :bpiel/mnist-train-60k-labels
-                   {:name "bpiel/mnist-train-60k-labels"
-                    :deps [:bpiel/mnist-train-60k-labels-file :bpiel/parse-mnist-labels-fn]
+(pkg/register-pkg! :bpiel/mnist-train-60k-labels-v1
+                   {:name "bpiel/mnist-train-60k-labels-v1"
+                    :deps [:bpiel/mnist-train-60k-labels-file-v1
+                           :bpiel/parse-mnist-labels-fn-v1]
                     :plan
-                    (->> (c/asset-as-files :bpiel/mnist-train-60k-labels-file)
+                    (->> (c/asset-as-files :bpiel/mnist-train-60k-labels-file-v1)
                          (c/fixed-length-record-ds {:size 60000
                                                     :header-bytes (o/c 8 g/dt-long)
                                                     :record-bytes (o/c 1 g/dt-long)
                                                     :footer-bytes (o/c 0 g/dt-long)
                                                     :buffer-bytes (o/c 1 g/dt-long)})
                          (c/map-ds {:fields [:labels]}
-                                   :bpiel/parse-mnist-labels-fn))})
+                                   :bpiel/parse-mnist-labels-fn-v1))})
 
-(pkg/register-pkg! :bpiel/mnist-test-10k-features-file
-                   {:name "bpiel/mnist-test-10k-features-file"
-                    :deps []
-                    :asset {:records 10000
-                            :sources [[{:type :local
-                                        :path "/home/bill/repos/guildsman-conj2017/resources/mnist/test-10k-images-idx3-ubyte"
-                                        :md5hash "6bbc9ace898e44ae57da46a324031adb"}]]}})
-
-(pkg/register-pkg! :bpiel/mnist-test-10k-labels-file
-                   {:name "bpiel/mnist-test-10k-labels-file"
-                    :deps []
-                    :asset {:records 10000                            
-                            :sources [[{:type :local
-                                        :path "/home/bill/repos/guildsman-conj2017/resources/mnist/test-10k-labels-idx1-ubyte"
-                                        :md5hash "6bbc9ace898e44ae57da46a324031adb"}]]}})
-
-(pkg/register-pkg! :bpiel/mnist-test-10k-features
-                   {:name "bpiel/mnist-test-10k-features"
-                    :deps [:bpiel/mnist-test-10k-features-file :bpiel/parse-mnist-features-fn]
+(pkg/register-pkg! :bpiel/mnist-test-10k-features-v1
+                   {:name "bpiel/mnist-test-10k-features-v1"
+                    :deps [:bpiel/mnist-test-10k-features-file-v1
+                           :bpiel/parse-mnist-features-fn-v1]
                     :plan
-                    (->> (c/asset-as-files :bpiel/mnist-test-10k-features-file)
+                    (->> (c/asset-as-files :bpiel/mnist-test-10k-features-file-v1)
                          (c/fixed-length-record-ds {:size 10000
                                                     :header-bytes (o/c 16 g/dt-long) ;; TODO type hints for macros?
                                                     :record-bytes (o/c 784 g/dt-long)
                                                     :footer-bytes (o/c 0 g/dt-long)
                                                     :buffer-bytes (o/c 784 g/dt-long)})
                          (c/map-ds {:fields [:features]}
-                                   :bpiel/parse-mnist-features-fn))})
+                                   :bpiel/parse-mnist-features-fn-v1))})
 
-(pkg/register-pkg! :bpiel/mnist-test-10k-labels
-                   {:name "bpiel/mnist-test-10k-labels"
-                    :deps [:bpiel/mnist-test-10k-labels-file :bpiel/parse-mnist-labels-fn]
+(pkg/register-pkg! :bpiel/mnist-test-10k-labels-v1
+                   {:name "bpiel/mnist-test-10k-labels-v1"
+                    :deps [:bpiel/mnist-test-10k-labels-file-v1
+                           :bpiel/parse-mnist-labels-fn-v1]
                     :plan
-                    (->> (c/asset-as-files :bpiel/mnist-test-10k-labels-file)
+                    (->> (c/asset-as-files :bpiel/mnist-test-10k-labels-file-v1)
                          (c/fixed-length-record-ds {:size 10000
                                                     :header-bytes (o/c 8 g/dt-long)
                                                     :record-bytes (o/c 1 g/dt-long)
                                                     :footer-bytes (o/c 0 g/dt-long)
                                                     :buffer-bytes (o/c 1 g/dt-long)})
                          (c/map-ds {:fields [:labels]}
-                                   :bpiel/parse-mnist-labels-fn))})
+                                   :bpiel/parse-mnist-labels-fn-v1))})
 
 
 
-;; where/how would you inject a perturber?
 
-#_(pkg/import-package-repo! "https://bpiel.github.io/guildsman-recipes/recipes.edn")
 
 (g/def-workspace ws-dream
   (g/let+ [{:keys [features labels socket]}
@@ -618,12 +642,7 @@
      (apply concat)
      distinct)
 
-;; find all pkg deps
-;; recur find all assets
-;; check for existing
-;; dl asset to temp file
-;; compare md5
-;; move to final file
+
 
 ;; -- wf -- what goes in def? what goes in args?
 
@@ -836,11 +855,11 @@ to %s
 (dl-async-pr! "http://ghk.h-cdn.co/assets/17/20/1495031140-gettyimages-573950777.jpg"
               "/home/bill/dog6.jpg")
 
-(dl-async-pr!
+(sput/dl-async-pr!
  "https://s3-us-west-2.amazonaws.com/thinktopic.datasets/mnist/t10k-labels-idx1-ubyte.gz"
  "/home/bill/t10k-labels-idx1-ubyte.gz")
 
-(dl-async-pr!
+(sput/dl-async-pr!
  "https://s3-us-west-2.amazonaws.com/thinktopic.datasets/mnist/train-images-idx3-ubyte.gz"
  "/home/bill/train-images-idx3-ubyte.gz")
 

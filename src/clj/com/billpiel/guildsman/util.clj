@@ -202,6 +202,16 @@
   [& body]
   (id$->>* body))
 
+(defmacro while->
+  [pred expr & forms]
+  (let [g (gensym)
+        steps (map (fn [step] `(if (~pred ~g) (-> ~g ~step) ~g))
+                   forms)]
+    `(let [~g ~expr
+           ~@(interleave (repeat g) steps)]
+       (and (~pred ~g)
+            ~g))))
+
 (defmacro for->map
   [bindings & body]
   `(into {}

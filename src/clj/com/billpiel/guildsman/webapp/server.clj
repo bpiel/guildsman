@@ -144,9 +144,12 @@
 
 (defn get-public-resource
   [uri]
-  {:status 200
-   :headers {"Content-Type" (uri->content-type uri)}
-   :body (-> (str "public" uri) io/resource slurp)})
+  (if-let [body (some-> (str "public" uri) io/resource slurp)]
+    {:status 200
+     :headers {"Content-Type" (uri->content-type uri)}
+     :body body}
+    {:status 404
+     :body "NOT FOUND"}))
 
 (c/defroutes routes
   (c/GET "/ws" [] #'ws-handler)

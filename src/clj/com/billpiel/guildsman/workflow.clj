@@ -356,7 +356,8 @@
            (ut/fmap (partial process-outputs procs))
            (cpr/append-to-log! branch
                                pos-step
-                               chkpt-id)))))
+                               chkpt-id))))
+  state)
 
 (defn- mk-default-form-bindings*
   [[plugin-kw frms]]

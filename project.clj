@@ -41,7 +41,8 @@
                  [com.cemerick/piggieback "0.2.2-20150424.212437-1"]
                  [figwheel-sidecar "0.5.13"]]
 
-  ;; :hooks [leiningen.cljsbuild]
+  ;; needs to be uncommented for `lein install`
+  ;;  :hooks [leiningen.cljsbuild]
   
   :profiles
   {:dev

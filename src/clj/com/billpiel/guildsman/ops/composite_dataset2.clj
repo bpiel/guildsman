@@ -363,7 +363,7 @@
    :id id
    :inputs [input-ds]
    :f (if (keyword? f)
-        (pkg/get-function f)
+        (pkg/get-function f) ;; TODO resolve function packages at build time (like other package types)
         f)
    :fields fields})
 
