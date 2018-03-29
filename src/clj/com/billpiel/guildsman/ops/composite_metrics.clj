@@ -17,5 +17,5 @@
    (mean-squared-error :mean-sq-err features labels))
   ([id features labels]
    (assoc (->> (o/squared-difference features labels)
-               reduce-sum)
+               reduce-mean)
           :id id)))
