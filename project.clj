@@ -8,7 +8,7 @@
   
   :source-paths ["src/clj"]
   
-  :java-source-paths ["src/java"]
+  :java-source-paths ["src/java" "src/java-pb"]
 
   :plugins [[lein-cljsbuild "1.1.5"]]
    
