@@ -15,7 +15,7 @@
             digest
             [clojure.java.io :as io])
   (:import [org.tensorflow.framework AttrValue OpDef RunOptions DebugOptions]
-           [com.billpiel.guildsman FunctionNI]
+           [com.billpiel.guildsman FunctionNI TensorFlowNI]
            (java.util.zip ZipFile GZIPInputStream)))
 
 
@@ -35,7 +35,8 @@
     (g/run-global-vars-init sess)
     (g/run sess opt {} 
       (pr/protobuf-dump RunOptionsP
-                        (sput/mk-run-options-watch-graph (:graph sess) ["localhost:6064"])))
+                        (sput/mk-run-options-watch-graph (:graph sess) ["grpc://localhost:6064"])))
     #_    (g/run-global-vars-init sess)
     #_    (g/run-all sess (repeat 4 opt))
     #_    (g/produce sess x)))
+

@@ -42,7 +42,8 @@
 (defn get-op-fn-name-sym [op-def]
   (let [s1 (or (cfg/fetch-config op-def :fn-name)
                (ogu/fn-name-default op-def))]
-    (if (ns-resolve 'clojure.core s1)
+    (if (or (ns-resolve 'clojure.core s1)
+            ('#{def if do let quote var fn loop recur throw try} s1))
       (symbol (str s1 "-tf"))
       s1)))
 
