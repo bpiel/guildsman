@@ -9,7 +9,10 @@
             [aleph.http :as ah]
             [manifold.stream :as ms])
   (:import [com.billpiel.guildsman.common Graph Op]
-           [org.tensorflow.framework RunOptions DebugOptions]))
+           [org.tensorflow.framework RunOptions DebugOptions]
+           [tensorflow DebugService$CallTraceback]))
+
+
 
 (defn ->op-node
   [^Graph g x]
@@ -193,12 +196,12 @@ to %s"
         (mapcat #(mk-dbg-tensor-watch-opt %
                                           debug-urls))
         vec)
-   :global_step 1})
+   :global_step -1})
 
 (defn mk-run-options-watch-graph
   [^Graph g debug-urls]
   {:trace_level "NO_TRACE"
-   :timeout_in_ms 1000
+   :timeout_in_ms (* 1000 60 2)
    :inter_op_thread_pool 0
    :output_partition_graphs false
    :debug_options (mk-dbg-opts-watch-graph g debug-urls)

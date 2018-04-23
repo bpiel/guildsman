@@ -30,13 +30,13 @@
   (let [x (c/vari :x 0.)
         loss (->> (o/sub x 2.)
                   o/abs)
-        opt (c/grad-desc-opt :opt 0.5 loss)
-        sess (g/build->session opt)]
+        opt (c/grad-desc-opt :opt 0.33 loss)
+        sess (g/build->session opt)
+        run-opts (pr/protobuf-dump RunOptionsP
+                                   (sput/mk-run-options-watch-graph (:graph sess)
+                                                                    ["grpc://localhost:6064"])) ]
     (g/run-global-vars-init sess)
-    (g/run sess opt {} 
-      (pr/protobuf-dump RunOptionsP
-                        (sput/mk-run-options-watch-graph (:graph sess) ["grpc://localhost:6064"])))
-    #_    (g/run-global-vars-init sess)
-    #_    (g/run-all sess (repeat 4 opt))
-    #_    (g/produce sess x)))
+    (dotimes [n 10]
+      (g/run sess opt {} run-opts))
+    (clojure.pprint/pprint  (g/produce sess x))))
 
