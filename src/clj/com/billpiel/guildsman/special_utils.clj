@@ -8,7 +8,11 @@
             [clojure.core.async :as a]
             [aleph.http :as ah]
             [manifold.stream :as ms])
-  (:import [com.billpiel.guildsman.common Graph]))
+  (:import [com.billpiel.guildsman.common Graph Op]
+           [org.tensorflow.framework RunOptions DebugOptions]
+           [tensorflow DebugService$CallTraceback]))
+
+
 
 (defn ->op-node
   [^Graph g x]
@@ -173,3 +177,32 @@ to %s"
       (catch Exception e
         (clojure.pprint/pprint e)
         (ex-info "Download failed" {:ex e})))))
+
+(defn mk-dbg-tensor-watch-opt
+  [^Op op debug-urls]
+  (for [i (->> op :n-outputs (range 0))]
+    {:node_name (:id op)
+     :output_slot i
+     :debug_ops ["DebugIdentity(gated_grpc=true)"]
+     :debug_urls debug-urls
+     :tolerate_debug_op_creation_failures true}))
+
+(defn mk-dbg-opts-watch-graph
+  [^Graph g debug-urls]
+  {:debug_tensor_watch_opts
+   (->> g
+        gr/id->node
+        vals
+        (mapcat #(mk-dbg-tensor-watch-opt %
+                                          debug-urls))
+        vec)
+   :global_step -1})
+
+(defn mk-run-options-watch-graph
+  [^Graph g debug-urls]
+  {:trace_level "NO_TRACE"
+   :timeout_in_ms (* 1000 60 2)
+   :inter_op_thread_pool 0
+   :output_partition_graphs false
+   :debug_options (mk-dbg-opts-watch-graph g debug-urls)
+   :report_tensor_allocations_upon_oom false})

@@ -22,7 +22,7 @@
  :return-meta false}
 
 (defn mk-run-req
-  [& [fetch targets feed return-meta options]]
+  [& [fetch targets feed options return-meta]]
   (RunRequest. (or fetch [])
                (or targets [])
                (or feed {})
@@ -122,9 +122,9 @@
 (defn fetch->tensor [^Session session plan & [feed targets]]
   (first (fetch-all->tensors session [plan] feed targets)))
 
-(defn run [^Session session plan & [feed]]
+(defn run [^Session session plan & [feed options]]
   (run-req->tensors session
-                    (mk-run-req [] [plan] feed))
+                    (mk-run-req [] [plan] feed options))
   session)
 
 (defn run-all [^Session session plans & [feed]]

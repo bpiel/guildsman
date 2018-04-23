@@ -164,8 +164,8 @@ In the example below, both `graph` and `session` will be closed upon
   plans or keywords that correspond to pre-built nodes. Values will
   override the values of their respective nodes. This is typically
   used to provide values for placeholder nodes."
-   [^Session session plan & [feed]]
-  (sess/run session plan feed))
+   [^Session session plan & [feed options]]
+  (sess/run session plan feed options))
 
 (defn run-all
   "Like `run` except that it takes a sequence of plans. In the example

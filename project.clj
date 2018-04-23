@@ -8,7 +8,7 @@
   
   :source-paths ["src/clj"]
   
-  :java-source-paths ["src/java"]
+  :java-source-paths ["src/java" "src/java-pb"]
 
   :plugins [[lein-cljsbuild "1.1.5"]]
    
@@ -20,6 +20,13 @@
                  [honeysql "0.9.2"]
                  [com.taoensso/nippy "2.14.0"]
                  [digest "1.4.7"]
+
+                 [io.grpc/grpc-netty "1.11.0"]
+                 [io.grpc/grpc-protobuf "1.11.0"]
+                 [io.grpc/grpc-stub "1.11.0"]
+
+                 ;; for protobuf grpc codegen -- not used in code
+                 [io.grpc/protoc-gen-grpc-java "1.11.0" :extension "pom"]
                  
                  ;; web app
                  [org.clojure/clojurescript "1.9.908"]

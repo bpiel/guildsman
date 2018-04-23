@@ -1,0 +1,8 @@
+find ./resources/proto -name "*.proto" -type f -exec \
+protoc -I ./resources/proto \
+--plugin=protoc-gen-grpc-java=/home/bill/Downloads/protoc-gen-grpc-java-1.11.0-linux-x86_64.exe \
+--grpc-java_out=./src/java-pb \
+--java_out=./src/java-pb {} \;
+
+rm -rf src/java-pb/org/tensorflow/tf2xla
+
