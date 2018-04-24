@@ -1,7 +1,11 @@
 (ns com.billpiel.guildsman.graph
   (:require [com.billpiel.guildsman.common]
+            [flatland.protobuf.core :as pr]
             [com.billpiel.guildsman.util :as util])
-  (:import [com.billpiel.guildsman.common GraphRef Graph Op]))
+  (:import [com.billpiel.guildsman.common GraphRef Graph Op]
+           [org.tensorflow.framework GraphDef]))
+
+(def GraphDefP (pr/protodef GraphDef))
 
 (defn id->node [^Graph {:keys [handle-lock state]}] (:id->node @state))
 (defn hash->id [^Graph {:keys [handle-lock state]}] (:hash->id @state))
@@ -111,6 +115,13 @@
 
 (defn ->graph-def-byte-array [^Graph g]
   (com.billpiel.guildsman.GraphNI/toGraphDef (:handle g)))
+
+(defn ->graph-def-text [^Graph g]
+  (->> g
+       ->graph-def-byte-array
+       (pr/protobuf-load GraphDefP)
+       .message
+       .toString))
 
 (defn write-graph-def-to-file [filename ^Graph g]
   (spit-bytes filename (->graph-def-byte-array g)))
