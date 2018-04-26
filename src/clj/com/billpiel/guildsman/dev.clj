@@ -245,7 +245,7 @@
   [^Graph g dev-ns log current-view selected-node-id]
   (let [charts (mk-summaries selected-node-id log)
         sel-op (find-selected-op dev-ns selected-node-id)]
-    {:graph (mk-cyto (mk-graph-def g))
+    {:graph (gr/->graph-def-text g) #_(mk-cyto (mk-graph-def g))
      :charts (if (nil? charts) [] charts)
      :selected selected-node-id
      :form (some->> sel-op meta :form (mapv str))}))

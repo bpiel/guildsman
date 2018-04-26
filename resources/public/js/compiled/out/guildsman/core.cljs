@@ -61,7 +61,8 @@
 (rf/reg-event-db
  :ws-inbound
  (fn [db [_ {:keys [graph charts selected form] :as p}]]
-#_   (println p)
+   #_   (println p)
+   (js/update-tb graph)
    (merge db
           (when graph
             {:graph graph})
@@ -89,7 +90,7 @@
   [data]
 #_  (println (.-data data))
   (let [d (t/read json-reader (.-data data))]
-    #_    (println d)
+        (println d)
     (rf/dispatch [:ws-inbound d])))
 
 (rf/reg-event-db
@@ -202,7 +203,9 @@
      [:div.loc ns-name " : " pos]]))
 
 (defn page []
-  [rc/h-box :children
+  [:tf-tensorboard {:use-hash true
+                    :brand "TensorBoard"}]
+  #_[rc/h-box :children
    [[rc/v-box :size "100%" :children [[rc/box :size "1 1 80px"  :child [desc]]
                                       [rc/box :size "100 1 500px" :child [left-pane]]]]
     [rc/box :size "400px" :child [right-pane]]]])

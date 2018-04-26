@@ -630,8 +630,8 @@
                                                [add-ds-plan])}}
              :predict {:feed-args [features]
                        :fetch-return [pred1]}}
-     :repo {:path "/tmp/repo1"
-            :chkpt {:restore :chkpt-28f80b1a-5216-4fe1-8bed-ec84033ccc1f
+     :repo {:path "/tmp/repo2"
+            :chkpt {;:restore :chkpt-28f80b1a-5216-4fe1-8bed-ec84033ccc1f
                     #_nil #_ :chkGUID###
                     :props {:arbitrary? :things?}}}}))
 

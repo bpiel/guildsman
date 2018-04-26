@@ -13,17 +13,17 @@ return (new Date()).getTime();
 guildsman.cytoscape.on_click_node = (function guildsman$cytoscape$on_click_node(xc_api,evt_js){
 guildsman.cytoscape.evt_js1 = evt_js;
 
-var map__19653 = cljs.core.js__GT_clj.call(null,evt_js);
-var map__19653__$1 = ((((!((map__19653 == null)))?((((map__19653.cljs$lang$protocol_mask$partition0$ & (64))) || ((cljs.core.PROTOCOL_SENTINEL === map__19653.cljs$core$ISeq$)))?true:false):false))?cljs.core.apply.call(null,cljs.core.hash_map,map__19653):map__19653);
-var target = cljs.core.get.call(null,map__19653__$1,"target");
-var vec__19654 = cljs.core.deref.call(null,guildsman.cytoscape.last_node_click);
-var last_node = cljs.core.nth.call(null,vec__19654,(0),null);
-var last_ts = cljs.core.nth.call(null,vec__19654,(1),null);
+var map__64472 = cljs.core.js__GT_clj.call(null,evt_js);
+var map__64472__$1 = ((((!((map__64472 == null)))?((((map__64472.cljs$lang$protocol_mask$partition0$ & (64))) || ((cljs.core.PROTOCOL_SENTINEL === map__64472.cljs$core$ISeq$)))?true:false):false))?cljs.core.apply.call(null,cljs.core.hash_map,map__64472):map__64472);
+var target = cljs.core.get.call(null,map__64472__$1,"target");
+var vec__64473 = cljs.core.deref.call(null,guildsman.cytoscape.last_node_click);
+var last_node = cljs.core.nth.call(null,vec__64473,(0),null);
+var last_ts = cljs.core.nth.call(null,vec__64473,(1),null);
 if(cljs.core._EQ_.call(null,last_node,target)){
-var now_19658 = guildsman.cytoscape.now_ts.call(null);
-cljs.core.println.call(null,(now_19658 - last_ts));
+var now_64477 = guildsman.cytoscape.now_ts.call(null);
+cljs.core.println.call(null,(now_64477 - last_ts));
 
-if(((now_19658 - last_ts) < (750))){
+if(((now_64477 - last_ts) < (750))){
 if(cljs.core.truth_(xc_api.isExpandable(target))){
 xc_api.expand(target);
 } else {
@@ -53,11 +53,11 @@ cy.on("tap","node",cljs.core.partial.call(null,guildsman.cytoscape.on_click_node
 
 return cljs.core.println.call(null,"DONE setup-cyto");
 });
-guildsman.cytoscape.cyto_state__GT_cyto_gen_map = (function guildsman$cytoscape$cyto_state__GT_cyto_gen_map(p__19659){
-var map__19660 = p__19659;
-var map__19660__$1 = ((((!((map__19660 == null)))?((((map__19660.cljs$lang$protocol_mask$partition0$ & (64))) || ((cljs.core.PROTOCOL_SENTINEL === map__19660.cljs$core$ISeq$)))?true:false):false))?cljs.core.apply.call(null,cljs.core.hash_map,map__19660):map__19660);
-var id = cljs.core.get.call(null,map__19660__$1,new cljs.core.Keyword(null,"id","id",-1388402092));
-var value = cljs.core.get.call(null,map__19660__$1,new cljs.core.Keyword(null,"value","value",305978217));
+guildsman.cytoscape.cyto_state__GT_cyto_gen_map = (function guildsman$cytoscape$cyto_state__GT_cyto_gen_map(p__64478){
+var map__64479 = p__64478;
+var map__64479__$1 = ((((!((map__64479 == null)))?((((map__64479.cljs$lang$protocol_mask$partition0$ & (64))) || ((cljs.core.PROTOCOL_SENTINEL === map__64479.cljs$core$ISeq$)))?true:false):false))?cljs.core.apply.call(null,cljs.core.hash_map,map__64479):map__64479);
+var id = cljs.core.get.call(null,map__64479__$1,new cljs.core.Keyword(null,"id","id",-1388402092));
+var value = cljs.core.get.call(null,map__64479__$1,new cljs.core.Keyword(null,"value","value",305978217));
 cljs.core.println.call(null,"cyto-state->cyto-gen-map");
 
 cljs.core.println.call(null,id);
@@ -94,9 +94,9 @@ var y4 = (y3 + (k * dx));
 return new cljs.core.PersistentVector(null, 2, 5, cljs.core.PersistentVector.EMPTY_NODE, [x4,y4], null);
 });
 guildsman.cytoscape.rel_coords = (function guildsman$cytoscape$rel_coords(x1,y1,x2,y2,x3,y3){
-var vec__19662 = guildsman.cytoscape.find_intersection.call(null,x1,y1,x2,y2,x3,y3);
-var x4 = cljs.core.nth.call(null,vec__19662,(0),null);
-var y4 = cljs.core.nth.call(null,vec__19662,(1),null);
+var vec__64481 = guildsman.cytoscape.find_intersection.call(null,x1,y1,x2,y2,x3,y3);
+var x4 = cljs.core.nth.call(null,vec__64481,(0),null);
+var y4 = cljs.core.nth.call(null,vec__64481,(1),null);
 var d12 = guildsman.cytoscape.dist.call(null,x1,y1,x2,y2);
 var d14 = guildsman.cytoscape.dist.call(null,x1,y1,x4,y4);
 var d34 = guildsman.cytoscape.dist.call(null,x3,y3,x4,y4);
@@ -108,10 +108,10 @@ return null;
 }
 });
 guildsman.cytoscape.js__GT_xy = (function guildsman$cytoscape$js__GT_xy(xy){
-return cljs.core.juxt.call(null,(function (p1__19665_SHARP_){
-return cljs.core.get.call(null,p1__19665_SHARP_,"x");
-}),(function (p1__19666_SHARP_){
-return cljs.core.get.call(null,p1__19666_SHARP_,"y");
+return cljs.core.juxt.call(null,(function (p1__64484_SHARP_){
+return cljs.core.get.call(null,p1__64484_SHARP_,"x");
+}),(function (p1__64485_SHARP_){
+return cljs.core.get.call(null,p1__64485_SHARP_,"y");
 })).call(null,cljs.core.js__GT_clj.call(null,xy));
 });
 guildsman.cytoscape.node__GT_xy = (function guildsman$cytoscape$node__GT_xy(n){
@@ -126,9 +126,9 @@ return null;
 });
 guildsman.cytoscape.find_nearbys = (function guildsman$cytoscape$find_nearbys(x1,y1,x2,y2){
 return cljs.core.keep.call(null,(function (n){
-var vec__19667 = guildsman.cytoscape.node__GT_xy.call(null,n);
-var xp = cljs.core.nth.call(null,vec__19667,(0),null);
-var yp = cljs.core.nth.call(null,vec__19667,(1),null);
+var vec__64486 = guildsman.cytoscape.node__GT_xy.call(null,n);
+var xp = cljs.core.nth.call(null,vec__64486,(0),null);
+var yp = cljs.core.nth.call(null,vec__64486,(1),null);
 guildsman.cytoscape.p.call(null,"------");
 
 var temp__5457__auto__ = guildsman.cytoscape.rel_coords.call(null,x1,y1,x2,y2,xp,yp);
@@ -144,31 +144,31 @@ return null;
 }
 }),cljs.core.deref.call(null,guildsman.cytoscape.c1).$("node").toArray());
 });
-guildsman.cytoscape.near_edge_QMARK_ = (function guildsman$cytoscape$near_edge_QMARK_(p__19670){
-var vec__19671 = p__19670;
-var xp = cljs.core.nth.call(null,vec__19671,(0),null);
-var yp = cljs.core.nth.call(null,vec__19671,(1),null);
+guildsman.cytoscape.near_edge_QMARK_ = (function guildsman$cytoscape$near_edge_QMARK_(p__64489){
+var vec__64490 = p__64489;
+var xp = cljs.core.nth.call(null,vec__64490,(0),null);
+var yp = cljs.core.nth.call(null,vec__64490,(1),null);
 return ((-50.0 < xp)) && ((xp < 50.0));
 });
-guildsman.cytoscape.mk_ctrl_point = (function guildsman$cytoscape$mk_ctrl_point(p__19674){
-var vec__19675 = p__19674;
-var x = cljs.core.nth.call(null,vec__19675,(0),null);
-var y = cljs.core.nth.call(null,vec__19675,(1),null);
+guildsman.cytoscape.mk_ctrl_point = (function guildsman$cytoscape$mk_ctrl_point(p__64493){
+var vec__64494 = p__64493;
+var x = cljs.core.nth.call(null,vec__64494,(0),null);
+var y = cljs.core.nth.call(null,vec__64494,(1),null);
 return new cljs.core.PersistentVector(null, 2, 5, cljs.core.PersistentVector.EMPTY_NODE, [(((x <= (0)))?((50) + x):(x - (50))),y], null);
 });
 guildsman.cytoscape.mk_ctrl_styles = (function guildsman$cytoscape$mk_ctrl_styles(ps){
 return new cljs.core.PersistentVector(null, 2, 5, cljs.core.PersistentVector.EMPTY_NODE, [clojure.string.join.call(null," ",cljs.core.map.call(null,cljs.core.str,cljs.core.map.call(null,cljs.core.first,ps))),clojure.string.join.call(null," ",cljs.core.map.call(null,cljs.core.str,cljs.core.map.call(null,cljs.core.second,ps)))], null);
 });
 guildsman.cytoscape.route_edge = (function guildsman$cytoscape$route_edge(edge){
-var vec__19678 = guildsman.cytoscape.js__GT_xy.call(null,edge.sourceEndpoint());
-var sx = cljs.core.nth.call(null,vec__19678,(0),null);
-var sy = cljs.core.nth.call(null,vec__19678,(1),null);
-var vec__19681 = guildsman.cytoscape.js__GT_xy.call(null,edge.targetEndpoint());
-var dx = cljs.core.nth.call(null,vec__19681,(0),null);
-var dy = cljs.core.nth.call(null,vec__19681,(1),null);
-var vec__19684 = guildsman.cytoscape.mk_ctrl_styles.call(null,cljs.core.sort_by.call(null,cljs.core.second,cljs.core.map.call(null,guildsman.cytoscape.mk_ctrl_point,cljs.core.filter.call(null,guildsman.cytoscape.near_edge_QMARK_,guildsman.cytoscape.find_nearbys.call(null,sx,sy,dx,dy)))));
-var cpd = cljs.core.nth.call(null,vec__19684,(0),null);
-var cpw = cljs.core.nth.call(null,vec__19684,(1),null);
+var vec__64497 = guildsman.cytoscape.js__GT_xy.call(null,edge.sourceEndpoint());
+var sx = cljs.core.nth.call(null,vec__64497,(0),null);
+var sy = cljs.core.nth.call(null,vec__64497,(1),null);
+var vec__64500 = guildsman.cytoscape.js__GT_xy.call(null,edge.targetEndpoint());
+var dx = cljs.core.nth.call(null,vec__64500,(0),null);
+var dy = cljs.core.nth.call(null,vec__64500,(1),null);
+var vec__64503 = guildsman.cytoscape.mk_ctrl_styles.call(null,cljs.core.sort_by.call(null,cljs.core.second,cljs.core.map.call(null,guildsman.cytoscape.mk_ctrl_point,cljs.core.filter.call(null,guildsman.cytoscape.near_edge_QMARK_,guildsman.cytoscape.find_nearbys.call(null,sx,sy,dx,dy)))));
+var cpd = cljs.core.nth.call(null,vec__64503,(0),null);
+var cpw = cljs.core.nth.call(null,vec__64503,(1),null);
 guildsman.cytoscape.p.call(null,new cljs.core.PersistentVector(null, 2, 5, cljs.core.PersistentVector.EMPTY_NODE, [cpd,cpw], null));
 
 guildsman.cytoscape.p.call(null,"===========");
@@ -184,35 +184,35 @@ cljs.core._vreset_BANG_.call(null,state,cljs.core.assoc.call(null,cljs.core._der
 return guildsman.cytoscape.setup_cyto.call(null,new cljs.core.Keyword(null,"instance","instance",-2121349050).cljs$core$IFn$_invoke$arity$1(cljs.core.deref.call(null,state)));
 });
 guildsman.cytoscape.cyto_reagent_render = (function guildsman$cytoscape$cyto_reagent_render(state,value){
-var map__19687 = cljs.core.deref.call(null,state);
-var map__19687__$1 = ((((!((map__19687 == null)))?((((map__19687.cljs$lang$protocol_mask$partition0$ & (64))) || ((cljs.core.PROTOCOL_SENTINEL === map__19687.cljs$core$ISeq$)))?true:false):false))?cljs.core.apply.call(null,cljs.core.hash_map,map__19687):map__19687);
-var id = cljs.core.get.call(null,map__19687__$1,new cljs.core.Keyword(null,"id","id",-1388402092));
+var map__64506 = cljs.core.deref.call(null,state);
+var map__64506__$1 = ((((!((map__64506 == null)))?((((map__64506.cljs$lang$protocol_mask$partition0$ & (64))) || ((cljs.core.PROTOCOL_SENTINEL === map__64506.cljs$core$ISeq$)))?true:false):false))?cljs.core.apply.call(null,cljs.core.hash_map,map__64506):map__64506);
+var id = cljs.core.get.call(null,map__64506__$1,new cljs.core.Keyword(null,"id","id",-1388402092));
 cljs.core.println.call(null,"cyto-reagent-render");
 
 cljs.core.println.call(null,id);
 
 return new cljs.core.PersistentVector(null, 2, 5, cljs.core.PersistentVector.EMPTY_NODE, [new cljs.core.Keyword(null,"div","div",1057191632),new cljs.core.PersistentArrayMap(null, 2, [new cljs.core.Keyword(null,"id","id",-1388402092),id,new cljs.core.Keyword(null,"style","style",-496642736),new cljs.core.PersistentArrayMap(null, 2, [new cljs.core.Keyword(null,"width","width",-384071477),"100%",new cljs.core.Keyword(null,"height","height",1025178622),"100%"], null)], null)], null);
 });
-guildsman.cytoscape.cyto_comp_will_update = (function guildsman$cytoscape$cyto_comp_will_update(state,this$,p__19689){
-var vec__19690 = p__19689;
-var _ = cljs.core.nth.call(null,vec__19690,(0),null);
-var new_value = cljs.core.nth.call(null,vec__19690,(1),null);
+guildsman.cytoscape.cyto_comp_will_update = (function guildsman$cytoscape$cyto_comp_will_update(state,this$,p__64508){
+var vec__64509 = p__64508;
+var _ = cljs.core.nth.call(null,vec__64509,(0),null);
+var new_value = cljs.core.nth.call(null,vec__64509,(1),null);
 return cljs.core._vreset_BANG_.call(null,state,cljs.core.assoc.call(null,cljs.core._deref.call(null,state),new cljs.core.Keyword(null,"value","value",305978217),new_value));
 });
-guildsman.cytoscape.cyto_comp_did_update = (function guildsman$cytoscape$cyto_comp_did_update(state,this$,p__19693){
-var vec__19694 = p__19693;
-var _ = cljs.core.nth.call(null,vec__19694,(0),null);
-var map__19697 = cljs.core.nth.call(null,vec__19694,(1),null);
-var map__19697__$1 = ((((!((map__19697 == null)))?((((map__19697.cljs$lang$protocol_mask$partition0$ & (64))) || ((cljs.core.PROTOCOL_SENTINEL === map__19697.cljs$core$ISeq$)))?true:false):false))?cljs.core.apply.call(null,cljs.core.hash_map,map__19697):map__19697);
-var old_val = map__19697__$1;
-var config = cljs.core.get.call(null,map__19697__$1,new cljs.core.Keyword(null,"config","config",994861415));
-var data = cljs.core.get.call(null,map__19697__$1,new cljs.core.Keyword(null,"data","data",-232669377));
-var highlighted = cljs.core.get.call(null,map__19697__$1,new cljs.core.Keyword(null,"highlighted","highlighted",1723498733));
-var selected = cljs.core.get.call(null,map__19697__$1,new cljs.core.Keyword(null,"selected","selected",574897764));
-var map__19699 = cljs.core.deref.call(null,state);
-var map__19699__$1 = ((((!((map__19699 == null)))?((((map__19699.cljs$lang$protocol_mask$partition0$ & (64))) || ((cljs.core.PROTOCOL_SENTINEL === map__19699.cljs$core$ISeq$)))?true:false):false))?cljs.core.apply.call(null,cljs.core.hash_map,map__19699):map__19699);
-var state_SINGLEQUOTE_ = map__19699__$1;
-var value = cljs.core.get.call(null,map__19699__$1,new cljs.core.Keyword(null,"value","value",305978217));
+guildsman.cytoscape.cyto_comp_did_update = (function guildsman$cytoscape$cyto_comp_did_update(state,this$,p__64512){
+var vec__64513 = p__64512;
+var _ = cljs.core.nth.call(null,vec__64513,(0),null);
+var map__64516 = cljs.core.nth.call(null,vec__64513,(1),null);
+var map__64516__$1 = ((((!((map__64516 == null)))?((((map__64516.cljs$lang$protocol_mask$partition0$ & (64))) || ((cljs.core.PROTOCOL_SENTINEL === map__64516.cljs$core$ISeq$)))?true:false):false))?cljs.core.apply.call(null,cljs.core.hash_map,map__64516):map__64516);
+var old_val = map__64516__$1;
+var config = cljs.core.get.call(null,map__64516__$1,new cljs.core.Keyword(null,"config","config",994861415));
+var data = cljs.core.get.call(null,map__64516__$1,new cljs.core.Keyword(null,"data","data",-232669377));
+var highlighted = cljs.core.get.call(null,map__64516__$1,new cljs.core.Keyword(null,"highlighted","highlighted",1723498733));
+var selected = cljs.core.get.call(null,map__64516__$1,new cljs.core.Keyword(null,"selected","selected",574897764));
+var map__64518 = cljs.core.deref.call(null,state);
+var map__64518__$1 = ((((!((map__64518 == null)))?((((map__64518.cljs$lang$protocol_mask$partition0$ & (64))) || ((cljs.core.PROTOCOL_SENTINEL === map__64518.cljs$core$ISeq$)))?true:false):false))?cljs.core.apply.call(null,cljs.core.hash_map,map__64518):map__64518);
+var state_SINGLEQUOTE_ = map__64518__$1;
+var value = cljs.core.get.call(null,map__64518__$1,new cljs.core.Keyword(null,"value","value",305978217));
 if(cljs.core.not_EQ_.call(null,value,old_val)){
 cljs.core.println.call(null,"generate");
 
@@ -230,4 +230,4 @@ var state = cljs.core.volatile_BANG_.call(null,new cljs.core.PersistentArrayMap(
 return reagent.core.create_class.call(null,new cljs.core.PersistentArrayMap(null, 4, [new cljs.core.Keyword(null,"component-did-mount","component-did-mount",-1126910518),cljs.core.partial.call(null,guildsman.cytoscape.cyto_comp_did_mount,state),new cljs.core.Keyword(null,"component-did-update","component-did-update",-1468549173),cljs.core.partial.call(null,guildsman.cytoscape.cyto_comp_did_update,state),new cljs.core.Keyword(null,"component-will-update","component-will-update",335247566),cljs.core.partial.call(null,guildsman.cytoscape.cyto_comp_will_update,state),new cljs.core.Keyword(null,"reagent-render","reagent-render",-985383853),cljs.core.partial.call(null,guildsman.cytoscape.cyto_reagent_render,state)], null));
 });
 
-//# sourceMappingURL=cytoscape.js.map?rel=1521112596181
+//# sourceMappingURL=cytoscape.js.map?rel=1524702422035
