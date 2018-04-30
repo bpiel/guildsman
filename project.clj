@@ -12,7 +12,7 @@
 
   :plugins [[lein-cljsbuild "1.1.5"]]
    
-  :dependencies [[org.clojure/clojure "1.9.0-RC1"]
+  :dependencies [[org.clojure/clojure "1.9.0"]
                  [org.clojure/core.async "0.3.465"]
                  [org.clojure/java.jdbc "0.7.5"]
                  [org.clojars.ghaskins/protobuf "3.3.1-1"]
@@ -29,7 +29,7 @@
                  [io.grpc/protoc-gen-grpc-java "1.11.0" :extension "pom"]
                  
                  ;; web app
-                 [org.clojure/clojurescript "1.9.908"]
+                 [org.clojure/clojurescript "1.10.238"]
                  [aleph "0.4.3"]
                  [ring/ring-core "1.5.1"] 
                  [javax.servlet/servlet-api "2.5"]
@@ -42,6 +42,8 @@
                  [re-com "2.1.0"]
                  [re-frisk "0.4.5"]
                  [com.taoensso/timbre "4.8.0"]
+                 [cljsjs/vega "3.2.1-0"]
+                 [cljsjs/vega-lite "2.2.0-0"]
 
                  ;; move to dev deps later
                  [binaryage/devtools "0.9.4"]

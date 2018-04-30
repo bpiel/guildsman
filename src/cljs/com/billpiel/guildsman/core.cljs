@@ -203,7 +203,8 @@
      [:div.loc ns-name " : " pos]]))
 
 (defn page []
-  [:tf-tensorboard {:use-hash true
+  [:div {:id :graph}]
+#_  [:tf-tensorboard {:use-hash true
                     :brand "TensorBoard"}]
   #_[rc/h-box :children
    [[rc/v-box :size "100%" :children [[rc/box :size "1 1 80px"  :child [desc]]
