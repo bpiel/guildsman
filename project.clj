@@ -44,6 +44,7 @@
                  [com.taoensso/timbre "4.8.0"]
                  [cljsjs/vega "3.2.1-0"]
                  [cljsjs/vega-lite "2.2.0-0"]
+                 [cljsjs/vega-embed "3.1.1-0"]
 
                  ;; move to dev deps later
                  [binaryage/devtools "0.9.4"]
