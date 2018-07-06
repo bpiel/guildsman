@@ -1,6 +1,11 @@
 # Guildsman
 
-**NOTE** : This project is in pre-release status. My current goal is to release a *friendly* (docs, examples, tests) alpha sometime in March 2018.
+## Resignation
+
+As of July 6, 2018, I'm resigning from my work on Guildsman. While I have many things working, I never released a version. There are all kinds of reasons why I'm stopping this project. The most significant is that my career had been taking me into ML, but that is no longer the case. 
+
+**Thanks to everyone who gave me support and encouragement!**
+
 
 ---
 ## UPDATE -- Mar 1, 2018
